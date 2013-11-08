@@ -100,6 +100,8 @@ class Ensemble(Base):
     id = Column('ensemble_id', Integer, primary_key=True)
     name = Column('ensemble_name', String)
     description = Column('ensemble_description', String)
+    version = Column(Float)
+    changes = Column(String)
 
     ensemble_runs = relationship("EnsembleRun", backref=backref('ensemble'))
 
