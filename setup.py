@@ -19,6 +19,8 @@ setup(
     zip_safe=True,
 #    scripts = ['scripts/demo.py'],
     install_requires = ['sqlalchemy', 'psycopg2'],
+    package_data = {'modelmeta': 'data/mddb.sqlite'},
+    include_package_data = True,
         classifiers='''Development Status :: 2 - Pre-Alpha
 Environment :: Console
 Intended Audience :: Developers

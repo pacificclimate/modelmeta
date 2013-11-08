@@ -1,10 +1,13 @@
 __all__ = ['DataFile', 'Run', 'TimeSet', 'Model', 'Emission', 'Grid', 'Ensemble',\
-           'EnsembleRun', 'XCellBounds', 'YCellBounds', 'Presentation', 'Variable',
-           'DataFileVariable', 'Level', 'LevelSet', 'QCFlag']
+           'EnsembleRun', 'XCellBounds', 'YCellBounds', 'Presentation', 'Variable',\
+           'DataFileVariable', 'Level', 'LevelSet', 'QCFlag',\
+           'test_dsn', 'test_session']
 
-from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean, ForeignKey
+from pkg_resources import resource_filename
+           
+from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean, ForeignKey, create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy.orm import relationship, backref, sessionmaker
 
 Base = declarative_base()
 
@@ -41,8 +44,8 @@ class Run(Base):
     initialized_from_run = relationship("Run", foreign_keys="Run.initialized_from_id")
     driving_run = relationship("Run", foreign_keys="Run.driving_run_id")
     
-    files = relationship("DataFile", backref=backref('run'))
-    ensembles = relationship("EnsembleRun", backref=backref('run'))
+    files = relationship("DataFile", backref=backref('run'), lazy='joined')
+    ensembles = relationship("EnsembleRun", backref=backref('run', lazy='joined'), lazy='joined')
 
 class TimeSet(Base):
     __tablename__ = 'time_sets'
@@ -103,7 +106,7 @@ class Ensemble(Base):
     version = Column(Float)
     changes = Column(String)
 
-    ensemble_runs = relationship("EnsembleRun", backref=backref('ensemble'))
+    ensemble_runs = relationship("EnsembleRun", backref=backref('ensemble'), lazy='joined')
 
 class EnsembleRun(Base):
     __tablename__ = 'ensemble_runs'
@@ -191,3 +194,12 @@ class QCFlag(Base):
 #     __tablename__ = 'times'
 #     timestep = Column(DateTime)
 #     time_set_id = Column(Integer, ForeignKey('time_sets.time_set_id'))
+
+test_dsn = 'sqlite+pysqlite:///{0}'.format(resource_filename('modelmeta', 'data/mddb.sqlite'))
+
+def test_session():
+    '''This creates a testing database session that can be used as a test fixture.
+    '''
+    engine = create_engine(test_dsn)
+    Session = sessionmaker(bind=engine)
+    return Session()
