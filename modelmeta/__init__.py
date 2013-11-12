@@ -25,7 +25,7 @@ class DataFile(Base):
     run_id = Column(Integer, ForeignKey('runs.run_id'))
     time_set_id = Column(Integer, ForeignKey('time_sets.time_set_id'))
 
-    data_file_variables = relationship("DataFileVariable", backref=backref('file'))
+    data_file_variables = relationship("DataFileVariable", backref=backref('file', lazy='joined'), lazy='joined')
 
     def __str__(self):
         return '<DataFile %s>' % self.filename
@@ -69,7 +69,7 @@ class Model(Base):
     type = Column(String)
     org = Column('model_organization', String)
 
-    runs = relationship("Run", backref=backref('model'))
+    runs = relationship("Run", backref=backref('model', lazy='joined'))
 
 class Emission(Base):
     __tablename__ = 'emissions'
@@ -77,7 +77,7 @@ class Emission(Base):
     long_name = Column('emission_long_name', String)
     short_name = Column('emission_short_name', String)
 
-    runs = relationship("Run", backref=backref('emission'))
+    runs = relationship("Run", backref=backref('emission', lazy='joined'))
 
 class Grid(Base):
     __tablename__ = 'grids'
