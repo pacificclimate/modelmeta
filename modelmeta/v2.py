@@ -12,16 +12,6 @@ try:
 except ImportError:
     from sqlalchemy.databases.postgres import *
 
-data_file_variables_qc_flags = Table(u'data_file_variables_qc_flags', metadata,
-    Column('data_file_variable_id', INTEGER(), ForeignKey('data_file_variables.data_file_variable_id'), primary_key=True, nullable=False),
-    Column('qc_flag_id', INTEGER(), ForeignKey('qc_flags.qc_flag_id'), primary_key=True, nullable=False),
-)
-
-ensemble_data_file_variables = Table(u'ensemble_data_file_variables', metadata,
-    Column('ensemble_id', INTEGER(), ForeignKey('ensembles.ensemble_id'), primary_key=True, nullable=False),
-    Column('data_file_variable_id', INTEGER(), ForeignKey('data_file_variables.data_file_variable_id'), primary_key=True, nullable=False),
-)
-
 class ClimatologicalTime(Base):
     __tablename__ = 'climatological_times'
 
@@ -75,6 +65,17 @@ class DataFileVariable(Base):
     level_set_id = Column('level_set_id', INTEGER(), ForeignKey('level_sets.level_set_id'))
     grid_id = Column('grid_id', INTEGER(), ForeignKey('grids.grid_id'), nullable=False)
 
+    qc_flags = relationship('QcFlag', primaryjoin='DataFileVariable.id==data_file_variables_qc_flags.c.data_file_variable_id', secondary='data_file_variables_qc_flags', secondaryjoin='data_file_variables_qc_flags.c.qc_flag_id==QcFlag.id')
+    ensembles = relationship('Ensemble', primaryjoin='DataFileVariable.id==ensemble_data_file_variables.c.data_file_variable_id', secondary='ensemble_data_file_variables', secondaryjoin='ensemble_data_file_variables.c.ensemble_id==Ensemble.id')
+
+
+class DataFileVariablesQcFlag(Base):
+    __tablename__ = 'data_file_variables_qc_flags'
+
+    #column definitions
+    data_file_variable_id = Column('data_file_variable_id', INTEGER(), ForeignKey('data_file_variables.data_file_variable_id'), primary_key=True, nullable=False)
+    qc_flag_id = Column('qc_flag_id', INTEGER(), ForeignKey('qc_flags.qc_flag_id'), primary_key=True, nullable=False)
+
 
 class Emission(Base):
     __tablename__ = 'emissions'
@@ -92,24 +93,31 @@ class Ensemble(Base):
     __tablename__ = 'ensembles'
 
     #column definitions
+    id = Column('ensemble_id', INTEGER(), primary_key=True, nullable=False)
     changes = Column('changes', TEXT(), nullable=False)
     ensemble_description = Column('ensemble_description', VARCHAR(length=255))
-    ensemble_id = Column('ensemble_id', INTEGER(), primary_key=True, nullable=False)
-    ensemble_name = Column('ensemble_name', VARCHAR(length=32), nullable=False)
+    name = Column('ensemble_name', VARCHAR(length=32), nullable=False)
     version = Column('version', REAL(), nullable=False)
 
     #relation definitions
+    data_file_variables = relationship('DataFileVariable', primaryjoin='Ensemble.id==ensemble_data_file_variables.c.ensemble_id', secondary='ensemble_data_file_variables', secondaryjoin='ensemble_data_file_variables.c.data_file_variable_id==DataFileVariable.id')
+
+class EnsembleDataFileVariables(Base):
+    __tablename__ = 'ensemble_data_file_variables'
+
+    #column definitions
+    ensemble_id = Column('ensemble_id', INTEGER(), ForeignKey('ensembles.ensemble_id'), primary_key=True, nullable=False)
+    data_file_variable_id = Column('data_file_variable_id', INTEGER(), ForeignKey('data_file_variables.data_file_variable_id'), primary_key=True, nullable=False)
 
 
 class Grid(Base):
     __tablename__ = 'grids'
 
     #column definitions
+    id = Column('grid_id', INTEGER(), primary_key=True, nullable=False)
     cell_avg_area_sq_km = Column('cell_avg_area_sq_km', REAL())
     evenly_spaced_y = Column('evenly_spaced_y', BOOLEAN(), nullable=False)
-    grid_id = Column('grid_id', INTEGER(), primary_key=True, nullable=False)
-    grid_name = Column('grid_name', VARCHAR(length=255))
-    srid = Column('srid', INTEGER(), ForeignKey('spatial_ref_sys.srid'))
+    name = Column('grid_name', VARCHAR(length=255))
     xc_count = Column('xc_count', INTEGER(), nullable=False)
     xc_grid_step = Column('xc_grid_step', REAL(), nullable=False)
     xc_origin = Column('xc_origin', REAL(), nullable=False)
@@ -120,6 +128,8 @@ class Grid(Base):
     yc_units = Column('yc_units', VARCHAR(length=64), nullable=False)
 
     #relation definitions
+    y_cell_bounds = relationship("YCellBound", backref=backref('grid'))
+    data_file_variables = relationship("DataFileVariable", backref=backref('grid'))
 
 
 class Level(Base):
@@ -143,6 +153,8 @@ class LevelSet(Base):
     level_units = Column('level_units', VARCHAR(length=32), nullable=False)
 
     #relation definitions
+    levels = relationship("Level", backref=backref('level_set'))
+    data_file_variables = relationship("DataFileVariable", backref=backref('level_set'))
 
 
 class Model(Base):
@@ -163,12 +175,12 @@ class QcFlag(Base):
     __tablename__ = 'qc_flags'
 
     #column definitions
+    id = Column('qc_flag_id', INTEGER(), primary_key=True, nullable=False)
     qc_flag_description = Column('qc_flag_description', VARCHAR(length=2048))
-    qc_flag_id = Column('qc_flag_id', INTEGER(), primary_key=True, nullable=False)
     qc_flag_name = Column('qc_flag_name', VARCHAR(length=32), nullable=False)
 
     #relation definitions
-
+    data_file_variables = relationship('DataFileVariable', primaryjoin='QcFlag.id==data_file_variables_qc_flags.c.qc_flag_id', secondary='data_file_variables_qc_flags', secondaryjoin='data_file_variables_qc_flags.c.data_file_variable_id==DataFileVariable.id')
 
 class Run(Base):
     __tablename__ = 'runs'
@@ -224,25 +236,29 @@ class Variable(Base):
     __tablename__ = 'variables'
 
     #column definitions
-    variable_alias_id = Column('variable_alias_id', INTEGER(), ForeignKey('variable_aliases.variable_alias_id'), nullable=False)
-    variable_description = Column('variable_description', VARCHAR(length=255), nullable=False)
     id = Column('variable_id', INTEGER(), primary_key=True, nullable=False)
-    variable_name = Column('variable_name', VARCHAR(length=64), nullable=False)
+    variable_alias_id = Column('variable_alias_id', INTEGER(), ForeignKey('variable_aliases.variable_alias_id'), nullable=False)
+    description = Column('variable_description', VARCHAR(length=255), nullable=False)
+    name = Column('variable_name', VARCHAR(length=64), nullable=False)
 
     #relation definitions
-    variable_aliases = relationship('VariableAlias', primaryjoin='Variable.variable_alias_id==VariableAlias.variable_alias_id')
+    variable_aliases = relationship('VariableAlias', primaryjoin='Variable.variable_alias_id==VariableAlias.id')
+    data_files_variables = relationship('DataFileVariable', primaryjoin='Variable.variable_alias_id==VariableAlias.id', secondary='variable_aliases', secondaryjoin='VariableAlias.id==DataFileVariable.variable_alias_id')
+
 
 class VariableAlias(Base):
     __tablename__ = 'variable_aliases'
 
     #column definitions
-    variable_alias_id = Column('variable_alias_id', INTEGER(), primary_key=True, nullable=False)
-    variable_long_name = Column('variable_long_name', VARCHAR(length=255), nullable=False)
-    variable_standard_name = Column('variable_standard_name', VARCHAR(length=64), nullable=False)
-    variable_units = Column('variable_units', VARCHAR(length=32), nullable=False)
+    id = Column('variable_alias_id', INTEGER(), primary_key=True, nullable=False)
+    long_name = Column('variable_long_name', VARCHAR(length=255), nullable=False)
+    standard_name = Column('variable_standard_name', VARCHAR(length=64), nullable=False)
+    units = Column('variable_units', VARCHAR(length=32), nullable=False)
 
     #relation definitions
-    data_files = relationship('DataFile', primaryjoin='VariableAlias.variable_alias_id==DataFileVariable.variable_alias_id', secondary='data_file_variables', secondaryjoin='DataFileVariable.data_file_id==DataFile.id')
+    data_file_variables = relationship("DataFileVariable", backref=backref('variable_alias'))
+    data_files = relationship('DataFile', primaryjoin='VariableAlias.id==DataFileVariable.variable_alias_id', secondary='data_file_variables', secondaryjoin='DataFileVariable.data_file_id==DataFile.id', backref=backref('variable_aliases'))
+    variable = relationship("Variable", backref=backref('variable_alias'))
 
 class YCellBound(Base):
     __tablename__ = 'y_cell_bounds'
