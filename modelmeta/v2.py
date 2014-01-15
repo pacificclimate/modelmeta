@@ -26,17 +26,18 @@ class ClimatologicalTime(Base):
     __tablename__ = 'climatological_times'
 
     #column definitions
-    time_end = Column('time_end', TIMESTAMP(), nullable=False)
     time_idx = Column('time_idx', INTEGER(), primary_key=True, nullable=False)
-    time_set_id = Column('time_set_id', INTEGER(), ForeignKey('time_sets.time_set_id'), primary_key=True, nullable=False)
+    time_end = Column('time_end', TIMESTAMP(), nullable=False)
     time_start = Column('time_start', TIMESTAMP(), nullable=False)
 
     #relation definitions
+    time_set_id = Column('time_set_id', INTEGER(), ForeignKey('time_sets.time_set_id'), primary_key=True, nullable=False)
 
 
 class DataFile(Base):
     __tablename__ = 'data_files'
 
+    #column definitions
     id = Column('data_file_id', INTEGER(), primary_key=True, nullable=False)
     filename = Column('filename', VARCHAR(length=2048), nullable=False)
     first_1mib_md5sum = Column('first_1mib_md5sum', CHAR(length=32), nullable=False)
@@ -50,6 +51,7 @@ class DataFile(Base):
     #relation definitions
     run_id = Column(Integer, ForeignKey('runs.run_id'))
     time_set_id = Column(INTEGER(), ForeignKey('time_sets.time_set_id'))
+
     data_file_variables = relationship("DataFileVariable", backref=backref('file'))
 
     def __str__(self):
@@ -58,6 +60,7 @@ class DataFile(Base):
 class DataFileVariable(Base):
     __tablename__ = 'data_file_variables'
 
+    #column definitions
     id = Column('data_file_variable_id', INTEGER(), primary_key=True, nullable=False)
     derivation_method = Column('derivation_method', VARCHAR(length=255))
     variable_cell_methods = Column('variable_cell_methods', VARCHAR(length=255))
@@ -184,7 +187,7 @@ class Run(Base):
     driving_run = relationship("Run", foreign_keys="Run.driving_run_id")
     initialized_from_run = relationship("Run", foreign_keys="Run.initialized_from_id")
 
-    time_set = relationship('TimeSet', primaryjoin='Run.id==DataFile.run_id', secondary='data_files', secondaryjoin='DataFile.time_set_id==TimeSet.time_set_id')
+    time_set = relationship('TimeSet', primaryjoin='Run.id==DataFile.run_id', secondary='data_files', secondaryjoin='DataFile.time_set_id==TimeSet.id')
     files = relationship("DataFile", backref=backref('run'))
     # ensembles = relationship("EnsembleRun", backref=backref('run'))
 
@@ -193,25 +196,28 @@ class Time(Base):
 
     #column definitions
     time_idx = Column('time_idx', INTEGER(), nullable=False)
-    time_set_id = Column('time_set_id', INTEGER(), ForeignKey('time_sets.time_set_id'), primary_key=True, nullable=False)
     timestep = Column('timestep', TIMESTAMP(), primary_key=True, nullable=False)
 
     #relation definitions
+    time_set_id = Column('time_set_id', INTEGER(), ForeignKey('time_sets.time_set_id'), primary_key=True, nullable=False)
 
 
 class TimeSet(Base):
     __tablename__ = 'time_sets'
 
     #column definitions
+    id = Column('time_set_id', INTEGER(), primary_key=True, nullable=False)
     calendar = Column('calendar', VARCHAR(length=32), nullable=False)
+    start_date = Column('start_date', TIMESTAMP(), nullable=False)
     end_date = Column('end_date', TIMESTAMP(), nullable=False)
     multi_year_mean = Column('multi_year_mean', BOOLEAN(), nullable=False)
     num_times = Column('num_times', INTEGER(), nullable=False)
-    start_date = Column('start_date', TIMESTAMP(), nullable=False)
     time_resolution = Column('time_resolution', ENUM(u'1-minute', u'2-minute', u'5-minute', u'15-minute', u'30-minute', u'1-hourly', u'3-hourly', u'6-hourly', u'12-hourly', u'daily', u'monthly', u'yearly', u'other', u'irregular', name='timescale'), nullable=False)
-    time_set_id = Column('time_set_id', INTEGER(), primary_key=True, nullable=False)
 
     #relation definitions
+    files = relationship("DataFile", backref=backref('timeset'))
+    climatological_times = relationship("ClimatologicalTime", backref=backref('timeset'))
+    times = relationship("Time", backref=backref('timeset'))
 
 
 class Variable(Base):
