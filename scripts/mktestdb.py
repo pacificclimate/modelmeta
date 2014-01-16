@@ -12,31 +12,48 @@ import modelmeta
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("-d", "--dsn", help="Source database DSN from which to read")
-    parser.add_argument("-e", "--ensemble" help="Ensemble to copy from the database")
-    parser.set_defaults(dsn='postgresql://pcic_meta@monsoon.pcic/pcic_meta?sslmode=require', ensemble='bc_prism')
+    parser.add_argument("-e", "--ensemble", help="Ensemble to copy from the database")
+    parser.add_argument("-v", "--version", type=int, choices=[1, 2], help="Schema version the database is using")
+    parser.set_defaults(
+        dsn='postgresql://httpd_meta@monsoon.pcic/pcic_meta?sslmode=require', 
+        ensemble='canada_map',
+        version=2
+    )
     args = parser.parse_args()
                         
     logger = logging.getLogger(__name__)
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+    common_sequences = [('emissions', 'emission_id'),
+                        ('ensembles', 'ensemble_id'),
+                        ('level_sets', 'level_set_id'),
+                        ('time_sets', 'time_set_id'),
+                        ('models', 'model_id'),
+                        ('variables', 'variable_id'),
+                        ('grids', 'grid_id'),
+                        ('runs', 'run_id'),
+                        ('data_files', 'data_file_id'),
+                        ('data_file_variables', 'data_file_variable_id')]
+
+    if args.version == 1:
+        from modelmeta import v1 as modelmeta
+        sequences = common_sequences + [('presentations', 'presentation_id'),
+                                        ('levels', 'level_id'),
+                                        ('qc_flags', 'qc_flag')]
+    elif args.version == 2:
+        import modelmeta
+        sequences = common_sequences + [('variable_aliases', 'variable_alias_id'),
+                                        ('level_sets', 'level_set_id'),
+                                        ('qc_flags', 'qc_flag_id')]
+
+
     read_engine = create_engine(args.dsn)
-    test_dsn = 'sqlite+pysqlite:///{0}'.format(resource_filename('modelmeta', 'data/mddb.sqlite'))
+    test_dsn = modelmeta.test_dsn
+    logger.info("Using dsn: {}".format(test_dsn))
     write_engine = create_engine(test_dsn)
     meta = MetaData(bind=write_engine)
     meta.reflect(bind=read_engine)
 
-    sequences = [('emissions', 'emission_id'),
-                 ('ensembles', 'ensemble_id'),
-                 ('level_sets', 'level_set_id'),
-                 ('presentations', 'presentation_id'),
-                 ('time_sets', 'time_set_id'),
-                 ('qc_flags', 'qc_flag'),
-                 ('models', 'model_id'),
-                 ('variables', 'variable_id'),
-                 ('grids', 'grid_id'),
-                 ('runs', 'run_id'),
-                 ('levels', 'level_id'),
-                 ('data_files', 'data_file_id'),
-                 ('data_file_variables', 'data_file_variable_id')]
 
     logger.info("Unsetting all of the sequence defaults")
     for table_name, column_name in sequences:
