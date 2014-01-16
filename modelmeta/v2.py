@@ -44,7 +44,7 @@ class DataFile(Base):
     run_id = Column(Integer, ForeignKey('runs.run_id'))
     time_set_id = Column(Integer, ForeignKey('time_sets.time_set_id'))
 
-    data_file_variables = relationship("DataFileVariable", backref=backref('file'))
+    data_file_variables = relationship("DataFileVariable", backref=backref('file', lazy='joined'), lazy='joined')
 
     def __str__(self):
         return '<DataFile %s>' % self.filename
@@ -62,8 +62,6 @@ class DataFileVariable(Base):
     range_max = Column('range_max', Float, nullable=False)
 
     #relation definitions
-    qc_flags = relationship('QcFlag', primaryjoin='DataFileVariable.id==data_file_variables_qc_flags.c.data_file_variable_id', secondary='data_file_variables_qc_flags', secondaryjoin='data_file_variables_qc_flags.c.qc_flag_id==QcFlag.id')
-    ensembles = relationship('Ensemble', primaryjoin='DataFileVariable.id==ensemble_data_file_variables.c.data_file_variable_id', secondary='ensemble_data_file_variables', secondaryjoin='ensemble_data_file_variables.c.ensemble_id==Ensemble.id')
     data_file_id = Column('data_file_id', Integer, ForeignKey('data_files.data_file_id'), nullable=False)
     variable_alias_id = Column('variable_alias_id', Integer, ForeignKey('variable_aliases.variable_alias_id'), nullable=False)
     level_set_id = Column('level_set_id', Integer, ForeignKey('level_sets.level_set_id'))
@@ -87,7 +85,7 @@ class Emission(Base):
     short_name = Column('emission_short_name', String(length=255), nullable=False)
 
     #relation definitions
-    runs = relationship("Run", backref=backref('emission'))
+    runs = relationship("Run", backref=backref('emission', lazy='joined'))
 
 
 class Ensemble(Base):
@@ -101,7 +99,11 @@ class Ensemble(Base):
     version = Column('version', Float, nullable=False)
 
     #relation definitions
-    data_file_variables = relationship('DataFileVariable', primaryjoin='Ensemble.id==ensemble_data_file_variables.c.ensemble_id', secondary='ensemble_data_file_variables', secondaryjoin='ensemble_data_file_variables.c.data_file_variable_id==DataFileVariable.id')
+    data_file_variables = relationship('DataFileVariable', 
+        primaryjoin='Ensemble.id==ensemble_data_file_variables.c.ensemble_id', 
+        secondary='ensemble_data_file_variables', 
+        secondaryjoin='ensemble_data_file_variables.c.data_file_variable_id==DataFileVariable.id', 
+        backref=backref('ensembles'), lazy='joined')
 
 class EnsembleDataFileVariables(Base):
     __tablename__ = 'ensemble_data_file_variables'
@@ -169,7 +171,7 @@ class Model(Base):
     type = Column('type', String(length=32), nullable=False)
 
     #relation definitions
-    runs = relationship("Run", backref=backref('model'))
+    runs = relationship("Run", backref=backref('model', lazy='joined'))
 
 
 class QcFlag(Base):
@@ -181,7 +183,11 @@ class QcFlag(Base):
     qc_flag_name = Column('qc_flag_name', String(length=32), nullable=False)
 
     #relation definitions
-    data_file_variables = relationship('DataFileVariable', primaryjoin='QcFlag.id==data_file_variables_qc_flags.c.qc_flag_id', secondary='data_file_variables_qc_flags', secondaryjoin='data_file_variables_qc_flags.c.data_file_variable_id==DataFileVariable.id')
+    data_file_variables = relationship('DataFileVariable', 
+        primaryjoin='QcFlag.id==data_file_variables_qc_flags.c.qc_flag_id', 
+        secondary='data_file_variables_qc_flags', 
+        secondaryjoin='data_file_variables_qc_flags.c.data_file_variable_id==DataFileVariable.id', 
+        backref=backref('qc_flags'))
 
 class Run(Base):
     __tablename__ = 'runs'
@@ -200,9 +206,11 @@ class Run(Base):
     driving_run = relationship("Run", foreign_keys="Run.driving_run_id")
     initialized_from_run = relationship("Run", foreign_keys="Run.initialized_from_id")
 
-    time_set = relationship('TimeSet', primaryjoin='Run.id==DataFile.run_id', secondary='data_files', secondaryjoin='DataFile.time_set_id==TimeSet.id')
-    files = relationship("DataFile", backref=backref('run'))
-    # ensembles = relationship("EnsembleRun", backref=backref('run'))
+    time_set = relationship('TimeSet', 
+        primaryjoin='Run.id==DataFile.run_id', 
+        secondary='data_files', 
+        secondaryjoin='DataFile.time_set_id==TimeSet.id')
+    files = relationship("DataFile", backref=backref('run', lazy='joined'), lazy='joined')
 
 class Time(Base):
     __tablename__ = 'times'
@@ -244,7 +252,10 @@ class Variable(Base):
 
     #relation definitions
     variable_aliases = relationship('VariableAlias', primaryjoin='Variable.variable_alias_id==VariableAlias.id')
-    data_files_variables = relationship('DataFileVariable', primaryjoin='Variable.variable_alias_id==VariableAlias.id', secondary='variable_aliases', secondaryjoin='VariableAlias.id==DataFileVariable.variable_alias_id')
+    data_files_variables = relationship('DataFileVariable', 
+        primaryjoin='Variable.variable_alias_id==VariableAlias.id', 
+        secondary='variable_aliases', 
+        secondaryjoin='VariableAlias.id==DataFileVariable.variable_alias_id')
 
 
 class VariableAlias(Base):
@@ -258,7 +269,11 @@ class VariableAlias(Base):
 
     #relation definitions
     data_file_variables = relationship("DataFileVariable", backref=backref('variable_alias'))
-    data_files = relationship('DataFile', primaryjoin='VariableAlias.id==DataFileVariable.variable_alias_id', secondary='data_file_variables', secondaryjoin='DataFileVariable.data_file_id==DataFile.id', backref=backref('variable_aliases'))
+    data_files = relationship('DataFile', 
+        primaryjoin='VariableAlias.id==DataFileVariable.variable_alias_id', 
+        secondary='data_file_variables', 
+        secondaryjoin='DataFileVariable.data_file_id==DataFile.id', 
+        backref=backref('variable_aliases'))
     variable = relationship("Variable", backref=backref('variable_alias'))
 
 class YCellBound(Base):
