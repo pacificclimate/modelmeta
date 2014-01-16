@@ -32,24 +32,56 @@ session = Session()
 
 # <codecell>
 
-q = session.query(modelmeta.DataFileVariable)
-q.count()
+q = session.query(modelmeta.Ensemble)
+q.count(), [x.name for x in q.all()]
 
 # <headingcell level=2>
 
-# Query related objects simply by accessing the object properties
+# Look up objects based on query parameters
 
 # <codecell>
 
-mydatafilevar = q[0]
+q = session.query(modelmeta.DataFileVariable).\
+join(modelmeta.EnsembleDataFileVariables).\
+join(modelmeta.Ensemble).\
+filter(modelmeta.Ensemble.name == 'canada_map')
+
+# <headingcell level=2>
+
+# Or use the built in relational mapping
 
 # <codecell>
 
-mydatafilevar.file
+myensemble = session.query(modelmeta.Ensemble).filter(modelmeta.Ensemble.name == 'canada_map').first()
+print 'Ensemble: ' + myensemble.name + ' with ' + str(len(myensemble.data_file_variables)) + ' data_file_vars'
+
+# <headingcell level=2>
+
+#  You can map all the way down the rabbit hole
 
 # <codecell>
 
-mydatafilevar.variable
+mymodel = myensemble.data_file_variables[0].file.run.model
+print mymodel.short_name
+
+# <headingcell level=3>
+
+# And back up again
+
+# <codecell>
+
+mymodel.runs[0].files[0].data_file_variables[0].ensembles[0].name
+
+# <headingcell level=3>
+
+# And around in circles
+
+# <codecell>
+
+myensemble.data_file_variables[0].\
+file.run.emission.runs[0].files[0].data_file_variables[0].\
+grid.data_file_variables[0].variable_alias.data_files[0].\
+data_file_variables[0].ensembles[0].name
 
 # <codecell>
 
