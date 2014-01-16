@@ -1,6 +1,6 @@
 import sys
 import logging
-from optparse import OptionParser
+from argparse import ArgumentParser
 from pkg_resources import resource_filename
 
 from sqlalchemy import create_engine
@@ -10,15 +10,15 @@ from sqlalchemy.schema import MetaData
 import modelmeta
 
 if __name__ == '__main__':
-    parser = OptionParser()
-    parser.add_option("-d", "--dsn", dest="dsn", help="Source database DSN from which to read")
-    parser.add_option("-e", "--ensemble", dest="ensemble", help="Ensemble to copy from the database")
+    parser = ArgumentParser()
+    parser.add_argument("-d", "--dsn", help="Source database DSN from which to read")
+    parser.add_argument("-e", "--ensemble" help="Ensemble to copy from the database")
     parser.set_defaults(dsn='postgresql://pcic_meta@monsoon.pcic/pcic_meta?sslmode=require', ensemble='bc_prism')
-    opts, args = parser.parse_args()
+    args = parser.parse_args()
                         
     logger = logging.getLogger(__name__)
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-    read_engine = create_engine(opts.dsn)
+    read_engine = create_engine(args.dsn)
     test_dsn = 'sqlite+pysqlite:///{0}'.format(resource_filename('modelmeta', 'data/mddb.sqlite'))
     write_engine = create_engine(test_dsn)
     meta = MetaData(bind=write_engine)
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     wSession = sessionmaker(bind=write_engine)()
 
     logger.info("Querying the data files")
-    q = rSession.query(modelmeta.Ensemble).filter(modelmeta.Ensemble.name == opts.ensemble)
+    q = rSession.query(modelmeta.Ensemble).filter(modelmeta.Ensemble.name == args.ensemble)
     ens = q.first()
     logger.info("Adding ensembles to sqlite database")
     merged_object = wSession.merge(ens)
