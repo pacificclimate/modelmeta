@@ -18,12 +18,12 @@ class ClimatologicalTime(Base):
     __tablename__ = 'climatological_times'
 
     #column definitions
-    time_idx = Column('time_idx', Integer, primary_key=True, nullable=False)
-    time_end = Column('time_end', DateTime, nullable=False)
-    time_start = Column('time_start', DateTime, nullable=False)
+    time_idx = Column(Integer, primary_key=True, nullable=False)
+    time_end = Column(DateTime, nullable=False)
+    time_start = Column(DateTime, nullable=False)
 
     #relation definitions
-    time_set_id = Column('time_set_id', Integer, ForeignKey('time_sets.time_set_id'), primary_key=True, nullable=False)
+    time_set_id = Column(Integer, ForeignKey('time_sets.time_set_id'), primary_key=True, nullable=False)
 
 
 class DataFile(Base):
@@ -31,14 +31,14 @@ class DataFile(Base):
 
     #column definitions
     id = Column('data_file_id', Integer, primary_key=True, nullable=False)
-    filename = Column('filename', String(length=2048), nullable=False)
+    filename = Column(String(length=2048), nullable=False)
     first_1mib_md5sum = Column('first_1mib_md5sum', String(length=32), nullable=False)
-    unique_id = Column('unique_id', String(length=255), nullable=False)
-    x_dim_name = Column('x_dim_name', String(length=32), nullable=False)
-    y_dim_name = Column('y_dim_name', String(length=32), nullable=False)
-    z_dim_name = Column('z_dim_name', String(length=32))
-    t_dim_name = Column('t_dim_name', String(length=32))
-    index_time = Column('index_time', DateTime, nullable=False)
+    unique_id = Column(String(length=255), nullable=False)
+    x_dim_name = Column(String(length=32), nullable=False)
+    y_dim_name = Column(String(length=32), nullable=False)
+    z_dim_name = Column(String(length=32))
+    t_dim_name = Column(String(length=32))
+    index_time = Column(DateTime, nullable=False)
 
     #relation definitions
     run_id = Column(Integer, ForeignKey('runs.run_id'))
@@ -54,33 +54,33 @@ class DataFileVariable(Base):
 
     #column definitions
     id = Column('data_file_variable_id', Integer, primary_key=True, nullable=False)
-    derivation_method = Column('derivation_method', String(length=255))
-    variable_cell_methods = Column('variable_cell_methods', String(length=255))
-    netcdf_variable_name = Column('netcdf_variable_name', String(length=32), nullable=False)
-    disabled = Column('disabled', Boolean)
-    range_min = Column('range_min', Float, nullable=False)
-    range_max = Column('range_max', Float, nullable=False)
+    derivation_method = Column(String(length=255))
+    variable_cell_methods = Column(String(length=255))
+    netcdf_variable_name = Column(String(length=32), nullable=False)
+    disabled = Column(Boolean)
+    range_min = Column(Float, nullable=False)
+    range_max = Column(Float, nullable=False)
 
     #relation definitions
-    data_file_id = Column('data_file_id', Integer, ForeignKey('data_files.data_file_id'), nullable=False)
-    variable_alias_id = Column('variable_alias_id', Integer, ForeignKey('variable_aliases.variable_alias_id'), nullable=False)
-    level_set_id = Column('level_set_id', Integer, ForeignKey('level_sets.level_set_id'))
-    grid_id = Column('grid_id', Integer, ForeignKey('grids.grid_id'), nullable=False)
+    data_file_id = Column(Integer, ForeignKey('data_files.data_file_id'), nullable=False)
+    variable_alias_id = Column(Integer, ForeignKey('variable_aliases.variable_alias_id'), nullable=False)
+    level_set_id = Column(Integer, ForeignKey('level_sets.level_set_id'))
+    grid_id = Column(Integer, ForeignKey('grids.grid_id'), nullable=False)
 
 
 class DataFileVariablesQcFlag(Base):
     __tablename__ = 'data_file_variables_qc_flags'
 
     #column definitions
-    data_file_variable_id = Column('data_file_variable_id', Integer, ForeignKey('data_file_variables.data_file_variable_id'), primary_key=True, nullable=False)
-    qc_flag_id = Column('qc_flag_id', Integer, ForeignKey('qc_flags.qc_flag_id'), primary_key=True, nullable=False)
+    data_file_variable_id = Column(Integer, ForeignKey('data_file_variables.data_file_variable_id'), primary_key=True, nullable=False)
+    qc_flag_id = Column(Integer, ForeignKey('qc_flags.qc_flag_id'), primary_key=True, nullable=False)
 
 
 class Emission(Base):
     __tablename__ = 'emissions'
 
     #column definitions
-    emission_id = Column('emission_id', Integer, primary_key=True, nullable=False)
+    id = Column('emission_id', Integer, primary_key=True, nullable=False)
     long_name = Column('emission_long_name', String(length=255))
     short_name = Column('emission_short_name', String(length=255), nullable=False)
 
@@ -93,10 +93,10 @@ class Ensemble(Base):
 
     #column definitions
     id = Column('ensemble_id', Integer, primary_key=True, nullable=False)
-    changes = Column('changes', String, nullable=False)
-    ensemble_description = Column('ensemble_description', String(length=255))
+    changes = Column(String, nullable=False)
+    description = Column('ensemble_description', String(length=255))
     name = Column('ensemble_name', String(length=32), nullable=False)
-    version = Column('version', Float, nullable=False)
+    version = Column(Float, nullable=False)
 
     #relation definitions
     data_file_variables = relationship('DataFileVariable', 
@@ -109,8 +109,8 @@ class EnsembleDataFileVariables(Base):
     __tablename__ = 'ensemble_data_file_variables'
 
     #column definitions
-    ensemble_id = Column('ensemble_id', Integer, ForeignKey('ensembles.ensemble_id'), primary_key=True, nullable=False)
-    data_file_variable_id = Column('data_file_variable_id', Integer, ForeignKey('data_file_variables.data_file_variable_id'), primary_key=True, nullable=False)
+    ensemble_id = Column(Integer, ForeignKey('ensembles.ensemble_id'), primary_key=True, nullable=False)
+    data_file_variable_id = Column(Integer, ForeignKey('data_file_variables.data_file_variable_id'), primary_key=True, nullable=False)
 
 
 class Grid(Base):
@@ -118,17 +118,17 @@ class Grid(Base):
 
     #column definitions
     id = Column('grid_id', Integer, primary_key=True, nullable=False)
-    cell_avg_area_sq_km = Column('cell_avg_area_sq_km', Float)
-    evenly_spaced_y = Column('evenly_spaced_y', Boolean, nullable=False)
     name = Column('grid_name', String(length=255))
-    xc_count = Column('xc_count', Integer, nullable=False)
-    xc_grid_step = Column('xc_grid_step', Float, nullable=False)
-    xc_origin = Column('xc_origin', Float, nullable=False)
-    xc_units = Column('xc_units', String(length=64), nullable=False)
-    yc_count = Column('yc_count', Integer, nullable=False)
-    yc_grid_step = Column('yc_grid_step', Float, nullable=False)
-    yc_origin = Column('yc_origin', Float, nullable=False)
-    yc_units = Column('yc_units', String(length=64), nullable=False)
+    cell_avg_area_sq_km = Column(Float)
+    evenly_spaced_y = Column(Boolean, nullable=False)
+    xc_count = Column(Integer, nullable=False)
+    xc_grid_step = Column(Float, nullable=False)
+    xc_origin = Column(Float, nullable=False)
+    xc_units = Column(String(length=64), nullable=False)
+    yc_count = Column(Integer, nullable=False)
+    yc_grid_step = Column(Float, nullable=False)
+    yc_origin = Column(Float, nullable=False)
+    yc_units = Column(String(length=64), nullable=False)
 
     #relation definitions
     y_cell_bounds = relationship("YCellBound", backref=backref('grid'))
@@ -139,11 +139,11 @@ class Level(Base):
     __tablename__ = 'levels'
 
     #column definitions
-    level_end = Column('level_end', Float)
-    level_idx = Column('level_idx', Integer, primary_key=True, nullable=False)
-    level_set_id = Column('level_set_id', Integer, ForeignKey('level_sets.level_set_id'), primary_key=True, nullable=False)
-    level_start = Column('level_start', Float)
-    vertical_level = Column('vertical_level', Float, nullable=False)
+    level_end = Column(Float)
+    level_idx = Column(Integer, primary_key=True, nullable=False)
+    level_set_id = Column(Integer, ForeignKey('level_sets.level_set_id'), primary_key=True, nullable=False)
+    level_start = Column(Float)
+    vertical_level = Column(Float, nullable=False)
 
     #relation definitions
 
@@ -152,8 +152,8 @@ class LevelSet(Base):
     __tablename__ = 'level_sets'
 
     #column definitions
-    level_set_id = Column('level_set_id', Integer, primary_key=True, nullable=False)
-    level_units = Column('level_units', String(length=32), nullable=False)
+    id = Column('level_set_id', Integer, primary_key=True, nullable=False)
+    level_units = Column(String(length=32), nullable=False)
 
     #relation definitions
     levels = relationship("Level", backref=backref('level_set'))
@@ -168,7 +168,7 @@ class Model(Base):
     long_name = Column('model_long_name', String(length=255))
     short_name = Column('model_short_name', String(length=32), nullable=False)
     organization = Column('model_organization', String(length=64))
-    type = Column('type', String(length=32), nullable=False)
+    type = Column(String(length=32), nullable=False)
 
     #relation definitions
     runs = relationship("Run", backref=backref('model', lazy='joined'))
@@ -179,8 +179,8 @@ class QcFlag(Base):
 
     #column definitions
     id = Column('qc_flag_id', Integer, primary_key=True, nullable=False)
-    qc_flag_description = Column('qc_flag_description', String(length=2048))
-    qc_flag_name = Column('qc_flag_name', String(length=32), nullable=False)
+    description = Column('qc_flag_description', String(length=2048))
+    name = Column('qc_flag_name', String(length=32), nullable=False)
 
     #relation definitions
     data_file_variables = relationship('DataFileVariable', 
@@ -195,9 +195,9 @@ class Run(Base):
     #column definitions
     id = Column('run_id', Integer, primary_key=True, nullable=False)
     name = Column('run_name', String(length=32), nullable=False)
-    model_id = Column('model_id', Integer, ForeignKey('models.model_id'), nullable=False)
-    emission_id = Column('emission_id', Integer, ForeignKey('emissions.emission_id'), nullable=False)
-    project = Column('project', String(length=64))
+    model_id = Column(Integer, ForeignKey('models.model_id'), nullable=False)
+    emission_id = Column(Integer, ForeignKey('emissions.emission_id'), nullable=False)
+    project = Column(String(length=64))
 
     #relation definitions
     driving_run_id = Column('driving_run', Integer, ForeignKey('runs.run_id'))
@@ -216,11 +216,11 @@ class Time(Base):
     __tablename__ = 'times'
 
     #column definitions
-    time_idx = Column('time_idx', Integer, nullable=False)
-    timestep = Column('timestep', DateTime, primary_key=True, nullable=False)
+    time_idx = Column(Integer, nullable=False)
+    timestep = Column(DateTime, primary_key=True, nullable=False)
 
     #relation definitions
-    time_set_id = Column('time_set_id', Integer, ForeignKey('time_sets.time_set_id'), primary_key=True, nullable=False)
+    time_set_id = Column(Integer, ForeignKey('time_sets.time_set_id'), primary_key=True, nullable=False)
 
 
 class TimeSet(Base):
@@ -228,12 +228,12 @@ class TimeSet(Base):
 
     #column definitions
     id = Column('time_set_id', Integer, primary_key=True, nullable=False)
-    calendar = Column('calendar', String(length=32), nullable=False)
-    start_date = Column('start_date', DateTime, nullable=False)
-    end_date = Column('end_date', DateTime, nullable=False)
-    multi_year_mean = Column('multi_year_mean', Boolean, nullable=False)
-    num_times = Column('num_times', Integer, nullable=False)
-    time_resolution = Column('time_resolution', Enum(u'1-minute', u'2-minute', u'5-minute', u'15-minute', u'30-minute', u'1-hourly', u'3-hourly', u'6-hourly', u'12-hourly', u'daily', u'monthly', u'yearly', u'other', u'irregular', name='timescale'), nullable=False)
+    calendar = Column(String(length=32), nullable=False)
+    start_date = Column(DateTime, nullable=False)
+    end_date = Column(DateTime, nullable=False)
+    multi_year_mean = Column(Boolean, nullable=False)
+    num_times = Column(Integer, nullable=False)
+    time_resolution = Column(Enum(u'1-minute', u'2-minute', u'5-minute', u'15-minute', u'30-minute', u'1-hourly', u'3-hourly', u'6-hourly', u'12-hourly', u'daily', u'monthly', u'yearly', u'other', u'irregular', name='timescale'), nullable=False)
 
     #relation definitions
     files = relationship("DataFile", backref=backref('timeset'))
@@ -246,7 +246,7 @@ class Variable(Base):
 
     #column definitions
     id = Column('variable_id', Integer, primary_key=True, nullable=False)
-    variable_alias_id = Column('variable_alias_id', Integer, ForeignKey('variable_aliases.variable_alias_id'), nullable=False)
+    variable_alias_id = Column(Integer, ForeignKey('variable_aliases.variable_alias_id'), nullable=False)
     description = Column('variable_description', String(length=255), nullable=False)
     name = Column('variable_name', String(length=64), nullable=False)
 
@@ -280,10 +280,10 @@ class YCellBound(Base):
     __tablename__ = 'y_cell_bounds'
 
     #column definitions
-    bottom_bnd = Column('bottom_bnd', Float)
-    grid_id = Column('grid_id', Integer, ForeignKey('grids.grid_id'), primary_key=True, nullable=False)
-    top_bnd = Column('top_bnd', Float)
-    y_center = Column('y_center', Float, primary_key=True, nullable=False)
+    bottom_bnd = Column(Float)
+    grid_id = Column(Integer, ForeignKey('grids.grid_id'), primary_key=True, nullable=False)
+    top_bnd = Column(Float)
+    y_center = Column(Float, primary_key=True, nullable=False)
 
 
 test_dsn = 'sqlite+pysqlite:///{0}'.format(resource_filename('modelmeta', 'data/mddb-v2.sqlite'))
