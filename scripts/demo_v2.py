@@ -41,14 +41,16 @@ q.count(), [x.name for x in q.all()]
 
 # <codecell>
 
-q = session.query(modelmeta.DataFileVariable).\
+ensemble_name = 'canada_map'
+mydatafilevars = session.query(modelmeta.DataFileVariable).\
 join(modelmeta.EnsembleDataFileVariables).\
 join(modelmeta.Ensemble).\
-filter(modelmeta.Ensemble.name == 'canada_map')
+filter(modelmeta.Ensemble.name == ensemble_name).all()
+print 'Ensemble: ' + ensemble_name + ' with ' + str(len(mydatafilevars)) + ' data_file_vars'
 
 # <headingcell level=2>
 
-# Or use the built in relational mapping
+# Or better yet, use the built in relational mapping
 
 # <codecell>
 

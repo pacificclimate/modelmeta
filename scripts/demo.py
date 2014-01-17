@@ -11,7 +11,7 @@
 
 # <codecell>
 
-import modelmeta
+from modelmeta import v1 as modelmeta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from optparse import OptionParser
