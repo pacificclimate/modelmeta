@@ -7,20 +7,17 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import MetaData
 
-import modelmeta
-
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("-d", "--dsn", help="Source database DSN from which to read")
     parser.add_argument("-e", "--ensemble", help="Ensemble to copy from the database")
     parser.add_argument("-v", "--version", type=int, choices=[1, 2], help="Schema version the database is using")
     parser.set_defaults(
-        dsn='postgresql://httpd_meta@monsoon.pcic/pcic_meta?sslmode=require', 
         ensemble='canada_map',
         version=2
     )
     args = parser.parse_args()
-                        
+
     logger = logging.getLogger(__name__)
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
@@ -37,11 +34,16 @@ if __name__ == '__main__':
 
     if args.version == 1:
         from modelmeta import v1 as modelmeta
+        if not args.dsn:
+            args.dsn = 'postgresql://httpd_meta@monsoon.pcic/pcic_meta_v1?sslmode=require'
         sequences = common_sequences + [('presentations', 'presentation_id'),
                                         ('levels', 'level_id'),
                                         ('qc_flags', 'qc_flag')]
     elif args.version == 2:
         import modelmeta
+        if not args.dsn:
+            args.dsn = 'postgresql://httpd_meta@monsoon.pcic/pcic_meta?sslmode=require'
+
         sequences = common_sequences + [('variable_aliases', 'variable_alias_id'),
                                         ('level_sets', 'level_set_id'),
                                         ('qc_flags', 'qc_flag_id')]
