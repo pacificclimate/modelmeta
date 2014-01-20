@@ -8,7 +8,7 @@ from pkg_resources import resource_filename
 
 from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean, Enum, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy.orm import relationship, backref, sessionmaker
 
 Base = declarative_base()
 metadata = Base.metadata
