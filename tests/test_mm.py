@@ -48,5 +48,6 @@ def test_more_circles(test_session):
               runs[0].files[0].data_file_variables[0].file.filename
     assert my_filename == '/home/data/climate/downscale/CMIP5/BCSD/pr+tasmax+tasmin_day_BCSD+ANUSPLIN300+ACCESS1-0_historical+rcp45_r1i1p1_19500101-21001231.nc'
 
-
-
+def test_relationships(test_session):
+    q = test_session.query(modelmeta.Ensemble).join(modelmeta.EnsembleDataFileVariables).join(modelmeta.DataFileVariable).join(modelmeta.DataFile).filter(modelmeta.Ensemble.name == 'bcsd_downscale_canada')
+    assert q.all()
