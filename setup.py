@@ -12,12 +12,7 @@ setup(
     url="http://www.pacificclimate.org/",
     author="James Hiebert",
     author_email="hiebert@uvic.ca",
-#    namespace_packages=['pydap', 'pydap.handlers'],
-#    entry_points='''
-#                 ''',
-#    install_requires=['pydap.handlers.sql'],
     zip_safe=True,
-#    scripts = ['scripts/demo.py'],
     install_requires = ['sqlalchemy', 'psycopg2'],
     package_data = {'modelmeta': ['data/mddb-v1.sqlite', 'data/mddb-v2.sqlite']},
     include_package_data = True,
@@ -30,5 +25,5 @@ setup(
                  'Programming Language :: Python',
                  'Topic :: Scientific/Engineering',
                  'Topic :: Software Development :: Libraries :: Python Modules'
-             ]
+                 ]
 )
