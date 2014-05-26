@@ -16,8 +16,8 @@ def test_session():
 
 def test_have_data(test_session):
     q = test_session.query(modelmeta.Ensemble)
-    assert q.count() == 1
-    assert [x.name for x in q.all()] == ['bcsd_downscale_canada']
+    assert q.count() == 2
+    assert [x.name for x in q.all()] == ['bcsd_downscale_canada', 'bc_prism']
 
 def test_data_file_vars(test_session):
     ensemble_name = 'bcsd_downscale_canada'

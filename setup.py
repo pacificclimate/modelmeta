@@ -16,14 +16,15 @@ setup(
     install_requires = ['sqlalchemy', 'psycopg2'],
     package_data = {'modelmeta': ['data/mddb-v1.sqlite', 'data/mddb-v2.sqlite']},
     include_package_data = True,
-    classifiers=['Development Status :: 2 - Pre-Alpha',
+    classifiers=['Development Status :: 5 - Production/Stable',
                  'Environment :: Console',
                  'Intended Audience :: Developers',
                  'Intended Audience :: Science/Research',
-                 'License :: OSI Approved :: GNU General Public License (GPL)',
+                 'License :: OSI Approved :: GNU General Public License v3 (GPLv3)'
                  'Operating System :: OS Independent',
                  'Programming Language :: Python',
                  'Topic :: Scientific/Engineering',
+                 'Topic :: Database',
                  'Topic :: Software Development :: Libraries :: Python Modules'
                  ]
 )
