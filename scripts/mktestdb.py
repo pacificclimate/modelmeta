@@ -74,5 +74,11 @@ if __name__ == '__main__':
     merged_object = wSession.merge(ens)
     wSession.add(merged_object)
     wSession.commit()
+    logger.info("Adding Varialbe Aliases to sqlite database")
+    q = rSession.query(modelmeta.VariableAlias).join(modelmeta.DataFileVariable).join(modelmeta.EnsembleDataFileVariables).join(modelmeta.Ensemble).filter(modelmeta.Ensemble.name == args.ensemble)
+    for r in q.all():
+        merged_object = wSession.merge(r)
+        wSession.add(merged_object)
+    wSession.commit()
 
 
