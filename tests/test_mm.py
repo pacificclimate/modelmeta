@@ -25,11 +25,11 @@ def test_data_file_vars(test_session):
                      join(modelmeta.EnsembleDataFileVariables).\
                      join(modelmeta.Ensemble).\
                      filter(modelmeta.Ensemble.name == ensemble_name).all()
-    assert len(mydatafilevars) == 99
+    assert len(mydatafilevars) == 198
 
 def test_relations(test_session):
     myensemble = test_session.query(modelmeta.Ensemble).filter(modelmeta.Ensemble.name == 'bcsd_downscale_canada').first()
-    assert len(myensemble.data_file_variables) == 99
+    assert len(myensemble.data_file_variables) == 198
 
 def test_deep_mapping(test_session):
     myensemble = test_session.query(modelmeta.Ensemble).filter(modelmeta.Ensemble.name == 'bcsd_downscale_canada').first()
