@@ -55,13 +55,25 @@ get.variable.range <- function(f, var, max.vals.per.node.millions=20) {
   node.chunks.lists <- get.chunks.for.list(1:(dims.len[axes.map == "T"]), ceiling(dims.len[axes.map == "T"] / num.nodes))
   num.timesteps.per.node <- floor((max.vals.per.node.millions * 1000000) / prod(dims.len[1:2]))
   res <- unlist(parLapply(cluster, node.chunks.lists, function(idx.list) {
-    ncfile <- nc_open(f$filename)
-    res <- sapply(get.chunks.for.list(idx.list, num.timesteps.per.node), function(x) { gc(); d <- nc.get.var.subset.by.axes(ncfile, var, list(T=x), axes.map); r <- range(d[!is.nan(d)], na.rm=TRUE); if(all(r == c(Inf, -Inf))) return(c(NA, NA)) else return(r) })
+   ncfile <- nc_open(f$filename)
+    res <- sapply(get.chunks.for.list(idx.list, num.timesteps.per.node), function(x) {
+      gc()
+      d <- nc.get.var.subset.by.axes(ncfile, var, list(T=x), axes.map)
+      r <- range(d[!is.nan(d)], na.rm=TRUE)
+      if(all(r == c(Inf, -Inf)))
+        return(c(NA, NA))
+      else
+        return(r)
+    })
     nc_close(ncfile)
     return(res)
   }))
-  
-  ##res <- range(parSapply(cluster, get.chunks.for.list(1:(dims.len[axes.map == "T"]), 100), function(x) { d <- nc.get.var.subset.by.axes(f, var, list(T=x), axes.map); range(d, na.rm=TRUE) }))
+
+  ## res <- range(parSapply(cluster, get.chunks.for.list(1:(dims.len[axes.map == "T"]), 100), function(x) {
+  ##   d <- nc.get.var.subset.by.axes(f, var, list(T=x), axes.map)
+  ##   range(d, na.rm=TRUE)
+  ## }))
+
   stopCluster(cluster)
   return(range(res, na.rm=TRUE))
 }
@@ -252,10 +264,12 @@ get.data.file.id <- function(f, filename, con) {
   data.file.data <- fetch(result, -1)
   
   if(nrow(data.file.data) == 0) {
+    ## File does not exist in database
     data.file.id <- create.data.file.id(f, filename, con)
     create.data.file.variables(f, data.file.id, con)
     return(data.file.id)
   } else {
+    ## File already in database
     stopifnot(nrow(data.file.data) == 1)
 
     cur.file.info <- file.info(filename)
