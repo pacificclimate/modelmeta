@@ -1,90 +1,75 @@
-# -*- coding: utf-8 -*-
-# <nbformat>3.0</nbformat>
 
-# <headingcell level=1>
+# coding: utf-8
 
-# Simple example of how to use the ORM
+# # Simple example of how to use the ORM
 
-# <headingcell level=2>
+# ## Import necessary stuff
 
-# Import necessary stuff
+# In[1]:
 
-# <codecell>
-
-from modelmeta import v2 as modelmeta
+import modelmeta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from optparse import OptionParser
 
-# <headingcell level=2>
 
-# Create the database session
+# ## Create the database session
 
-# <codecell>
+# In[2]:
 
-engine = create_engine('postgresql://httpd_meta@monsoon.pcic.uvic.ca/pcic_meta?sslmode=require')
+engine = create_engine('postgresql://httpd_meta@atlas.pcic/pcic_meta?sslmode=require')
 Session = sessionmaker(bind=engine)
 session = Session()
 
-# <headingcell level=2>
 
-# Query all of some type of object
+# ## Query all of some type of object
 
-# <codecell>
+# In[3]:
 
 q = session.query(modelmeta.Ensemble)
 q.count(), [x.name for x in q.all()]
 
-# <headingcell level=2>
 
-# Look up objects based on query parameters
+# ## Look up objects based on query parameters
 
-# <codecell>
+# In[4]:
 
 ensemble_name = 'canada_map'
-mydatafilevars = session.query(modelmeta.DataFileVariable).\
-join(modelmeta.EnsembleDataFileVariables).\
-join(modelmeta.Ensemble).\
-filter(modelmeta.Ensemble.name == ensemble_name).all()
-print 'Ensemble: ' + ensemble_name + ' with ' + str(len(mydatafilevars)) + ' data_file_vars'
+mydatafilevars = session.query(modelmeta.DataFileVariable).join(modelmeta.EnsembleDataFileVariables).join(modelmeta.Ensemble).filter(modelmeta.Ensemble.name == ensemble_name).all()
+print('Ensemble: ' + ensemble_name + ' with ' + str(len(mydatafilevars)) + ' data_file_vars')
 
-# <headingcell level=2>
 
-# Or better yet, use the built in relational mapping
+# ## Or better yet, use the built in relational mapping
 
-# <codecell>
+# In[5]:
 
 myensemble = session.query(modelmeta.Ensemble).filter(modelmeta.Ensemble.name == 'canada_map').first()
-print 'Ensemble: ' + myensemble.name + ' with ' + str(len(myensemble.data_file_variables)) + ' data_file_vars'
+print('Ensemble: ' + myensemble.name + ' with ' + str(len(myensemble.data_file_variables)) + ' data_file_vars')
 
-# <headingcell level=2>
 
-#  You can map all the way down the rabbit hole
+# ##  You can map all the way down the rabbit hole
 
-# <codecell>
+# In[6]:
 
 mymodel = myensemble.data_file_variables[0].file.run.model
-print mymodel.short_name
+print(mymodel.short_name)
 
-# <headingcell level=3>
 
-# And back up again
+# ### And back up again
 
-# <codecell>
+# In[7]:
 
 mymodel.runs[0].files[0].data_file_variables[0].ensembles[0].name
 
-# <headingcell level=3>
 
-# And around in circles
+# ### And around in circles
 
-# <codecell>
+# In[8]:
 
-myensemble.data_file_variables[0].\
-file.run.emission.runs[0].files[0].data_file_variables[0].\
-grid.data_file_variables[0].variable_alias.data_files[0].\
-data_file_variables[0].ensembles[0].name
+myensemble.data_file_variables[0].file.run.emission.runs[0].files[0].data_file_variables[0].grid.data_file_variables[0].variable_alias.data_files[0].data_file_variables[0].ensembles[0].name
 
-# <codecell>
+
+# In[ ]:
+
 
 
