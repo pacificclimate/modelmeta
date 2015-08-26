@@ -1,7 +1,7 @@
 import string
 from setuptools import setup
 
-__version__ = (0, 0, 5)
+__version__ = (0, 0, 6)
 
 setup(
     name="modelmeta",
@@ -22,7 +22,8 @@ setup(
                  'Intended Audience :: Science/Research',
                  'License :: OSI Approved :: GNU General Public License v3 (GPLv3)'
                  'Operating System :: OS Independent',
-                 'Programming Language :: Python',
+                 'Programming Language :: Python :: 2.7',
+                 'Programming Language :: Python :: 3.4',
                  'Topic :: Scientific/Engineering',
                  'Topic :: Database',
                  'Topic :: Software Development :: Libraries :: Python Modules'

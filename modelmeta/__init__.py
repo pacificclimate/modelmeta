@@ -1,1 +1,1 @@
-from v2 import *
+from modelmeta.v2 import *
