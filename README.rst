@@ -2,6 +2,13 @@
 modelmeta
 =========
 
+.. image:: https://travis-ci.org/pacificclimate/modelmeta.svg?branch=master
+   :target: https://travis-ci.org/pacificclimate/modelmeta
+
+.. image:: https://codeclimate.com/github/pacificclimate/modelmeta/badges/gpa.svg
+   :target: https://codeclimate.com/github/pacificclimate/modelmeta
+   :alt: Code Climate			  
+
 The `modelmeta` package is a Python package that provides an `Object Relational Mapping (ORM) <http://en.wikipedia.org/wiki/Object-relational_mapping>`_ layer for accessing the `Pacific Climate Impacts Consortium (PCIC) <http://www.pacificclimate.org/>`_ (PCIC)'s database of `coverage data <http://en.wikipedia.org/wiki/Coverage_data>`_ metadata. The pacakge provides model classes for each of the tables in the database in order to provide a ... querying 
 
 With this package, one can recreate the database schema in `PostgreSQL <http://www.postgresql.org>`_ or `SQLite <http://www.sqlite.org>`_ and/or use the package as an object mapper for programmatic database access. `modelmeta` uses `SQLAlchemy <http://www.sqlalchemy.org>`_ to provide the ORM layer.
