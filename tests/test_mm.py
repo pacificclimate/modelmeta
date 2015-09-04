@@ -51,3 +51,40 @@ def test_more_circles(test_session):
 def test_relationships(test_session):
     q = test_session.query(modelmeta.Ensemble).join(modelmeta.EnsembleDataFileVariables).join(modelmeta.DataFileVariable).join(modelmeta.DataFile).filter(modelmeta.Ensemble.name == 'bcsd_downscale_canada')
     assert q.all()
+
+
+def test_can_add_data_file_variable_relationships(test_session):
+    # grab a random variable alias and random grid...
+    some_grid = test_session.query(modelmeta.Grid).first()
+    some_variable = test_session.query(modelmeta.VariableAlias).first()
+    df = test_session.query(modelmeta.DataFile).first()
+    dfv = modelmeta.DataFileVariable(netcdf_variable_name='some_var',
+                                     range_min=0, range_max=50, file=df,
+                                     variable_alias=some_variable,
+                                     grid=some_grid)
+    test_session.add(dfv)
+    test_session.rollback()
+
+
+def test_can_add_ensemble_data_file_variable_relationships(test_session):
+    some_ensemble = modelmeta.Ensemble(name='new_ensemble', version=1.0, changes='', description='')
+    some_data_file_variable = test_session.query(modelmeta.DataFileVariable).first()
+
+    basecount = test_session.query(modelmeta.EnsembleDataFileVariables).filter(modelmeta.EnsembleDataFileVariables.ensemble_id == some_ensemble.id).count()
+
+    assert some_data_file_variable not in some_ensemble.data_file_variables
+
+    some_ensemble.data_file_variables.append(some_data_file_variable)
+
+    assert test_session.dirty
+
+    test_session.add(some_ensemble)
+
+    assert some_data_file_variable in some_ensemble.data_file_variables
+
+    test_session.flush()
+
+    q = test_session.query(modelmeta.EnsembleDataFileVariables).filter(modelmeta.EnsembleDataFileVariables.ensemble_id == some_ensemble.id)
+    assert q.count() > basecount
+
+    test_session.rollback()
