@@ -118,11 +118,14 @@ create.data.file.variables <- function(f, data.file.id, con) {
   ## Should check result
 }
 
+## FIXME: Why do we strsplit after we pull the attribute out of the netcdf?
+## Just use the whole thing
 get.inst.name <- function(f) {
   institution <- ncatt_get(f, 0, "institution")
   return(ifelse(institution$hasatt, strsplit(institution$value, " ")[[1]][1], ""))
 }
 
+## FIXME: Same as above re: strsplit
 get.project <- function(f) {
   project <- ncatt_get(f, 0, "project_id")
   return(ifelse(project$hasatt, strsplit(project$value, " ")[[1]][1], ""))
