@@ -709,8 +709,12 @@ get.grid.id <- function(f, v, con) {
                  "FROM grids where srid=", srid,
                  " AND ABS((xc_grid_step - ", xc.res, ") / xc_grid_step) < ", grid.diff.fraction,
                  " AND ABS((yc_grid_step - ", yc.res, ") / yc_grid_step) < ", grid.diff.fraction,
-                 " AND ABS((xc_origin - ", xc.origin, ") / xc_origin) < ", grid.diff.fraction,
-                 " AND ABS((yc_origin - ", yc.origin, ") / yc_origin) < ", grid.diff.fraction,
+                 ifelse((xc.origin==0),
+                        " AND xc_origin==0",
+                        paste(" AND ABS((xc_origin - ", xc.origin, ") / xc_origin) < ", grid.diff.fraction, sep="")),
+                 ifelse((yc.origin==0),
+                        " AND yc_origin==0",
+                        paste(" AND ABS((yc_origin - ", yc.origin, ") / yc_origin) < ", grid.diff.fraction, sep="")),
                  " AND xc_count=", xc.size, " and yc_count=", yc.size,
                  " AND evenly_spaced_y=", evenly.spaced.y, ";", sep="")
   ##print(query)
