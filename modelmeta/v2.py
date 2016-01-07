@@ -25,6 +25,9 @@ class ClimatologicalTime(Base):
     #relation definitions
     time_set_id = Column(Integer, ForeignKey('time_sets.time_set_id'), primary_key=True, nullable=False)
 
+    def __repr__(self):
+        return '{}({}, {}, {}, {})'.format(self.__class__.__name__,
+                self.time_idx, self.time_end, self.time_start, self.time_set_id)
 
 class DataFile(Base):
     __tablename__ = 'data_files'
@@ -87,6 +90,9 @@ class Emission(Base):
     #relation definitions
     runs = relationship("Run", backref=backref('emission', lazy='joined'))
 
+    def __repr__(self):
+        return '{}({}, {}, {})'.format(self.__class__.__name__, self.id,
+                                       self.long_name, self.short_name)
 
 class Ensemble(Base):
     __tablename__ = 'ensembles'
@@ -173,6 +179,11 @@ class Model(Base):
     #relation definitions
     runs = relationship("Run", backref=backref('model', lazy='joined'))
 
+    def __repr__(self):
+        return '{}(id={}, long_name={}, short_name={}, organization={}, '
+        'type={})'.format(self.__class__.__name__, self.id,
+                          self.long_name, self.short_name,
+                          self.organization, self.type)
 
 class QcFlag(Base):
     __tablename__ = 'qc_flags'
@@ -222,6 +233,9 @@ class Time(Base):
     #relation definitions
     time_set_id = Column(Integer, ForeignKey('time_sets.time_set_id'), primary_key=True, nullable=False)
 
+    def __repr__(self):
+        return '{}({}, {}, {})'.format(self.__class__.__name__, self.time_idx,
+                                      repr(self.timestep), self.time_set_id)
 
 class TimeSet(Base):
     __tablename__ = 'time_sets'
@@ -240,6 +254,10 @@ class TimeSet(Base):
     climatological_times = relationship("ClimatologicalTime", backref=backref('timeset'))
     times = relationship("Time", backref=backref('timeset'))
 
+    def __repr__(self):
+        return '{}({}, {}, {}, {}, {}, {}, {})'.format(self.__class__.__name,
+                self.calendar, repr(self.start_date), repr(self.end_date),
+                self.multi_year_mean, self.num_times, self.time_resolution)
 
 class Variable(Base):
     __tablename__ = 'variables'
@@ -257,6 +275,9 @@ class Variable(Base):
         secondary='variable_aliases', 
         secondaryjoin='VariableAlias.id==DataFileVariable.variable_alias_id')
 
+    def __repr__(self):
+        return '{}({}, {}, {}, {})'.format(self.__class__.__name__, self.id,
+                self.variable_alias_id, self.description, self.name)
 
 class VariableAlias(Base):
     __tablename__ = 'variable_aliases'
@@ -275,6 +296,10 @@ class VariableAlias(Base):
         secondaryjoin='DataFileVariable.data_file_id==DataFile.id', 
         backref=backref('variable_aliases'))
     variable = relationship("Variable", backref=backref('variable_alias'))
+
+    def __repr__(self):
+        return '{}({}, {}, {}, {})'.format(self.__class__.__name__, self.id,
+                self.long_name, self.standard_name, self.units)
 
 class YCellBound(Base):
     __tablename__ = 'y_cell_bounds'
