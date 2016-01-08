@@ -94,13 +94,13 @@ get.variable.range <- function(f, var, max.vals.per.node.millions=20) {
   axes.map <- nc.get.dim.axes(f, var)
   axes.map <- axes.map[!is.na(axes.map)]
   dims.len <- f$var[[var]]$varsize
-  cluster <- makeCluster(num.nodes, "SOCK")
-  clusterEvalQ(cluster, source("/home/data/projects/model_metadata_db/index_netcdf.r"))
-  clusterEvalQ(cluster, library(ncdf4.helpers))
+  #cluster <- makeCluster(num.nodes, "SOCK")
+  #clusterEvalQ(cluster, source("/home/data/projects/model_metadata_db/index_netcdf.r"))
+  #clusterEvalQ(cluster, library(ncdf4.helpers))
   node.chunks.lists <- get.chunks.for.list(1:(dims.len[axes.map == "T"]),
                                            ceiling(dims.len[axes.map == "T"] / num.nodes))
   num.timesteps.per.node <- floor((max.vals.per.node.millions * 1000000) / prod(dims.len[1:2]))
-  res <- unlist(parLapply(cluster, node.chunks.lists, function(idx.list) {
+  res <- unlist(node.chunks.lists, function(idx.list) {
    ncfile <- nc_open(f$filename)
     res <- sapply(get.chunks.for.list(idx.list, num.timesteps.per.node), function(x) {
       gc()
@@ -113,14 +113,14 @@ get.variable.range <- function(f, var, max.vals.per.node.millions=20) {
     })
     nc_close(ncfile)
     return(res)
-  }))
+  })
 
   ## res <- range(parSapply(cluster, get.chunks.for.list(1:(dims.len[axes.map == "T"]), 100), function(x) {
   ##   d <- nc.get.var.subset.by.axes(f, var, list(T=x), axes.map)
   ##   range(d, na.rm=TRUE)
   ## }))
 
-  stopCluster(cluster)
+  #stopCluster(cluster)
   return(range(res, na.rm=TRUE))
 }
 
