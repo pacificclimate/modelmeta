@@ -1,6 +1,7 @@
 library(ncdf4)
 library(ncdf4.helpers)
 library(RPostgreSQL)
+library(RSQLite)
 library(PCICt)
 library(digest)
 library(rgdal)
@@ -30,17 +31,60 @@ index.netcdf.files <- function(file.list, host="dbhost", db="dbname", user="dbus
   dbDisconnect(con)
 }
 
+index.netcdf.files.sqlite <- function(file.list, db.file) {
+  con <- dbConnect("SQLite", dbname=db.file)
+  lapply(file.list, index.netcdf, con)
+  dbDisconnect(con)
+}
+
 index.netcdf <- function(filename, con) {
   print(filename)
   filename <- gsub("[/]+", "/", filename)
   f <- nc_open(filename)
-  #dbBeginTransaction(con)
-  dbGetQuery(con, "BEGIN TRANSACTION")
+  dbBeginTransaction(con)
+  #dbGetQuery(con, "BEGIN TRANSACTION")
   data.file.id <- get.data.file.id(f, filename, con)
   dbCommit(con)
   ##dbSendQuery(con, "ROLLBACK;")
   nc_close(f);
   return(data.file.id)
+}
+
+## Quote booleans according to the db driver
+dbQuote <- function(con, s) {
+  if (class(con) == 'SQLiteConnection') {
+    if (s) {
+      1
+    } else
+      0
+  }
+  else {
+    s
+  }
+}
+
+dbQuoteNow <- function(con) {
+  if (class(con) == 'SQLiteConnection') {
+    "datetime('now')"
+  } else {
+    "now()"
+  }
+}
+
+## PostgreSQL has a RETURNING clause to INSERT statements while SQLite has
+## the last_insert_rowid() function. Use the appropriate method and return
+## the id of the inserted row
+do.insert <-function(con, query, id.column.name) {
+    if (class(con) == 'SQLiteConnection') {
+      result <- dbSendQuery(con, query)
+      result <- dbSendQuery(con, 'SELECT last_insert_rowid()')
+      fetch(result, -1)
+    } else {
+      query <- paste(query, 'RETURNING', id.column.name)
+      result <- dbSendQuery(con, query)
+      ## FIXME: Should check result
+      fetch(result, -1)
+    }
 }
 
 ## Get range of variable, one time field at a time
@@ -272,7 +316,7 @@ create.data.file.id <- function(f, filename, con) {
   query <- paste("INSERT INTO data_files",
                  "(filename, run_id, first_1mib_md5sum, ",
                  "unique_id, time_set_id, x_dim_name, ",
-                 "y_dim_name, z_dim_name, t_dim_name) ",
+                 "y_dim_name, z_dim_name, t_dim_name, index_time) ",
                  "VALUES(",
                  paste(shQuote(filename),
                        run.id,
@@ -282,13 +326,10 @@ create.data.file.id <- function(f, filename, con) {
                        x.dim.name,
                        y.dim.name,
                        z.dim.name,
-                       t.dim.name, sep=","),
-                 ") RETURNING data_file_id;", sep="")
-  ##print(query)
-  result <- dbSendQuery(con, query)
-  ## FIXME: Should check result
-  data.file.id <- fetch(result, -1)
-  return(data.file.id)
+                       t.dim.name,
+                       dbQuoteNow(con), sep=","),
+                 ");", sep="")
+  return(do.insert(con, query, 'data_file_id'))
 }
 
 update.data.file.id <- function(f, data.file.id, filename, con) {
@@ -309,13 +350,14 @@ update.data.file.id <- function(f, data.file.id, filename, con) {
 
 update.data.file.index.time <- function(f, data.file.id, con) {
   return(dbSendQuery(con, paste("UPDATE data_files",
-                                "SET index_time = now()",
+                                "SET index_time =", dbQuoteNow(con),
                                 "WHERE data_file_id =", data.file.id)))
 }
 
 update.data.file.filename <- function(f, data.file.id, new.filename, con) {
   return(dbSendQuery(con, paste("UPDATE data_files",
-                                "SET index_time = now(), filename =", shQuote(new.filename),
+                                "SET index_time =", dbQuoteNow(con),
+                                "filename =", shQuote(new.filename),
                                 "WHERE data_file_id =", data.file.id)))
 }
 
@@ -436,7 +478,7 @@ get.time.set.id <- function(f, con) {
   
   query <- paste("SELECT time_set_id",
                  "FROM time_sets ",
-                 "WHERE multi_year_mean =", multi.year.mean,
+                 "WHERE multi_year_mean =", dbQuote(con, multi.year.mean),
                  "AND start_date=", shQuote(start.date),
                  "AND end_date=", shQuote(end.date),
                  "AND time_resolution=", shQuote(time.resolution),
@@ -458,14 +500,12 @@ get.time.set.id <- function(f, con) {
                                     shQuote(start.date),
                                     shQuote(end.date),
                                     shQuote(time.resolution),
-                                    multi.year.mean,
+                                    dbQuote(con, multi.year.mean),
                                     length(time.series),
                                     sep=","),
-                   ") RETURNING time_set_id")
-    ##print(query)
-    result <- dbSendQuery(con, query)
-    ## Should check result
-    time.set.id.stuff <- fetch(result, -1)
+                   ")")
+    time.set.id.stuff <- do.insert(con, query, 'time_set_id')
+
     dbClearResult(result)
     time.set.id <- time.set.id.stuff[1,1]
 
@@ -539,12 +579,9 @@ get.level.set.id <- function(f, v, con) {
 
   if(nrow(level.set.id) == 0) {
     query <- paste("INSERT INTO level_sets(level_units) ",
-                   "VALUES('", levels.dim$units, "') ",
-                   "RETURNING level_set_id;", sep="")
-    ##print(query)
-    result <- dbSendQuery(con, query)
-    ## Should check result
-    level.set.id.stuff <- fetch(result, -1)
+                   "VALUES('", levels.dim$units, "') ", sep="")
+    level.set.id.stuff <- do.insert(con, query, 'level_set_id')
+
     level.set.id <- level.set.id.stuff[1,1]
 
     levels.bnds <- get.bnds.center.array(f, levels.dim$name)
@@ -585,10 +622,8 @@ get.variable.alias.id <- function(variable.standard.name, variable.long.name, va
                    "VALUES(", paste(shQuote(variable.long.name),
                                     shQuote(variable.standard.name),
                                     shQuote(variable.units), sep=","),
-                   ") RETURNING variable_alias_id;", sep="")
-    ##print(query)
-    result <- dbSendQuery(con, query)
-    variable.id <- fetch(result, -1)
+                   ");", sep="")
+    variable.id <- do.insert(con, query, 'variable_alias_id')
 
     return(variable.id[1,1])
   } else {
@@ -716,7 +751,7 @@ get.grid.id <- function(f, v, con) {
                         " AND yc_origin==0",
                         paste(" AND ABS((yc_origin - ", yc.origin, ") / yc_origin) < ", grid.diff.fraction, sep="")),
                  " AND xc_count=", xc.size, " and yc_count=", yc.size,
-                 " AND evenly_spaced_y=", evenly.spaced.y, ";", sep="")
+                 " AND evenly_spaced_y=", dbQuote(con, evenly.spaced.y), ";", sep="")
   ##print(query)
   result <- dbSendQuery(con, query)
   grid.id <- fetch(result, -1)
@@ -738,13 +773,12 @@ get.grid.id <- function(f, v, con) {
                                     xc.origin, yc.origin,
                                     xc.size, yc.size,
                                     cell.avg.area.sq.km,
-                                    evenly.spaced.y,
+                                    dbQuote(con, evenly.spaced.y),
                                     shQuote(x.dim$units),
                                     shQuote(y.dim$units), sep=","),
-                   ") RETURNING grid_id;", sep="")
+                   ");", sep="")
     ##print(query)
-    result <- dbSendQuery(con, query)
-    grid.id <- fetch(result, -1)
+    grid.id <- do.insert(con, query, 'grid_id')
 
     if(!evenly.spaced.y) {
       ## Insert grid data
@@ -776,11 +810,8 @@ get.emission.id <- function(f, con) {
   emission.id <- fetch(result, -1)
   if(nrow(emission.id) == 0) {
     query <- paste("INSERT INTO emissions(emission_short_name) ",
-                   "VALUES('", meta["emissions"], "') ",
-                   "RETURNING emission_id;", sep="");
-    ##print(query)
-    result <- dbSendQuery(con, query)
-    emission.id <- fetch(result, -1)
+                   "VALUES('", meta["emissions"], "') ", sep="");
+    emission.id <- do.insert(con, query, 'emission_id')
   }
 
   return(emission.id[1, 1])
@@ -806,10 +837,9 @@ get.model.id <- function(f, con) {
                    "VALUES(", paste(shQuote(meta["model"]),
                                     shQuote(model.type),
                                     shQuote(meta["institution"]), sep=","),
-                   ") RETURNING model_id;", sep="");
+                   ");", sep="");
     ##print(query)
-    result <- dbSendQuery(con, query)
-    model.id <- fetch(result, -1)
+    model.id <- do.insert(con, query, 'model_id')
   }
 
   return(model.id[1, 1])
@@ -836,10 +866,9 @@ get.run.id <- function(f, con) {
                                     emission.id,
                                     model.id,
                                     shQuote(meta["project"]), sep=",")
-                   , ") RETURNING run_id;", sep="");
+                   , ");", sep="");
     ##print(query)
-    result <- dbSendQuery(con, query)
-    run.id <- fetch(result, -1)
+    run.id <- do.insert(con, query, 'run_id')
   }
   return(run.id[1, 1])
 }
