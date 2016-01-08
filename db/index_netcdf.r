@@ -713,7 +713,6 @@ get.grid.id <- function(f, v, con) {
   dim.names <- nc.get.dim.names(f, v)
   dim.axes <- nc.get.dim.axes(f, v)
   dim.axes[is.na(dim.axes)] <- ''
-  srid <- get.srid(f, v, con)
 
   if(!('X' %in% dim.axes && 'Y' %in% dim.axes))
     return(NA)
@@ -741,8 +740,8 @@ get.grid.id <- function(f, v, con) {
   ## Then, check for the grid based on based on that type.
   grid.diff.fraction <- 0.000001
   query <- paste("SELECT grid_id ",
-                 "FROM grids where srid=", srid,
-                 " AND ABS((xc_grid_step - ", xc.res, ") / xc_grid_step) < ", grid.diff.fraction,
+                 "FROM grids WHERE",
+                 " ABS((xc_grid_step - ", xc.res, ") / xc_grid_step) < ", grid.diff.fraction,
                  " AND ABS((yc_grid_step - ", yc.res, ") / yc_grid_step) < ", grid.diff.fraction,
                  ifelse((xc.origin==0),
                         " AND xc_origin==0",
@@ -762,14 +761,14 @@ get.grid.id <- function(f, v, con) {
     cell.avg.area.sq.km <- get.cell.avg.area(x.dim, y.dim)
 
     ## Get units
-    query <- paste("INSERT INTO grids(srid, xc_grid_step, yc_grid_step, ",
+    query <- paste("INSERT INTO grids(xc_grid_step, yc_grid_step, ",
                        "xc_origin, yc_origin, ",
                        "xc_count, yc_count, ",
                        "cell_avg_area_sq_km, ",
                        "evenly_spaced_y, ",
                        "xc_units, ",
                        "yc_units) ",
-                   "VALUES(", paste(srid, xc.res, yc.res,
+                   "VALUES(", paste(xc.res, yc.res,
                                     xc.origin, yc.origin,
                                     xc.size, yc.size,
                                     cell.avg.area.sq.km,
