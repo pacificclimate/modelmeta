@@ -247,7 +247,7 @@ class TimeSet(Base):
     end_date = Column(DateTime, nullable=False)
     multi_year_mean = Column(Boolean, nullable=False)
     num_times = Column(Integer, nullable=False)
-    time_resolution = Column(Enum(u'1-minute', u'2-minute', u'5-minute', u'15-minute', u'30-minute', u'1-hourly', u'3-hourly', u'6-hourly', u'12-hourly', u'daily', u'monthly', u'yearly', u'other', u'irregular', name='timescale'), nullable=False)
+    time_resolution = Column(Enum('1-minute', '2-minute', '5-minute', '15-minute', '30-minute', '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily', 'monthly', 'yearly', 'other', 'irregular', name='timescale'), nullable=False)
 
     #relation definitions
     files = relationship("DataFile", backref=backref('timeset'))
