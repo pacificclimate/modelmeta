@@ -32,7 +32,8 @@ index.netcdf.files <- function(file.list, host="dbhost", db="dbname", user="dbus
 }
 
 index.netcdf.files.sqlite <- function(file.list, db.file) {
-  con <- dbConnect("SQLite", dbname=db.file)
+  drv <- dbDriver("SQLite")
+  con <- dbConnect(drv, dbname=db.file)
   lapply(file.list, index.netcdf, con)
   dbDisconnect(con)
 }
@@ -41,7 +42,7 @@ index.netcdf <- function(filename, con) {
   print(filename)
   filename <- gsub("[/]+", "/", filename)
   f <- nc_open(filename)
-  dbBeginTransaction(con)
+  dbBegin(con)
   #dbGetQuery(con, "BEGIN TRANSACTION")
   data.file.id <- get.data.file.id(f, filename, con)
   dbCommit(con)
