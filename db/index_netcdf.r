@@ -458,8 +458,8 @@ get.time.set.id <- function(f, con) {
     return(NULL)
 
   multi.year.mean <- is.multi.year.mean(f)
-  start.date <- as.character(min(time.series, na.rm=TRUE))
-  end.date <- as.character(max(time.series, na.rm=TRUE))
+  start.date <- format(min(time.series, na.rm=TRUE), "%Y-%m-%d %H:%M:%S")
+  end.date <- format(max(time.series, na.rm=TRUE), "%Y-%m-%d %H:%M:%S")
   time.resolution <- get.time.resolution(f, time.series)
   cal <- attr(time.series, "cal")
 
