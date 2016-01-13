@@ -47,7 +47,7 @@ index.netcdf <- function(filename, con) {
   data.file.id <- get.data.file.id(f, filename, con)
   dbCommit(con)
   ##dbSendQuery(con, "ROLLBACK;")
-  nc_close(f);
+  nc_close(f)
   return(data.file.id)
 }
 
@@ -128,7 +128,7 @@ get.variable.range <- function(f, var, max.vals.per.node.millions=20) {
 ## Creates entries for data_file_variables
 create.data.file.variables <- function(f, data.file.id, con) {
   var.list <- nc.get.variable.list(f)
-  if(length(var.list) == 0) return(NULL);
+  if(length(var.list) == 0) return(NULL)
   dfv.list <- lapply(var.list, function(v) {
     query <- paste("SELECT data_file_variable_id from data_file_variables where data_file_id=",
                    data.file.id, " and netcdf_variable_name='", v, "';", sep="")
@@ -302,7 +302,7 @@ create.unique.id <- function(f, filename) {
 create.data.file.id <- function(f, filename, con) {
   first.MiB.md5sum <- get.first.MiB.md5sum(filename)
   var.list <- nc.get.variable.list(f)
-  time.set.id <- get.time.set.id(f, con);
+  time.set.id <- get.time.set.id(f, con)
   run.id <- get.run.id(f, con)
   unique.id <- create.unique.id(f, filename)
   print(unique.id)
@@ -329,7 +329,7 @@ create.data.file.id <- function(f, filename, con) {
                        z.dim.name,
                        t.dim.name,
                        dbQuoteNow(con), sep=","),
-                 ");", sep="")
+                 ")", sep="")
   return(do.insert(con, query, 'data_file_id'))
 }
 
@@ -339,7 +339,7 @@ update.data.file.id <- function(f, data.file.id, filename, con) {
                                      "SELECT data_file_variable_id",
                                      "FROM data_file_variables",
                                      "WHERE data_file_id=", data.file.id,
-                                   ");"))
+                                   ")"))
   result <- dbSendQuery(con, paste("DELETE FROM data_file_variables",
                                    "WHERE data_file_id=", data.file.id, ";"))
   result <- dbSendQuery(con, paste("DELETE FROM data_files",
@@ -516,7 +516,7 @@ get.time.set.id <- function(f, con) {
                        collapse="),(",
                        sep=",")
     query <- paste("INSERT INTO times(timestep, time_idx, time_set_id) ",
-                   "VALUES(", time.bits, ");" )
+                   "VALUES(", time.bits, ")" )
     ##print(query)
     result.time.bits <- dbSendQuery(con, query)
     ## FIXME: Should check result
@@ -531,7 +531,7 @@ get.time.set.id <- function(f, con) {
                                                         function(x) {
                                                           paste(x[1], x[2], x[3], time.set.id, sep=",")
                                                         }),
-                                                 sep="),(")), ");", sep="")
+                                                 sep="),(")), ")", sep="")
       ##print(query)
       result <- dbSendQuery(con, query)
     }
@@ -595,7 +595,7 @@ get.level.set.id <- function(f, v, con) {
                                           }),
                                    sep="),("))
     query <- paste("INSERT INTO levels(level_start, vertical_level, level_end, level_idx, level_set_id) ",
-                   "VALUES(", level.bits, ");" )
+                   "VALUES(", level.bits, ")" )
     ##print(query)
     result.level.bits <- dbSendQuery(con, query)
     ## Should check result
@@ -623,7 +623,7 @@ get.variable.alias.id <- function(variable.standard.name, variable.long.name, va
                    "VALUES(", paste(shQuote(variable.long.name),
                                     shQuote(variable.standard.name),
                                     shQuote(variable.units), sep=","),
-                   ");", sep="")
+                   ")", sep="")
     variable.id <- do.insert(con, query, 'variable_alias_id')
 
     return(variable.id[1,1])
@@ -658,7 +658,7 @@ get.srid <- function(f, v, con) {
                    "VALUES(", paste(cur.srid, "\'PCIC\'", cur.srid,
                                     paste("'", wkt.string, "','", proj4.string, "'", sep=""),
                                     sep=","),
-                   ");", sep="")
+                   ")", sep="")
     ##print(query)
     result <- dbSendQuery(con, query)
     
@@ -776,7 +776,7 @@ get.grid.id <- function(f, v, con) {
                                     dbQuote(con, evenly.spaced.y),
                                     shQuote(x.dim$units),
                                     shQuote(y.dim$units), sep=","),
-                   ");", sep="")
+                   ")", sep="")
     ##print(query)
     grid.id <- do.insert(con, query, 'grid_id')
 
@@ -789,7 +789,7 @@ get.grid.id <- function(f, v, con) {
                                           apply(y.bnds, 2, function(x) {
                                             paste(grid.id, x[1], x[2], x[3], sep=",")
                                           }), sep="),(")),
-                     ");", sep="")
+                     ")", sep="")
       ##print(query)
       result <- dbSendQuery(con, query)
     }
@@ -810,7 +810,7 @@ get.emission.id <- function(f, con) {
   emission.id <- fetch(result, -1)
   if(nrow(emission.id) == 0) {
     query <- paste("INSERT INTO emissions(emission_short_name) ",
-                   "VALUES('", meta["emissions"], "') ", sep="");
+                   "VALUES('", meta["emissions"], "') ", sep="")
     emission.id <- do.insert(con, query, 'emission_id')
   }
 
@@ -837,7 +837,7 @@ get.model.id <- function(f, con) {
                    "VALUES(", paste(shQuote(meta["model"]),
                                     shQuote(model.type),
                                     shQuote(meta["institution"]), sep=","),
-                   ");", sep="");
+                   ")", sep="")
     ##print(query)
     model.id <- do.insert(con, query, 'model_id')
   }
@@ -866,7 +866,7 @@ get.run.id <- function(f, con) {
                                     emission.id,
                                     model.id,
                                     shQuote(meta["project"]), sep=",")
-                   , ");", sep="");
+                   , ")", sep="")
     ##print(query)
     run.id <- do.insert(con, query, 'run_id')
   }
