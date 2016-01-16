@@ -3,13 +3,101 @@ import logging
 from argparse import ArgumentParser
 
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from lxml import etree
 
 log = logging.getLogger(__name__)
+
+
+class Config(object):
+    pass
+
+class Dataset(object):
+    pass
+
+class Variable(object):
+    pass
+
+class Datasets(object):
+    pass
+
+class Contact(object):
+    def __str__(self):
+        return '''
+<contact>
+    <name> </name>
+    <organization> </organization>
+    <telephone> </telephone>
+    <email> </email>
+</contact>
+   '''
+class Server(object):
+    def __init__(self):
+        pass
+    def __str__(self):
+        return '''
+<server>
+    <title>My ncWMS server</title>
+    <allowFeatureInfo>true</allowFeatureInfo>
+    <maxImageWidth>1024</maxImageWidth>
+    <maxImageHeight>1024</maxImageHeight>
+    <abstract> </abstract>
+    <keywords> </keywords>
+    <url> </url>
+    <adminpassword>password</adminpassword>
+    <allowglobalcapabilities>true</allowglobalcapabilities>
+</server>
+'''
+
+class Cache(object):
+    def __str__(self):
+        return '''
+<cache enabled="true">
+    <elementLifetimeMinutes>1440</elementLifetimeMinutes>
+    <maxNumItemsInMemory>200</maxNumItemsInMemory>
+    <enableDiskStore>true</enableDiskStore>
+    <maxNumItemsOnDisk>2000</maxNumItemsOnDisk>
+</cache>
+'''
+
+## From https://gist.github.com/reimund/5435343/
+def dict2xml(d, root_node=None):
+    wrap          =     False if None == root_node or isinstance(d, list) else True
+    root          = 'objects' if None == root_node else root_node
+    root_singular = root[:-1] if 's' == root[-1] and None == root_node else root
+    xml           = ''
+    children      = []
+
+    if isinstance(d, dict):
+        for key, value in dict.items(d):
+            if isinstance(value, dict):
+                children.append(dict2xml(value, key))
+            elif isinstance(value, list):
+                children.append(dict2xml(value, key))
+            else:
+                xml = xml + ' ' + key + '="' + str(value) + '"'
+    else:
+        for value in d:
+            children.append(dict2xml(value, root_singular))
+
+    end_tag = '>' if 0 < len(children) else '/>'
+
+    if wrap or isinstance(d, dict):
+        xml = '<' + root + xml + end_tag
+
+    if 0 < len(children):
+        for child in children:
+            xml = xml + child
+
+        if wrap or isinstance(d, dict):
+            xml = xml + '</' + root + '>'
+        
+    return xml
 
 def get_session(dsn):
     engine = create_engine(args.dsn)
     Session = sessionmaker(bind=engine)
-    return = Session()
+    return Session()
 
 
 def create(args):
@@ -18,6 +106,37 @@ def create(args):
 
     session = get_session(args.dsn)
 
+    config = {
+        'datasets': {
+            'dataset': {}
+        },
+        'threddsCatalog': {},
+        'contact': {
+            'name': '',
+            'organization': '',
+            'telephone': '',
+            'email': ''
+        },
+        'server': {
+            'title': 'My ncWMS server',
+            'allowFeatureInfo': 'true',
+            'maxImageWidth': 1024,
+            'maxImageHeight': 1024,
+            'abstract': '',
+            'keywords': '',
+            'url': '',
+            'adminpassword': 'password',
+            'allowglobalcapabilities': 'true'
+        },
+        'cache': {
+            'elementLifetimeMinutes': 1440,
+            'maxNumItemsInMemory': 200,
+            'enableDiskStore': 'true',
+            'maxNumItemsOnDisk': 2000
+        }
+    }
+
+    print(dict2xml(config, 'config'))
 
 def update(args):
     log.info("Using dsn: {}".format(args.dsn))
