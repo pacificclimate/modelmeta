@@ -62,7 +62,7 @@ def get_server(title= "My ncWMS server", allowFeatureInfo = "True", maxImageWidt
     return root
 
 def get_cache(enabled="true", elementLifetimeMinutes = "1440", maxNumItemsInMemory = "200", enableDiskStore = "true", maxNumItemsOnDisk = "2000"):
-    root = etree.Element("server", enabled=enabled)
+    root = etree.Element("cache", enabled=enabled)
     etree.SubElement(root, "elementLifetimeMinutes").text = elementLifetimeMinutes
     etree.SubElement(root, "maxNumItemsInMemory").text = maxNumItemsInMemory
     etree.SubElement(root, "enableDiskStore").text = enableDiskStore
