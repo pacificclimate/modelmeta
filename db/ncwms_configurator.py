@@ -8,91 +8,107 @@ from lxml import etree
 
 log = logging.getLogger(__name__)
 
+def get_variable(id, title, colorScaleRange, palette="rainbow", scaling="linear", numColorBands="250", disabled="false"):
+    return etree.Element(
+        "variable",
+        id = id,
+        title = title,
+        colorScaleRange = colorScaleRange,
+        palette = palette,
+        scaling = scaling,
+        numColorBands = numColorBands,
+        disabled = disabled
+    )
 
-class Config(object):
-    pass
 
-class Dataset(object):
-    pass
+def get_dataset(id, location, title, queryable="true", dataReaderClass="", copyrightStatement="", moreInfo="", disabled="false", updateInterval="-1"):
+    return etree.Element(
+        "dataset",
+        id = id,
+        location = location,
+        queryable = queryable,
+        dataReaderClass = dataReaderClass,
+        copyrightStatement = copyrightStatement,
+        moreInfo = moreInfo,
+        disabled = disabled,
+        title = title,
+        updateInterval = updateInterval
+    )
 
-class Variable(object):
-    pass
+def get_contact(name = "", organization = "", telephone = "", email = ""):
+    root = etree.Element("contact")
+    etree.SubElement(root, "name").text = name
+    etree.SubElement(root, "organization").text = organization
+    etree.SubElement(root, "telephone").text = telephone
+    etree.SubElement(root, "email").text = email
+    return root
 
-class Datasets(object):
-    pass
+def get_server(title= "My ncWMS server", allowFeatureInfo = "True", maxImageWidth = "1024", maxImageHeight = "1024", abstract = "", keywords = "", url = "", adminpassword = "ncWMS", allowglobalcapabilities = "true"):
+    root = etree.Element("server")
+    etree.SubElement(root, "title").text = title
+    etree.SubElement(root, "allowFeatureInfo").text = allowFeatureInfo
+    etree.SubElement(root, "maxImageWidth").text = maxImageWidth
+    etree.SubElement(root, "maxImageHeight").text = maxImageHeight
+    etree.SubElement(root, "abstract").text = abstract
+    etree.SubElement(root, "keywords").text = keywords
+    etree.SubElement(root, "url").text = url
+    etree.SubElement(root, "adminpassword").text = adminpassword
+    etree.SubElement(root, "allowglobalcapabilities").text = allowglobalcapabilities
+    return root
 
-class Contact(object):
+def get_cache(enabled="true", elementLifetimeMinutes = "1440", maxNumItemsInMemory = "200", enableDiskStore = "true", maxNumItemsOnDisk = "2000"):
+    root = etree.Element("server", enabled=enabled)
+    etree.SubElement(root, "elementLifetimeMinutes").text = elementLifetimeMinutes
+    etree.SubElement(root, "maxNumItemsInMemory").text = maxNumItemsInMemory
+    etree.SubElement(root, "enableDiskStore").text = enableDiskStore
+    etree.SubElement(root, "maxNumItemsOnDisk").text = maxNumItemsOnDisk
+    return root
+
+def get_thredds():
+    return etree.Element("threddsCatalog")
+
+def get_dynamic():
+    return etree.Element("dynamicServices")
+
+class Config:
+    '''
+    The main class which represents a ncWMS config file
+
+    Arguments:
+        datasets
+        threddsCatalog
+        contact
+        server
+        cache
+        dynamicServices
+    '''
+
+    def __init__(self,
+                 datasets = None,
+                 threddsCatalog = None,
+                 contact = None,
+                 server = None,
+                 cache = None,
+                 dynamicServices = None):
+
+        self.root = etree.Element("config")
+
+        self.contact = contact if contact else get_contact()
+        self.server = server if server else get_server()
+        self.cache = cache if cache else get_cache()
+
+        self.datasets = datasets if datasets else etree.Element("datasets")
+        self.threddsCatalog = threddsCatalog if threddsCatalog else etree.Element("threddsCatalog")
+        self.dynamicServices = dynamicServices if dynamicServices else etree.Element("dynamicServices")
+
+        map(self.root.append, [self.datasets, self.threddsCatalog, self.contact, self.server, self.cache, self.dynamicServices])
+
     def __str__(self):
-        return '''
-<contact>
-    <name> </name>
-    <organization> </organization>
-    <telephone> </telephone>
-    <email> </email>
-</contact>
-   '''
-class Server(object):
-    def __init__(self):
-        pass
-    def __str__(self):
-        return '''
-<server>
-    <title>My ncWMS server</title>
-    <allowFeatureInfo>true</allowFeatureInfo>
-    <maxImageWidth>1024</maxImageWidth>
-    <maxImageHeight>1024</maxImageHeight>
-    <abstract> </abstract>
-    <keywords> </keywords>
-    <url> </url>
-    <adminpassword>password</adminpassword>
-    <allowglobalcapabilities>true</allowglobalcapabilities>
-</server>
-'''
+        return '<Root ncWMS config object>'
 
-class Cache(object):
-    def __str__(self):
-        return '''
-<cache enabled="true">
-    <elementLifetimeMinutes>1440</elementLifetimeMinutes>
-    <maxNumItemsInMemory>200</maxNumItemsInMemory>
-    <enableDiskStore>true</enableDiskStore>
-    <maxNumItemsOnDisk>2000</maxNumItemsOnDisk>
-</cache>
-'''
+    def xml(self, pretty=True):
+        return etree.tostring(self.root, pretty_print=pretty)
 
-## From https://gist.github.com/reimund/5435343/
-def dict2xml(d, root_node=None):
-    wrap          =     False if None == root_node or isinstance(d, list) else True
-    root          = 'objects' if None == root_node else root_node
-    root_singular = root[:-1] if 's' == root[-1] and None == root_node else root
-    xml           = ''
-    children      = []
-
-    if isinstance(d, dict):
-        for key, value in dict.items(d):
-            if isinstance(value, dict):
-                children.append(dict2xml(value, key))
-            elif isinstance(value, list):
-                children.append(dict2xml(value, key))
-            else:
-                xml = xml + ' ' + key + '="' + str(value) + '"'
-    else:
-        for value in d:
-            children.append(dict2xml(value, root_singular))
-
-    end_tag = '>' if 0 < len(children) else '/>'
-
-    if wrap or isinstance(d, dict):
-        xml = '<' + root + xml + end_tag
-
-    if 0 < len(children):
-        for child in children:
-            xml = xml + child
-
-        if wrap or isinstance(d, dict):
-            xml = xml + '</' + root + '>'
-        
-    return xml
 
 def get_session(dsn):
     engine = create_engine(args.dsn)
@@ -106,37 +122,10 @@ def create(args):
 
     session = get_session(args.dsn)
 
-    config = {
-        'datasets': {
-            'dataset': {}
-        },
-        'threddsCatalog': {},
-        'contact': {
-            'name': '',
-            'organization': '',
-            'telephone': '',
-            'email': ''
-        },
-        'server': {
-            'title': 'My ncWMS server',
-            'allowFeatureInfo': 'true',
-            'maxImageWidth': 1024,
-            'maxImageHeight': 1024,
-            'abstract': '',
-            'keywords': '',
-            'url': '',
-            'adminpassword': 'password',
-            'allowglobalcapabilities': 'true'
-        },
-        'cache': {
-            'elementLifetimeMinutes': 1440,
-            'maxNumItemsInMemory': 200,
-            'enableDiskStore': 'true',
-            'maxNumItemsOnDisk': 2000
-        }
-    }
 
-    print(dict2xml(config, 'config'))
+    config = Config()
+    print config
+    print config.xml()
 
 def update(args):
     log.info("Using dsn: {}".format(args.dsn))
