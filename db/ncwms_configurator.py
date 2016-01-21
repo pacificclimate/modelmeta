@@ -28,14 +28,17 @@ def get_dataset(id, location, title, queryable="true", dataReaderClass="", copyr
         "dataset",
         id = id,
         location = location,
+        title = title,
         queryable = queryable,
         dataReaderClass = dataReaderClass,
         copyrightStatement = copyrightStatement,
         moreInfo = moreInfo,
         disabled = disabled,
-        title = title,
         updateInterval = updateInterval
     )
+
+
+
 
 def get_contact(name = "", organization = "", telephone = "", email = ""):
     root = etree.Element("contact")
@@ -111,6 +114,9 @@ class Config:
     def xml(self, pretty=True):
         return etree.tostring(self.root, pretty_print=pretty)
 
+    def add_dataset(self, dataset):
+        self.datasets.append(dataset)
+
 
 def get_session(dsn):
     engine = create_engine(args.dsn)
@@ -155,18 +161,26 @@ def create(args):
                 'colorScaleRange': '{} {}'.format(range_min, range_max)
             })
 
-    print rv
+    # print rv
 
     config = Config()
-    print config
-    print config.xml()
+
+    for k, v in rv.items():
+        k.replace('+', '-')
+        dataset = get_dataset(k, v['filename'], k)
+        variables = [get_variable(var_['id'], var_['title'], var_['colorScaleRange']) for var_ in v['variables']]
+        map(dataset.append, variables)
+        config.add_dataset(dataset)
+
+    if not args.outfile:
+        print(config.xml())
+    else:
+        with open(args.outfile, 'w') as f:
+            f.write(config.xml())
+
 
 def update(args):
-    log.info("Using dsn: {}".format(args.dsn))
-    log.info('Updating file: {}'.format(args.outfile))
-
-    session = get_session(args.dsn)
-
+    raise NotImplemented
 
 if __name__ == '__main__':
 
@@ -176,7 +190,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dsn',
         help='Destination database DSN to which to write',
         default='postgresql://httpd_meta@atlas.pcic/pcic_meta')
-    parser.add_argument('-o', '--outfile',
+    parser.add_argument('-o', '--outfile', default=None,
         help='Output file path. To overwrite an existing file use the "--overwrite" option')
     parser.add_argument('-e', '--ensemble', required=True,
         help='Ensemble to use for updating/creating the output file')
