@@ -1,4 +1,5 @@
 import sys
+import os
 import logging
 from argparse import ArgumentParser
 
@@ -161,10 +162,10 @@ def create(args):
                 'colorScaleRange': '{} {}'.format(range_min, range_max)
             })
 
-    # print rv
-
+    # Create base config object
     config = Config()
 
+    # Iterate through db results, adding to config as required
     for k, v in rv.items():
         k.replace('+', '-')
         dataset = get_dataset(k, v['filename'], k)
@@ -172,12 +173,18 @@ def create(args):
         map(dataset.append, variables)
         config.add_dataset(dataset)
 
+    # If we aren't saving, print to stdout and exit
     if not args.outfile:
         print(config.xml())
-    else:
-        with open(args.outfile, 'w') as f:
-            f.write(config.xml())
+        sys.exit(0)
 
+    # Check if the output filepath exists
+    if os.path.exists(args.outfile) and not args.overwrite:
+        raise Exception('File {} already exists, remove it or use --overwrite before continuing'.format(args.outfile))
+
+    # Write output to file
+    with open(args.outfile, 'w') as f:
+            f.write(config.xml())
 
 def update(args):
     raise NotImplemented
