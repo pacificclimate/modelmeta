@@ -4,6 +4,8 @@ from argparse import ArgumentParser
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from modelmeta import DataFile, DataFileVariable, Ensemble, EnsembleDataFileVariables
+
 from lxml import etree
 
 log = logging.getLogger(__name__)
@@ -120,8 +122,40 @@ def create(args):
     log.info("Using dsn: {}".format(args.dsn))
     log.info('Writing to file: {}'.format(args.outfile))
 
-    session = get_session(args.dsn)
+    sesh = get_session(args.dsn)
+    q = sesh.query(DataFileVariable)\
+                .join(EnsembleDataFileVariables, Ensemble)\
+                .filter(Ensemble.name == args.ensemble)
 
+    results = [(
+        dfv.file.unique_id,
+        dfv.file.filename,
+        dfv.netcdf_variable_name,
+        dfv.range_min,
+        dfv.range_max,
+        dfv.variable_alias.standard_name
+    ) for dfv in q.all()]
+
+    rv = {}
+
+    for unique_id, filename, var_name, range_min, range_max, variable_standard_name in results:
+        if unique_id not in rv:
+            rv[unique_id] = {
+                'filename': filename,
+                'variables': [{
+                    'id': var_name,
+                    'title': variable_standard_name,
+                    'colorScaleRange': '{} {}'.format(range_min, range_max)
+                }]
+            }
+        else:
+            rv[unique_id]['variables'].append({
+                'id': var_name,
+                'title': variable_standard_name,
+                'colorScaleRange': '{} {}'.format(range_min, range_max)
+            })
+
+    print rv
 
     config = Config()
     print config
