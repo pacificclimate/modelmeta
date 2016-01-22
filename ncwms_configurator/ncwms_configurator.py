@@ -230,7 +230,7 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('-d', '--dsn',
-        help='Destination database DSN to which to read',
+        help='Destination database DSN from which to read',
         default='postgresql://httpd_meta@atlas.pcic/pcic_meta')
     parser.add_argument('-o', '--outfile', default=None,
         help='Output file path. To overwrite an existing file use the "--overwrite" option')
