@@ -11,6 +11,55 @@ from lxml import etree
 
 log = logging.getLogger(__name__)
 
+DEFAULT_CONTACT_CHILDREN = {
+    "name": "",
+    "organization": "",
+    "telephone": "",
+    "email": ""
+}
+
+DEFAULT_SERVER_CHILDREN = {
+    "title": "My ncWMS server",
+    "allowFeatureInfo": "True",
+    "maxImageWidth": "1024",
+    "maxImageHeight": "1024",
+    "abstract": "",
+    "keywords": "",
+    "url": "",
+    "adminpassword": "ncWMS",
+    "allowglobalcapabilities": "true"
+}
+
+DEFAULT_CACHE_CHILDREN = {
+    "elementLifetimeMinutes": "1440",
+    "maxNumItemsInMemory": "200",
+    "enableDiskStore": "true",
+    "maxNumItemsOnDisk": "2000"
+}
+
+DEFAULT_CACHE_ATTS = {
+    "enabled": "true"
+}
+
+REQUIRED_VARIABLE_ATTS = ["id", "title", "colorScaleRange"]
+
+DEFAULT_VARIABLE_ATTS = {
+    "palette": "rainbow",
+    "scaling": "linear",
+    "numColorBands": "250",
+    "disabled": "false"
+}
+
+REQUIRED_DATASET_ATTS = ["id", "location", "title"]
+
+DEFAULT_DATASET_ATTS = {
+    "queryable": "true",
+    "dataReaderClass": "",
+    "copyrightStatement": "",
+    "moreInfo": "",
+    "disabled": "false",
+    "updateInterval": "-1"
+}
 def get_element(element_name, atts={}, **kwargs):
     '''
     Generates a general xml element with provided name, attributes (dictionary), and basic children with text
@@ -20,60 +69,26 @@ def get_element(element_name, atts={}, **kwargs):
     default_atts = {}
 
     if element_name == "contact":
-        children = {
-            "name": "",
-            "organization": "",
-            "telephone": "",
-            "email": ""
-        }
+        children = DEFAULT_CONTACT_CHILDREN
 
     elif element_name == "server":
-        children = {
-            "title": "My ncWMS server",
-            "allowFeatureInfo": "True",
-            "maxImageWidth": "1024",
-            "maxImageHeight": "1024",
-            "abstract": "",
-            "keywords": "",
-            "url": "",
-            "adminpassword": "ncWMS",
-            "allowglobalcapabilities": "true"
-        }
+        children = DEFAULT_SERVER_CHILDREN
 
     elif element_name == "cache":
-        children = {
-            "elementLifetimeMinutes": "1440",
-            "maxNumItemsInMemory": "200",
-            "enableDiskStore": "true",
-            "maxNumItemsOnDisk": "2000"
-        }
-        default_atts = {
-            "enabled": "true"
-        }
+        children = DEFAULT_CACHE_CHILDREN
+        default_atts = DEFAULT_CACHE_ATTS
 
     elif element_name == "variable":
-        required_atts = ["id", "title", "colorScaleRange"]
+        required_atts = REQUIRED_VARIABLE_ATTS
         if not all(map(lambda x: x in atts, required_atts)):
             raise Exception("Required attributes to create a 'variable' are not present")
-        default_atts = {
-            "palette": "rainbow",
-            "scaling": "linear",
-            "numColorBands": "250",
-            "disabled": "false"
-        }
+        default_atts = DEFAULT_VARIABLE_ATTS
 
     elif element_name == "dataset":
-        required_atts = ["id", "location", "title"]
+        required_atts = REQUIRED_DATASET_ATTS
         if not all(map(lambda x: x in atts, required_atts)):
             raise Exception("Required attributes to create a 'dataset' are not present")
-        default_atts = {
-            "queryable": "true",
-            "dataReaderClass": "",
-            "copyrightStatement": "",
-            "moreInfo": "",
-            "disabled": "false",
-            "updateInterval": "-1"
-        }
+        default_atts = DEFAULT_DATASET_ATTS
 
     root = etree.Element(element_name)
 
