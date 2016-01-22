@@ -11,38 +11,12 @@ from lxml import etree
 
 log = logging.getLogger(__name__)
 
-def get_variable(id, title, colorScaleRange, palette="rainbow", scaling="linear", numColorBands="250", disabled="false"):
-    return etree.Element(
-        "variable",
-        id = id,
-        title = title,
-        colorScaleRange = colorScaleRange,
-        palette = palette,
-        scaling = scaling,
-        numColorBands = numColorBands,
-        disabled = disabled
-    )
-
-
-def get_dataset(id, location, title, queryable="true", dataReaderClass="", copyrightStatement="", moreInfo="", disabled="false", updateInterval="-1"):
-    return etree.Element(
-        "dataset",
-        id = id,
-        location = location,
-        title = title,
-        queryable = queryable,
-        dataReaderClass = dataReaderClass,
-        copyrightStatement = copyrightStatement,
-        moreInfo = moreInfo,
-        disabled = disabled,
-        updateInterval = updateInterval
-    )
-
 def get_element(element_name, atts={}, **kwargs):
     '''
     Generates a general xml element with provided name, attributes (dictionary), and basic children with text
     '''
 
+    children = {}
     default_atts = {}
 
     if element_name == "contact":
@@ -75,6 +49,30 @@ def get_element(element_name, atts={}, **kwargs):
         }
         default_atts = {
             "enabled": "true"
+        }
+
+    elif element_name == "variable":
+        required_atts = ["id", "title", "colorScaleRange"]
+        if not all(map(lambda x: x in atts, required_atts)):
+            raise Exception("Required attributes to create a 'variable' are not present")
+        default_atts = {
+            "palette": "rainbow",
+            "scaling": "linear",
+            "numColorBands": "250",
+            "disabled": "false"
+        }
+
+    elif element_name == "dataset":
+        required_atts = ["id", "location", "title"]
+        if not all(map(lambda x: x in atts, required_atts)):
+            raise Exception("Required attributes to create a 'dataset' are not present")
+        default_atts = {
+            "queryable": "true",
+            "dataReaderClass": "",
+            "copyrightStatement": "",
+            "moreInfo": "",
+            "disabled": "false",
+            "updateInterval": "-1"
         }
 
     root = etree.Element(element_name)
@@ -189,8 +187,15 @@ def create(args):
     # Iterate through db results, adding to config as required
     for k, v in rv.items():
         k.replace('+', '-')
-        dataset = get_dataset(k, v['filename'], k)
-        variables = [get_variable(var_['id'], var_['title'], var_['colorScaleRange']) for var_ in v['variables']]
+        dataset = get_element('dataset', {
+                                    "id":k,
+                                    "location": v['filename'],
+                                    "title": k})
+        variables = [get_element('variable', {
+                                    "id": var_['id'],
+                                    "title": var_['title'],
+                                    "colorScaleRange":  var_['colorScaleRange']
+                                }) for var_ in v['variables']]
         map(dataset.append, variables)
         config.add_dataset(dataset)
 
