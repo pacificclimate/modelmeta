@@ -11,70 +11,98 @@ from lxml import etree
 
 log = logging.getLogger(__name__)
 
-def get_variable(id, title, colorScaleRange, palette="rainbow", scaling="linear", numColorBands="250", disabled="false"):
-    return etree.Element(
-        "variable",
-        id = id,
-        title = title,
-        colorScaleRange = colorScaleRange,
-        palette = palette,
-        scaling = scaling,
-        numColorBands = numColorBands,
-        disabled = disabled
-    )
+DEFAULT_CONTACT_CHILDREN = {
+    "name": "",
+    "organization": "",
+    "telephone": "",
+    "email": ""
+}
 
+DEFAULT_SERVER_CHILDREN = {
+    "title": "My ncWMS server",
+    "allowFeatureInfo": "True",
+    "maxImageWidth": "1024",
+    "maxImageHeight": "1024",
+    "abstract": "",
+    "keywords": "",
+    "url": "",
+    "adminpassword": "ncWMS",
+    "allowglobalcapabilities": "true"
+}
 
-def get_dataset(id, location, title, queryable="true", dataReaderClass="", copyrightStatement="", moreInfo="", disabled="false", updateInterval="-1"):
-    return etree.Element(
-        "dataset",
-        id = id,
-        location = location,
-        title = title,
-        queryable = queryable,
-        dataReaderClass = dataReaderClass,
-        copyrightStatement = copyrightStatement,
-        moreInfo = moreInfo,
-        disabled = disabled,
-        updateInterval = updateInterval
-    )
+DEFAULT_CACHE_CHILDREN = {
+    "elementLifetimeMinutes": "1440",
+    "maxNumItemsInMemory": "200",
+    "enableDiskStore": "true",
+    "maxNumItemsOnDisk": "2000"
+}
 
+DEFAULT_CACHE_ATTS = {
+    "enabled": "true"
+}
 
+REQUIRED_VARIABLE_ATTS = ["id", "title", "colorScaleRange"]
 
+DEFAULT_VARIABLE_ATTS = {
+    "palette": "rainbow",
+    "scaling": "linear",
+    "numColorBands": "250",
+    "disabled": "false"
+}
 
-def get_contact(name = "", organization = "", telephone = "", email = ""):
-    root = etree.Element("contact")
-    etree.SubElement(root, "name").text = name
-    etree.SubElement(root, "organization").text = organization
-    etree.SubElement(root, "telephone").text = telephone
-    etree.SubElement(root, "email").text = email
+REQUIRED_DATASET_ATTS = ["id", "location", "title"]
+
+DEFAULT_DATASET_ATTS = {
+    "queryable": "true",
+    "dataReaderClass": "",
+    "copyrightStatement": "",
+    "moreInfo": "",
+    "disabled": "false",
+    "updateInterval": "-1"
+}
+def get_element(element_name, atts={}, **kwargs):
+    '''
+    Generates a general xml element with provided name, attributes (dictionary), and basic children with text
+    '''
+
+    children = {}
+    default_atts = {}
+
+    if element_name == "contact":
+        children = DEFAULT_CONTACT_CHILDREN
+
+    elif element_name == "server":
+        children = DEFAULT_SERVER_CHILDREN
+
+    elif element_name == "cache":
+        children = DEFAULT_CACHE_CHILDREN
+        default_atts = DEFAULT_CACHE_ATTS
+
+    elif element_name == "variable":
+        required_atts = REQUIRED_VARIABLE_ATTS
+        if not all(map(lambda x: x in atts, required_atts)):
+            raise Exception("Required attributes to create a 'variable' are not present")
+        default_atts = DEFAULT_VARIABLE_ATTS
+
+    elif element_name == "dataset":
+        required_atts = REQUIRED_DATASET_ATTS
+        if not all(map(lambda x: x in atts, required_atts)):
+            raise Exception("Required attributes to create a 'dataset' are not present")
+        default_atts = DEFAULT_DATASET_ATTS
+
+    root = etree.Element(element_name)
+
+    # Add children
+    children.update(kwargs)
+    for k, v in children.items():
+        etree.SubElement(root, k).text = v
+
+    # Assign attributes
+    default_atts.update(atts)
+    for k, v in default_atts.items():
+        root.set(k, v)
+
     return root
-
-def get_server(title= "My ncWMS server", allowFeatureInfo = "True", maxImageWidth = "1024", maxImageHeight = "1024", abstract = "", keywords = "", url = "", adminpassword = "ncWMS", allowglobalcapabilities = "true"):
-    root = etree.Element("server")
-    etree.SubElement(root, "title").text = title
-    etree.SubElement(root, "allowFeatureInfo").text = allowFeatureInfo
-    etree.SubElement(root, "maxImageWidth").text = maxImageWidth
-    etree.SubElement(root, "maxImageHeight").text = maxImageHeight
-    etree.SubElement(root, "abstract").text = abstract
-    etree.SubElement(root, "keywords").text = keywords
-    etree.SubElement(root, "url").text = url
-    etree.SubElement(root, "adminpassword").text = adminpassword
-    etree.SubElement(root, "allowglobalcapabilities").text = allowglobalcapabilities
-    return root
-
-def get_cache(enabled="true", elementLifetimeMinutes = "1440", maxNumItemsInMemory = "200", enableDiskStore = "true", maxNumItemsOnDisk = "2000"):
-    root = etree.Element("cache", enabled=enabled)
-    etree.SubElement(root, "elementLifetimeMinutes").text = elementLifetimeMinutes
-    etree.SubElement(root, "maxNumItemsInMemory").text = maxNumItemsInMemory
-    etree.SubElement(root, "enableDiskStore").text = enableDiskStore
-    etree.SubElement(root, "maxNumItemsOnDisk").text = maxNumItemsOnDisk
-    return root
-
-def get_thredds():
-    return etree.Element("threddsCatalog")
-
-def get_dynamic():
-    return etree.Element("dynamicServices")
 
 class Config:
     '''
@@ -99,9 +127,9 @@ class Config:
 
         self.root = etree.Element("config")
 
-        self.contact = contact if contact else get_contact()
-        self.server = server if server else get_server()
-        self.cache = cache if cache else get_cache()
+        self.contact = contact if contact else get_element("contact")
+        self.server = server if server else get_element("server")
+        self.cache = cache if cache else get_element("cache")
 
         self.datasets = datasets if datasets else etree.Element("datasets")
         self.threddsCatalog = threddsCatalog if threddsCatalog else etree.Element("threddsCatalog")
@@ -168,8 +196,15 @@ def create(args):
     # Iterate through db results, adding to config as required
     for k, v in rv.items():
         k.replace('+', '-')
-        dataset = get_dataset(k, v['filename'], k)
-        variables = [get_variable(var_['id'], var_['title'], var_['colorScaleRange']) for var_ in v['variables']]
+        dataset = get_element('dataset', {
+                                    "id":k,
+                                    "location": v['filename'],
+                                    "title": k})
+        variables = [get_element('variable', {
+                                    "id": var_['id'],
+                                    "title": var_['title'],
+                                    "colorScaleRange":  var_['colorScaleRange']
+                                }) for var_ in v['variables']]
         map(dataset.append, variables)
         config.add_dataset(dataset)
 
@@ -195,7 +230,7 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('-d', '--dsn',
-        help='Destination database DSN to which to write',
+        help='Destination database DSN to which to read',
         default='postgresql://httpd_meta@atlas.pcic/pcic_meta')
     parser.add_argument('-o', '--outfile', default=None,
         help='Output file path. To overwrite an existing file use the "--overwrite" option')
