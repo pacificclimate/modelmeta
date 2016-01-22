@@ -104,12 +104,6 @@ def get_element(element_name, atts={}, **kwargs):
 
     return root
 
-def get_thredds():
-    return etree.Element("threddsCatalog")
-
-def get_dynamic():
-    return etree.Element("dynamicServices")
-
 class Config:
     '''
     The main class which represents a ncWMS config file
