@@ -38,28 +38,33 @@ def get_dataset(id, location, title, queryable="true", dataReaderClass="", copyr
         updateInterval = updateInterval
     )
 
+def get_element(element_name, **kwargs):
+    if element_name == "contact":
+        children = {
+            "name": "",
+            "organization": "",
+            "telephone": "",
+            "email": ""
+        }
 
+    if element_name == "server":
+        children = {
+            "title": "My ncWMS server",
+            "allowFeatureInfo": "True",
+            "maxImageWidth": "1024",
+            "maxImageHeight": "1024",
+            "abstract": "",
+            "keywords": "",
+            "url": "",
+            "adminpassword": "ncWMS",
+            "allowglobalcapabilities": "true"
+        }
 
+    children.update(kwargs)
+    root = etree.Element(element_name)
+    for k, v in children.items():
+        etree.SubElement(root, k).text = v
 
-def get_contact(name = "", organization = "", telephone = "", email = ""):
-    root = etree.Element("contact")
-    etree.SubElement(root, "name").text = name
-    etree.SubElement(root, "organization").text = organization
-    etree.SubElement(root, "telephone").text = telephone
-    etree.SubElement(root, "email").text = email
-    return root
-
-def get_server(title= "My ncWMS server", allowFeatureInfo = "True", maxImageWidth = "1024", maxImageHeight = "1024", abstract = "", keywords = "", url = "", adminpassword = "ncWMS", allowglobalcapabilities = "true"):
-    root = etree.Element("server")
-    etree.SubElement(root, "title").text = title
-    etree.SubElement(root, "allowFeatureInfo").text = allowFeatureInfo
-    etree.SubElement(root, "maxImageWidth").text = maxImageWidth
-    etree.SubElement(root, "maxImageHeight").text = maxImageHeight
-    etree.SubElement(root, "abstract").text = abstract
-    etree.SubElement(root, "keywords").text = keywords
-    etree.SubElement(root, "url").text = url
-    etree.SubElement(root, "adminpassword").text = adminpassword
-    etree.SubElement(root, "allowglobalcapabilities").text = allowglobalcapabilities
     return root
 
 def get_cache(enabled="true", elementLifetimeMinutes = "1440", maxNumItemsInMemory = "200", enableDiskStore = "true", maxNumItemsOnDisk = "2000"):
@@ -99,8 +104,8 @@ class Config:
 
         self.root = etree.Element("config")
 
-        self.contact = contact if contact else get_contact()
-        self.server = server if server else get_server()
+        self.contact = contact if contact else get_element("contact")
+        self.server = server if server else get_element("server")
         self.cache = cache if cache else get_cache()
 
         self.datasets = datasets if datasets else etree.Element("datasets")
