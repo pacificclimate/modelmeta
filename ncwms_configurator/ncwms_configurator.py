@@ -38,7 +38,13 @@ def get_dataset(id, location, title, queryable="true", dataReaderClass="", copyr
         updateInterval = updateInterval
     )
 
-def get_element(element_name, **kwargs):
+def get_element(element_name, atts={}, **kwargs):
+    '''
+    Generates a general xml element with provided name, attributes (dictionary), and basic children with text
+    '''
+
+    default_atts = {}
+
     if element_name == "contact":
         children = {
             "name": "",
@@ -47,7 +53,7 @@ def get_element(element_name, **kwargs):
             "email": ""
         }
 
-    if element_name == "server":
+    elif element_name == "server":
         children = {
             "title": "My ncWMS server",
             "allowFeatureInfo": "True",
@@ -60,19 +66,29 @@ def get_element(element_name, **kwargs):
             "allowglobalcapabilities": "true"
         }
 
-    children.update(kwargs)
+    elif element_name == "cache":
+        children = {
+            "elementLifetimeMinutes": "1440",
+            "maxNumItemsInMemory": "200",
+            "enableDiskStore": "true",
+            "maxNumItemsOnDisk": "2000"
+        }
+        default_atts = {
+            "enabled": "true"
+        }
+
     root = etree.Element(element_name)
+
+    # Add children
+    children.update(kwargs)
     for k, v in children.items():
         etree.SubElement(root, k).text = v
 
-    return root
+    # Assign attributes
+    default_atts.update(atts)
+    for k, v in default_atts.items():
+        root.set(k, v)
 
-def get_cache(enabled="true", elementLifetimeMinutes = "1440", maxNumItemsInMemory = "200", enableDiskStore = "true", maxNumItemsOnDisk = "2000"):
-    root = etree.Element("cache", enabled=enabled)
-    etree.SubElement(root, "elementLifetimeMinutes").text = elementLifetimeMinutes
-    etree.SubElement(root, "maxNumItemsInMemory").text = maxNumItemsInMemory
-    etree.SubElement(root, "enableDiskStore").text = enableDiskStore
-    etree.SubElement(root, "maxNumItemsOnDisk").text = maxNumItemsOnDisk
     return root
 
 def get_thredds():
@@ -106,7 +122,7 @@ class Config:
 
         self.contact = contact if contact else get_element("contact")
         self.server = server if server else get_element("server")
-        self.cache = cache if cache else get_cache()
+        self.cache = cache if cache else get_element("cache")
 
         self.datasets = datasets if datasets else etree.Element("datasets")
         self.threddsCatalog = threddsCatalog if threddsCatalog else etree.Element("threddsCatalog")
