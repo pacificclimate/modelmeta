@@ -1,6 +1,7 @@
 library(ncdf4)
 library(ncdf4.helpers)
 library(RPostgreSQL)
+library(RSQLite)
 library(PCICt)
 library(digest)
 library(rgdal)
@@ -30,17 +31,61 @@ index.netcdf.files <- function(file.list, host="dbhost", db="dbname", user="dbus
   dbDisconnect(con)
 }
 
+index.netcdf.files.sqlite <- function(file.list, db.file) {
+  drv <- dbDriver("SQLite")
+  con <- dbConnect(drv, dbname=db.file)
+  lapply(file.list, index.netcdf, con)
+  dbDisconnect(con)
+}
+
 index.netcdf <- function(filename, con) {
   print(filename)
   filename <- gsub("[/]+", "/", filename)
   f <- nc_open(filename)
-  #dbBeginTransaction(con)
-  dbGetQuery(con, "BEGIN TRANSACTION")
+  dbBegin(con)
+  #dbGetQuery(con, "BEGIN TRANSACTION")
   data.file.id <- get.data.file.id(f, filename, con)
   dbCommit(con)
   ##dbSendQuery(con, "ROLLBACK;")
-  nc_close(f);
+  nc_close(f)
   return(data.file.id)
+}
+
+## Quote booleans according to the db driver
+dbQuote <- function(con, s) {
+  if (class(con) == 'SQLiteConnection') {
+    if (s) {
+      1
+    } else
+      0
+  }
+  else {
+    s
+  }
+}
+
+dbQuoteNow <- function(con) {
+  if (class(con) == 'SQLiteConnection') {
+    "datetime('now')"
+  } else {
+    "now()"
+  }
+}
+
+## PostgreSQL has a RETURNING clause to INSERT statements while SQLite has
+## the last_insert_rowid() function. Use the appropriate method and return
+## the id of the inserted row
+do.insert <-function(con, query, id.column.name) {
+    if (class(con) == 'SQLiteConnection') {
+      result <- dbSendQuery(con, query)
+      result <- dbSendQuery(con, 'SELECT last_insert_rowid()')
+      fetch(result, -1)
+    } else {
+      query <- paste(query, 'RETURNING', id.column.name)
+      result <- dbSendQuery(con, query)
+      ## FIXME: Should check result
+      fetch(result, -1)
+    }
 }
 
 ## Get range of variable, one time field at a time
@@ -50,13 +95,13 @@ get.variable.range <- function(f, var, max.vals.per.node.millions=20) {
   axes.map <- nc.get.dim.axes(f, var)
   axes.map <- axes.map[!is.na(axes.map)]
   dims.len <- f$var[[var]]$varsize
-  cluster <- makeCluster(num.nodes, "SOCK")
-  clusterEvalQ(cluster, source("/home/data/projects/model_metadata_db/index_netcdf.r"))
-  clusterEvalQ(cluster, library(ncdf4.helpers))
+  #cluster <- makeCluster(num.nodes, "SOCK")
+  #clusterEvalQ(cluster, source("/home/data/projects/model_metadata_db/index_netcdf.r"))
+  #clusterEvalQ(cluster, library(ncdf4.helpers))
   node.chunks.lists <- get.chunks.for.list(1:(dims.len[axes.map == "T"]),
                                            ceiling(dims.len[axes.map == "T"] / num.nodes))
   num.timesteps.per.node <- floor((max.vals.per.node.millions * 1000000) / prod(dims.len[1:2]))
-  res <- unlist(parLapply(cluster, node.chunks.lists, function(idx.list) {
+  res <- unlist(node.chunks.lists, function(idx.list) {
    ncfile <- nc_open(f$filename)
     res <- sapply(get.chunks.for.list(idx.list, num.timesteps.per.node), function(x) {
       gc()
@@ -69,21 +114,21 @@ get.variable.range <- function(f, var, max.vals.per.node.millions=20) {
     })
     nc_close(ncfile)
     return(res)
-  }))
+  })
 
   ## res <- range(parSapply(cluster, get.chunks.for.list(1:(dims.len[axes.map == "T"]), 100), function(x) {
   ##   d <- nc.get.var.subset.by.axes(f, var, list(T=x), axes.map)
   ##   range(d, na.rm=TRUE)
   ## }))
 
-  stopCluster(cluster)
+  #stopCluster(cluster)
   return(range(res, na.rm=TRUE))
 }
 
 ## Creates entries for data_file_variables
 create.data.file.variables <- function(f, data.file.id, con) {
   var.list <- nc.get.variable.list(f)
-  if(length(var.list) == 0) return(NULL);
+  if(length(var.list) == 0) return(NULL)
   dfv.list <- lapply(var.list, function(v) {
     query <- paste("SELECT data_file_variable_id from data_file_variables where data_file_id=",
                    data.file.id, " and netcdf_variable_name='", v, "';", sep="")
@@ -257,7 +302,7 @@ create.unique.id <- function(f, filename) {
 create.data.file.id <- function(f, filename, con) {
   first.MiB.md5sum <- get.first.MiB.md5sum(filename)
   var.list <- nc.get.variable.list(f)
-  time.set.id <- get.time.set.id(f, con);
+  time.set.id <- get.time.set.id(f, con)
   run.id <- get.run.id(f, con)
   unique.id <- create.unique.id(f, filename)
   print(unique.id)
@@ -272,7 +317,7 @@ create.data.file.id <- function(f, filename, con) {
   query <- paste("INSERT INTO data_files",
                  "(filename, run_id, first_1mib_md5sum, ",
                  "unique_id, time_set_id, x_dim_name, ",
-                 "y_dim_name, z_dim_name, t_dim_name) ",
+                 "y_dim_name, z_dim_name, t_dim_name, index_time) ",
                  "VALUES(",
                  paste(shQuote(filename),
                        run.id,
@@ -282,13 +327,10 @@ create.data.file.id <- function(f, filename, con) {
                        x.dim.name,
                        y.dim.name,
                        z.dim.name,
-                       t.dim.name, sep=","),
-                 ") RETURNING data_file_id;", sep="")
-  ##print(query)
-  result <- dbSendQuery(con, query)
-  ## FIXME: Should check result
-  data.file.id <- fetch(result, -1)
-  return(data.file.id)
+                       t.dim.name,
+                       dbQuoteNow(con), sep=","),
+                 ")", sep="")
+  return(do.insert(con, query, 'data_file_id'))
 }
 
 update.data.file.id <- function(f, data.file.id, filename, con) {
@@ -297,7 +339,7 @@ update.data.file.id <- function(f, data.file.id, filename, con) {
                                      "SELECT data_file_variable_id",
                                      "FROM data_file_variables",
                                      "WHERE data_file_id=", data.file.id,
-                                   ");"))
+                                   ")"))
   result <- dbSendQuery(con, paste("DELETE FROM data_file_variables",
                                    "WHERE data_file_id=", data.file.id, ";"))
   result <- dbSendQuery(con, paste("DELETE FROM data_files",
@@ -309,13 +351,14 @@ update.data.file.id <- function(f, data.file.id, filename, con) {
 
 update.data.file.index.time <- function(f, data.file.id, con) {
   return(dbSendQuery(con, paste("UPDATE data_files",
-                                "SET index_time = now()",
+                                "SET index_time =", dbQuoteNow(con),
                                 "WHERE data_file_id =", data.file.id)))
 }
 
 update.data.file.filename <- function(f, data.file.id, new.filename, con) {
   return(dbSendQuery(con, paste("UPDATE data_files",
-                                "SET index_time = now(), filename =", shQuote(new.filename),
+                                "SET index_time =", dbQuoteNow(con),
+                                "filename =", shQuote(new.filename),
                                 "WHERE data_file_id =", data.file.id)))
 }
 
@@ -416,8 +459,8 @@ get.time.set.id <- function(f, con) {
     return(NULL)
 
   multi.year.mean <- is.multi.year.mean(f)
-  start.date <- as.character(min(time.series, na.rm=TRUE))
-  end.date <- as.character(max(time.series, na.rm=TRUE))
+  start.date <- format(min(time.series, na.rm=TRUE), "%Y-%m-%d %H:%M:%S")
+  end.date <- format(max(time.series, na.rm=TRUE), "%Y-%m-%d %H:%M:%S")
   time.resolution <- get.time.resolution(f, time.series)
   cal <- attr(time.series, "cal")
 
@@ -436,7 +479,7 @@ get.time.set.id <- function(f, con) {
   
   query <- paste("SELECT time_set_id",
                  "FROM time_sets ",
-                 "WHERE multi_year_mean =", multi.year.mean,
+                 "WHERE multi_year_mean =", dbQuote(con, multi.year.mean),
                  "AND start_date=", shQuote(start.date),
                  "AND end_date=", shQuote(end.date),
                  "AND time_resolution=", shQuote(time.resolution),
@@ -458,14 +501,12 @@ get.time.set.id <- function(f, con) {
                                     shQuote(start.date),
                                     shQuote(end.date),
                                     shQuote(time.resolution),
-                                    multi.year.mean,
+                                    dbQuote(con, multi.year.mean),
                                     length(time.series),
                                     sep=","),
-                   ") RETURNING time_set_id")
-    ##print(query)
-    result <- dbSendQuery(con, query)
-    ## Should check result
-    time.set.id.stuff <- fetch(result, -1)
+                   ")")
+    time.set.id.stuff <- do.insert(con, query, 'time_set_id')
+
     dbClearResult(result)
     time.set.id <- time.set.id.stuff[1,1]
 
@@ -475,7 +516,7 @@ get.time.set.id <- function(f, con) {
                        collapse="),(",
                        sep=",")
     query <- paste("INSERT INTO times(timestep, time_idx, time_set_id) ",
-                   "VALUES(", time.bits, ");" )
+                   "VALUES(", time.bits, ")" )
     ##print(query)
     result.time.bits <- dbSendQuery(con, query)
     ## FIXME: Should check result
@@ -490,7 +531,7 @@ get.time.set.id <- function(f, con) {
                                                         function(x) {
                                                           paste(x[1], x[2], x[3], time.set.id, sep=",")
                                                         }),
-                                                 sep="),(")), ");", sep="")
+                                                 sep="),(")), ")", sep="")
       ##print(query)
       result <- dbSendQuery(con, query)
     }
@@ -539,12 +580,9 @@ get.level.set.id <- function(f, v, con) {
 
   if(nrow(level.set.id) == 0) {
     query <- paste("INSERT INTO level_sets(level_units) ",
-                   "VALUES('", levels.dim$units, "') ",
-                   "RETURNING level_set_id;", sep="")
-    ##print(query)
-    result <- dbSendQuery(con, query)
-    ## Should check result
-    level.set.id.stuff <- fetch(result, -1)
+                   "VALUES('", levels.dim$units, "') ", sep="")
+    level.set.id.stuff <- do.insert(con, query, 'level_set_id')
+
     level.set.id <- level.set.id.stuff[1,1]
 
     levels.bnds <- get.bnds.center.array(f, levels.dim$name)
@@ -557,7 +595,7 @@ get.level.set.id <- function(f, v, con) {
                                           }),
                                    sep="),("))
     query <- paste("INSERT INTO levels(level_start, vertical_level, level_end, level_idx, level_set_id) ",
-                   "VALUES(", level.bits, ");" )
+                   "VALUES(", level.bits, ")" )
     ##print(query)
     result.level.bits <- dbSendQuery(con, query)
     ## Should check result
@@ -585,10 +623,8 @@ get.variable.alias.id <- function(variable.standard.name, variable.long.name, va
                    "VALUES(", paste(shQuote(variable.long.name),
                                     shQuote(variable.standard.name),
                                     shQuote(variable.units), sep=","),
-                   ") RETURNING variable_alias_id;", sep="")
-    ##print(query)
-    result <- dbSendQuery(con, query)
-    variable.id <- fetch(result, -1)
+                   ")", sep="")
+    variable.id <- do.insert(con, query, 'variable_alias_id')
 
     return(variable.id[1,1])
   } else {
@@ -622,7 +658,7 @@ get.srid <- function(f, v, con) {
                    "VALUES(", paste(cur.srid, "\'PCIC\'", cur.srid,
                                     paste("'", wkt.string, "','", proj4.string, "'", sep=""),
                                     sep=","),
-                   ");", sep="")
+                   ")", sep="")
     ##print(query)
     result <- dbSendQuery(con, query)
     
@@ -678,7 +714,6 @@ get.grid.id <- function(f, v, con) {
   dim.names <- nc.get.dim.names(f, v)
   dim.axes <- nc.get.dim.axes(f, v)
   dim.axes[is.na(dim.axes)] <- ''
-  srid <- get.srid(f, v, con)
 
   if(!('X' %in% dim.axes && 'Y' %in% dim.axes))
     return(NA)
@@ -706,17 +741,17 @@ get.grid.id <- function(f, v, con) {
   ## Then, check for the grid based on based on that type.
   grid.diff.fraction <- 0.000001
   query <- paste("SELECT grid_id ",
-                 "FROM grids where srid=", srid,
-                 " AND ABS((xc_grid_step - ", xc.res, ") / xc_grid_step) < ", grid.diff.fraction,
+                 "FROM grids WHERE",
+                 " ABS((xc_grid_step - ", xc.res, ") / xc_grid_step) < ", grid.diff.fraction,
                  " AND ABS((yc_grid_step - ", yc.res, ") / yc_grid_step) < ", grid.diff.fraction,
                  ifelse((xc.origin==0),
-                        " AND xc_origin==0",
+                        " AND xc_origin=0.0",
                         paste(" AND ABS((xc_origin - ", xc.origin, ") / xc_origin) < ", grid.diff.fraction, sep="")),
                  ifelse((yc.origin==0),
-                        " AND yc_origin==0",
+                        " AND yc_origin=0.0",
                         paste(" AND ABS((yc_origin - ", yc.origin, ") / yc_origin) < ", grid.diff.fraction, sep="")),
                  " AND xc_count=", xc.size, " and yc_count=", yc.size,
-                 " AND evenly_spaced_y=", evenly.spaced.y, ";", sep="")
+                 " AND evenly_spaced_y=", dbQuote(con, evenly.spaced.y), ";", sep="")
   ##print(query)
   result <- dbSendQuery(con, query)
   grid.id <- fetch(result, -1)
@@ -727,24 +762,23 @@ get.grid.id <- function(f, v, con) {
     cell.avg.area.sq.km <- get.cell.avg.area(x.dim, y.dim)
 
     ## Get units
-    query <- paste("INSERT INTO grids(srid, xc_grid_step, yc_grid_step, ",
+    query <- paste("INSERT INTO grids(xc_grid_step, yc_grid_step, ",
                        "xc_origin, yc_origin, ",
                        "xc_count, yc_count, ",
                        "cell_avg_area_sq_km, ",
                        "evenly_spaced_y, ",
                        "xc_units, ",
                        "yc_units) ",
-                   "VALUES(", paste(srid, xc.res, yc.res,
+                   "VALUES(", paste(xc.res, yc.res,
                                     xc.origin, yc.origin,
                                     xc.size, yc.size,
                                     cell.avg.area.sq.km,
-                                    evenly.spaced.y,
+                                    dbQuote(con, evenly.spaced.y),
                                     shQuote(x.dim$units),
                                     shQuote(y.dim$units), sep=","),
-                   ") RETURNING grid_id;", sep="")
+                   ")", sep="")
     ##print(query)
-    result <- dbSendQuery(con, query)
-    grid.id <- fetch(result, -1)
+    grid.id <- do.insert(con, query, 'grid_id')
 
     if(!evenly.spaced.y) {
       ## Insert grid data
@@ -755,7 +789,7 @@ get.grid.id <- function(f, v, con) {
                                           apply(y.bnds, 2, function(x) {
                                             paste(grid.id, x[1], x[2], x[3], sep=",")
                                           }), sep="),(")),
-                     ");", sep="")
+                     ")", sep="")
       ##print(query)
       result <- dbSendQuery(con, query)
     }
@@ -776,11 +810,8 @@ get.emission.id <- function(f, con) {
   emission.id <- fetch(result, -1)
   if(nrow(emission.id) == 0) {
     query <- paste("INSERT INTO emissions(emission_short_name) ",
-                   "VALUES('", meta["emissions"], "') ",
-                   "RETURNING emission_id;", sep="");
-    ##print(query)
-    result <- dbSendQuery(con, query)
-    emission.id <- fetch(result, -1)
+                   "VALUES('", meta["emissions"], "') ", sep="")
+    emission.id <- do.insert(con, query, 'emission_id')
   }
 
   return(emission.id[1, 1])
@@ -806,10 +837,9 @@ get.model.id <- function(f, con) {
                    "VALUES(", paste(shQuote(meta["model"]),
                                     shQuote(model.type),
                                     shQuote(meta["institution"]), sep=","),
-                   ") RETURNING model_id;", sep="");
+                   ")", sep="")
     ##print(query)
-    result <- dbSendQuery(con, query)
-    model.id <- fetch(result, -1)
+    model.id <- do.insert(con, query, 'model_id')
   }
 
   return(model.id[1, 1])
@@ -836,10 +866,9 @@ get.run.id <- function(f, con) {
                                     emission.id,
                                     model.id,
                                     shQuote(meta["project"]), sep=",")
-                   , ") RETURNING run_id;", sep="");
+                   , ")", sep="")
     ##print(query)
-    result <- dbSendQuery(con, query)
-    run.id <- fetch(result, -1)
+    run.id <- do.insert(con, query, 'run_id')
   }
   return(run.id[1, 1])
 }
