@@ -9,7 +9,7 @@ if __name__ == '__main__':
     parser.add_argument("-d", "--dsn", help="Destination database DSN to which to write")
     parser.add_argument("-v", "--version", type=int, choices=[1, 2], help="Schema version the database is using")
     parser.set_defaults(
-        dsn='sqlite:////tmp/modelmeta.sqlite3',
+        dsn='sqlite:///modelmeta.sqlite3',
         version=2
     )
     args = parser.parse_args()

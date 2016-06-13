@@ -16,6 +16,7 @@ setup(
     install_requires = ['sqlalchemy', 'psycopg2'],
     package_data = {'modelmeta': ['data/mddb-v1.sqlite', 'data/mddb-v2.sqlite']},
     include_package_data = True,
+    scripts = ['scripts/mkblankdb.py', 'scripts/mktestdb.py'],
     classifiers=['Development Status :: 5 - Production/Stable',
                  'Environment :: Console',
                  'Intended Audience :: Developers',
