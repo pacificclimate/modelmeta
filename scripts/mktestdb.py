@@ -35,14 +35,14 @@ if __name__ == '__main__':
     if args.version == 1:
         from modelmeta import v1 as modelmeta
         if not args.dsn:
-            args.dsn = 'postgresql://httpd_meta@monsoon.pcic/pcic_meta_v1?sslmode=require'
+            args.dsn = 'postgresql://httpd_meta@monsoon.pcic.uvic.ca/pcic_meta_v1?sslmode=require'
         sequences = common_sequences + [('presentations', 'presentation_id'),
                                         ('levels', 'level_id'),
                                         ('qc_flags', 'qc_flag')]
     elif args.version == 2:
         import modelmeta
         if not args.dsn:
-            args.dsn = 'postgresql://httpd_meta@monsoon.pcic/pcic_meta?sslmode=require'
+            args.dsn = 'postgresql://httpd_meta@monsoon.pcic.uvic.ca/pcic_meta?sslmode=require'
 
         sequences = common_sequences + [('variable_aliases', 'variable_alias_id'),
                                         ('level_sets', 'level_set_id'),

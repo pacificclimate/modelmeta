@@ -39,7 +39,7 @@ index.netcdf.files.sqlite <- function(file.list, db.file) {
 }
 
 index.netcdf <- function(filename, con) {
-  print(filename)
+  ##print(filename)
   filename <- gsub("[/]+", "/", filename)
   f <- nc_open(filename)
   dbBegin(con)
@@ -134,7 +134,7 @@ create.data.file.variables <- function(f, data.file.id, con) {
                    data.file.id, " and netcdf_variable_name='", v, "';", sep="")
     result <- dbSendQuery(con, query)
     data.file.variable.id <- fetch(result, -1)
-  
+
     if(nrow(data.file.variable.id) == 0) {
       var.data <- f$var[[v]]
       variable.stdname.att <- ncatt_get(f, v, "standard_name")
@@ -166,13 +166,14 @@ create.data.file.variables <- function(f, data.file.id, con) {
                               shQuote(v),
                               variable.range[1],
                               variable.range[2],
+                              dbQuote(con, FALSE),
                               sep=",")
                    , ")", sep="")
              )
     }
   })
-  
-  query <- paste("INSERT INTO data_file_variables(data_file_id, variable_alias_id, variable_cell_methods, level_set_id, grid_id, netcdf_variable_name, range_min, range_max) VALUES", do.call(paste, c(dfv.list, sep=",")), ";", sep="")
+
+  query <- paste("INSERT INTO data_file_variables(data_file_id, variable_alias_id, variable_cell_methods, level_set_id, grid_id, netcdf_variable_name, range_min, range_max, disabled) VALUES", do.call(paste, c(dfv.list, sep=",")), ";", sep="")
   ##print(query)
   result <- dbSendQuery(con, query)
   ## Should check result
@@ -372,7 +373,7 @@ get.data.file.id <- function(f, filename, con) {
                  "OR unique_id='", unique.id, "';", sep="")
   result <- dbSendQuery(con, query)
   data.file.data <- fetch(result, -1)
-  
+
   if(nrow(data.file.data) == 0) {
     ## File does not exist in database
     data.file.id <- create.data.file.id(f, filename, con)
