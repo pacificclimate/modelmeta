@@ -230,8 +230,12 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('-d', '--dsn',
-        help='Destination database DSN to which to read',
-        default='postgresql://httpd_meta@atlas.pcic/pcic_meta')
+        help='''PostgreSQL connection string of form:\n
+    \tdialect+driver://username:password@host:port/database\n
+Examples:\n
+    \tpostgresql://scott:tiger@localhost/mydatabase\n
+    \tpostgresql+psycopg2://scott:tiger@localhost/mydatabase\n
+    \tpostgresql+pg8000://scott:tiger@localhost/mydatabase\n''')
     parser.add_argument('-o', '--outfile', default=None,
         help='Output file path. To overwrite an existing file use the "--overwrite" option')
     parser.add_argument('-e', '--ensemble', required=True,
