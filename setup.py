@@ -7,7 +7,7 @@ setup(
     name="modelmeta",
     description="An ORM representation of the model metadata database",
     keywords="sql database climate",
-    packages=['modelmeta'],
+    packages=['modelmeta', 'mm_cataloguer'],
     version='.'.join(str(d) for d in __version__),
     url="http://www.pacificclimate.org/",
     author="James Hiebert",
