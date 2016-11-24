@@ -1,8 +1,10 @@
+from pkg_resources import resource_filename
+
 import pytest
 
 from mm_cataloguer.index_netcdf import insert_model, insert_emission, \
     insert_run, get_file_metadata, nc_get_dim_axes, nc_get_dim_names, \
-    nc_get_dim_axes_from_names
+    nc_get_dim_axes_from_names, get_first_MiB_md5sum
 
 
 def test_insert_model(blank_test_session):
@@ -52,3 +54,10 @@ def test_nc_get_dim_names(tiny_gcm):
     set1 = set(nc_get_dim_names(tiny_gcm))
     set2 = set(('time', 'lon', 'lat', 'nb2'))
     assert set1 == set2
+
+
+def test_get_first_MiB_md5sum():
+    digest = get_first_MiB_md5sum(
+        resource_filename('modelmeta', 'data/tiny_gcm.nc')
+    )
+    assert digest == b'>\xb8\x12\xcc\xa96is\xb4\x10x\xb0\xbf\x19\xfe;'

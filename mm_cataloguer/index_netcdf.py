@@ -1,3 +1,5 @@
+import hashlib
+
 from modelmeta import Model, Run, Emission
 
 
@@ -266,4 +268,8 @@ def convert_time_resolution_string(seconds):
         return 'other'
 
 
-
+def get_first_MiB_md5sum(filename):
+    m = hashlib.md5()
+    with open(filename, 'rb') as f:
+        m.update(f.read(2**20))
+    return m.digest()
