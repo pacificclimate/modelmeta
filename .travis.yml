@@ -1,11 +1,14 @@
 language: python
+addons:
+  apt:
+    packages:
+      - libhdf5-serial-dev
+      - libnetcdf-dev
+      - libspatialite-dev
 python:
   - 2.7
   - 3.3
   - 3.4
-# command to install dependencies
-before_install:
-  - sudo apt-get install -qq libspatialite-dev
 install:
   - python setup.py install
 # command to run tests
