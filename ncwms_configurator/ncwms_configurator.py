@@ -135,13 +135,16 @@ class Config:
         self.threddsCatalog = threddsCatalog if threddsCatalog else etree.Element("threddsCatalog")
         self.dynamicServices = dynamicServices if dynamicServices else etree.Element("dynamicServices")
 
-        map(self.root.append, [self.datasets, self.threddsCatalog, self.contact, self.server, self.cache, self.dynamicServices])
+        to_add = [self.datasets, self.threddsCatalog, self.contact,
+                  self.server, self.cache, self.dynamicServices]
+        for element in to_add:
+            self.root.append(element)
 
     def __str__(self):
         return '<Root ncWMS config object>'
 
     def xml(self, pretty=True):
-        return etree.tostring(self.root, pretty_print=pretty)
+        return etree.tostring(self.root, pretty_print=pretty).decode('utf-8')
 
     def add_dataset(self, dataset):
         self.datasets.append(dataset)
@@ -205,7 +208,8 @@ def create(args):
                                     "title": var_['title'],
                                     "colorScaleRange":  var_['colorScaleRange']
                                 }) for var_ in v['variables']]
-        map(dataset.append, variables)
+        for var_ in variables:
+            dataset.append(var_)
         config.add_dataset(dataset)
 
     # If we aren't saving, print to stdout and exit
