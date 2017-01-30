@@ -8,7 +8,7 @@ Queries the metadata database and creates an ncWMS config file from the results
 virtualenv venv
 source venv/bin/activate
 pip install -U pip
-pip install -r requirements.txt -i http://tools.pacificclimate.org/pypiserver/ --trusted-host tools.pacificclimate.org
+pip install -r requirements.txt -i https://pypi.pacificclimate.org/simple/
 ```
 
 ## Usage
