@@ -1,6 +1,36 @@
+import re
 import hashlib
 
+import numpy as np
+from netCDF4 import Dataset, num2date
+
 from modelmeta import Model, Run, Emission
+
+
+def index_netcdf_files(files, dsn):
+    pass
+
+
+def index_netcdf_file(filename, session):
+    with Dataset(filename) as nc:
+        id_ = find_or_insert_file_id(session, nc)
+    return id_
+
+
+def find_or_insert_file_id(sesh, nc):
+    id_ = find_file_id(sesh, nc)
+    if id_:
+        return id_
+    else:
+        return insert_file_id(sesh, nc)
+
+
+def find_file_id():
+    pass
+
+
+def insert_file_id():
+    pass
 
 
 def find_emission_nc(sesh, nc):
@@ -104,11 +134,35 @@ def _get_file_metadata(nc, map_):
     }
 
 
+def format_time_range(min_, max_, resolution):
+    map_ = {'yearly': '%Y', 'monthly': '%Y%m', 'daily': '%Y%m%d'}
+    if resolution not in map_:
+        raise ValueError("I'm not sure how to format a time range with "
+                         "resolution '{}' (only yearly, monthly or "
+                         "daily)".format(resolution))
+    fmt = map_[resolution]
+
+    return '{}-{}'.format(min_.strftime(fmt), max_.strftime(fmt))
+
+
 def get_file_metadata(nc):
+    # Query global attributes from the NetCDF file
     if nc.project_id == 'CMIP5':
-        return _get_file_metadata(nc, global_to_res_map_cmip5)
+        meta = _get_file_metadata(nc, global_to_res_map_cmip5)
     else:
-        return _get_file_metadata(nc, global_to_res_map_cmip3)
+        meta = _get_file_metadata(nc, global_to_res_map_cmip3)
+
+    # Which variable(s) does this file contain?
+    meta['var'] = '+'.join(get_important_varnames(nc))
+
+    # Compute time metadata from the time value
+    time = get_timeseries(nc)
+    meta['tres'] = get_time_resolution(time['numeric'], time['units'])
+    tmin, tmax = get_time_range(nc)
+    tmin, tmax = num2date([tmin, tmax], time['units'], time['calendar'])
+    meta['trange'] = format_time_range(tmin, tmax, meta['tres'])
+
+    return meta
 
 
 def find_model_nc(sesh, nc):
@@ -201,8 +255,8 @@ def get_climatology_bounds_var_name(nc):
     else:
         return None
 
-    if 'climatology' in nc.variable[time_axis]:
-        return nc.variable[time_axis].climatology
+    if 'climatology' in nc.variables[time_axis]:
+        return nc.variables[time_axis].climatology
     else:
         return None
 
@@ -214,8 +268,15 @@ def is_multi_year_mean(nc):
     return bool(get_climatology_bounds_var_name(nc))
 
 
-def get_time_step_size(time_series, units='seconds'):
-    np.median(np.diff(nc.variables['time']))
+def get_time_step_size(time_series, cf_units='days since 1950-01-01'):
+
+    match = re.match('(days|hours|minutes|seconds) since.*', cf_units)
+    if match:
+        scale = match.groups()[0]
+    else:
+        raise ValueError("cf_units param must be a string of the form '<time units> since <reference time>'")
+    med = np.median(np.diff(time_series))
+    return time_to_seconds(med, scale)
 
 
 def time_to_seconds(x, units='seconds'):
@@ -232,14 +293,13 @@ def time_to_seconds(x, units='seconds'):
                          .format(units))
 
 
-def get_time_resolution(nc, time_series):
+def get_time_resolution(time_series, cf_units='days since 1950-01-01'):
     '''Returns the appropriate time resolution string for the given data
     '''
-    if is_multi_year_mean(nc):
-        return 'other'
+    #if is_multi_year_mean(nc):
+    #    return 'other'
 
-    units = nc.variables['time'].units
-    step_size_seconds = get_time_step_size(time_series, units)
+    step_size_seconds = get_time_step_size(time_series, cf_units)
     return convert_time_resolution_string(step_size_seconds)
 
 
@@ -263,9 +323,33 @@ def convert_time_resolution_string(seconds):
         31104000: 'yearly',
     }
     if seconds in map_:
-        return seconds[map_]
+        return map_[seconds]
     else:
         return 'other'
+
+
+def get_timeseries(nc):
+    axes = nc_get_dim_axes_from_names(nc)
+    if 'T' in axes:
+        time_axis = axes['T']
+    else:
+        raise ValueError("No axis is attributed with time information")
+
+    t = nc.variables[time_axis]
+
+    assert hasattr(t, 'units') and hasattr(t, 'calendar')
+
+    return {
+        'units': t.units,
+        'calendar': t.calendar,
+        'numeric': t[:],
+        'datetime': num2date(t[:], t.units, t.calendar)
+    }
+
+
+def get_time_range(nc):
+    t = get_timeseries(nc)['numeric']
+    return np.min(t), np.max(t)
 
 
 def get_first_MiB_md5sum(filename):
@@ -273,3 +357,37 @@ def get_first_MiB_md5sum(filename):
     with open(filename, 'rb') as f:
         m.update(f.read(2**20))
     return m.digest()
+
+
+def get_important_varnames(nc):
+    '''Returns a list of the primary variables in the netcdf file
+
+    Many of the variables in a NetCDF file describe the *structure* of
+    the data and aren't necessarily the values that we actually care
+    about. For example a file with temperature data also has to
+    include latitude/longitude variables, a time variable, and
+    possibly bounds variables for each of the dimensions.
+
+    This function filters out the names of all of the dimensions and
+    bounds variables and just gives you the "important" variable names
+    (for some value of "important").
+    '''
+    vars_ = set(nc.variables.keys())
+    dims = set(nc.dimensions.keys())
+    return [v for v in vars_ - dims if 'bnds' not in v]
+
+
+def create_unique_id(nc):
+    '''Computes and returns a metadata-based unique id on a NetCDF file'''
+    meta = get_file_metadata(nc)
+    dim_axes = set(nc_get_dim_axes_from_names(nc).keys())
+    # if the file has dims X, Y, T and optionally Z
+    if dim_axes == {'X', 'Y', 'T'} or dim_axes == {'X', 'Y', 'Z', 'T'}:
+        # we won't put it in the unique id
+        meta['axes'] = ''
+    else:
+        # Otherwise, we will b/c it's a "weird" file
+        meta['axes'] = "_dim" + ''.join(sorted(dim_axes))
+
+    return '{var}_{tres}_{model}_{emissions}_{run}_{trange}{axes}'\
+        .format(**meta).replace('+', '-')
