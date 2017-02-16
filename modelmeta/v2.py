@@ -35,7 +35,10 @@ class DataFile(Base):
     #column definitions
     id = Column('data_file_id', Integer, primary_key=True, nullable=False)
     filename = Column(String(length=2048), nullable=False)
+    # FIXME: If this db is to be properly normalized, there should probably
+    # be a unique constraint on this hash
     first_1mib_md5sum = Column('first_1mib_md5sum', String(length=32), nullable=False)
+    # FIXME: Why is there no unique constraint on a "unique" id?!
     unique_id = Column(String(length=255), nullable=False)
     x_dim_name = Column(String(length=32), nullable=False)
     y_dim_name = Column(String(length=32), nullable=False)

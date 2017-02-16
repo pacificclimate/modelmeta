@@ -1,10 +1,11 @@
 import re
 import hashlib
+import datetime
 
 import numpy as np
 from netCDF4 import Dataset, num2date
 
-from modelmeta import Model, Run, Emission
+from modelmeta import Model, Run, Emission, DataFile
 
 
 def index_netcdf_files(files, dsn):
@@ -17,20 +18,68 @@ def index_netcdf_file(filename, session):
     return id_
 
 
-def find_or_insert_file_id(sesh, nc):
-    id_ = find_file_id(sesh, nc)
-    if id_:
-        return id_
+def find_insert_upate_file_id(sesh, nc):
+    id_df, hash_df = find_file_id(sesh, nc)
+
+    if id_df and hash_df:
+        if id_df == hash_df:
+            logger.info("Skipping file {}. Already in the db as id {}.".format(nc.filepath(), id_match.unique_id))
+        else:
+            logger.error("Split brain! We seem to have file {} in the database under multiple entries: data_file_id {} and {}".format(nc.filepath(), id_match.id, hash_match.id))
+
+    # File changed. Do an update.
+    elif id_df and not hash_df:
+        update_datafile(sesh, nc, id_df)
+
+    # We've indexed this file under a different id. Warn and skip.
+    elif not id_df and hash_df:
+        logger.warn("Skipping file {}. Already in the db as id {}.".format(nc.filepath(), hash_df.unique_id))
+
+    # Nothing is in the db yet. Our raison d'être. Do the insertion.
     else:
-        return insert_file_id(sesh, nc)
+        insert_data_file(sesh, nc, hash_df.first_1mib_md5sum)
 
 
-def find_file_id():
+def update_datafile(sesh, nc, datafile):
     pass
 
 
-def insert_file_id():
-    pass
+def find_file_id(sesh, nc):
+    unique_id = compute_unique_id(nc)
+    nc_hash = get_first_MiB_md5sum(nc.filepath())
+    q = sesh.query(DataFile).filter(DataFile.unique_id == unique_id)
+    id_match = q.first()
+    q = sesh.query(DataFile).filter(DataFile.first_1mib_md5sum == nc_hash)
+    hash_match = q.first()
+    return id_match, hash_match
+
+
+def insert_data_file(sesh, nc, hash_):
+    vars_ = get_important_varnames(nc)
+    timeset = find_or_insert_timeset(sesh, nc)
+    run = find_or_insert_run(sesh, nc)
+    unique_id = compute_unique_id(nc)
+    dim_names = nc_get_dim_axes_from_names(nc)
+    for ax in 'XYZT':
+        if ax not in dim_names:
+            dim_names[ax] = None
+    logger.info("Creating new DataFile for unique_id {}".format(unique_id))
+
+    df = DataFile(
+        filename=nc.filepath(),
+        first_1mib_md5sum=hash_,
+        unique_id=unique_id,
+        index_time=datetime.datetime.now(),
+        run=run,
+        timeset=timeset,
+        x_dim_name=dim_names['X'],
+        y_dim_name=dim_names['Y'],
+        z_dim_name=dim_names['Z'],
+        t_dim_name=dim_names['T']
+    )
+    sesh.add(df)
+    sesh.commit()
+    return df
 
 
 def find_emission_nc(sesh, nc):
@@ -377,7 +426,7 @@ def get_important_varnames(nc):
     return [v for v in vars_ - dims if 'bnds' not in v]
 
 
-def create_unique_id(nc):
+def compute_unique_id(nc):
     '''Computes and returns a metadata-based unique id on a NetCDF file'''
     meta = get_file_metadata(nc)
     dim_axes = set(nc_get_dim_axes_from_names(nc).keys())
