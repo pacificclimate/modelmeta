@@ -1,11 +1,14 @@
 language: python
+dist: trusty
+sudo: false
 python:
   - 2.7
   - 3.3
   - 3.4
-# command to install dependencies
-before_install:
-  - sudo apt-get install -qq libspatialite-dev
+addons:
+  apt:
+    packages:
+      - libspatialite-dev
 install:
   - python setup.py install
 # command to run tests
