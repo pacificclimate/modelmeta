@@ -13,7 +13,13 @@ setup(
     author="James Hiebert",
     author_email="hiebert@uvic.ca",
     zip_safe=True,
-    install_requires = ['sqlalchemy', 'psycopg2', 'netCDF4'],
+    install_requires = '''
+        sqlalchemy
+        psycopg2
+        numpy
+        netCDF4
+        nchelpers
+    '''.split(),
     package_data = {'modelmeta': ['data/mddb-v1.sqlite', 'data/mddb-v2.sqlite', 'data/tiny_gcm.nc']},
     include_package_data = True,
     scripts = ['scripts/mkblankdb.py', 'scripts/mktestdb.py'],

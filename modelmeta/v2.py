@@ -8,6 +8,7 @@ from pkg_resources import resource_filename
 
 from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean, Enum, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.orderinglist import ordering_list
 from sqlalchemy.orm import relationship, backref, sessionmaker
 
 Base = declarative_base()
@@ -165,7 +166,10 @@ class LevelSet(Base):
     level_units = Column(String(length=32), nullable=False)
 
     #relation definitions
-    levels = relationship("Level", backref=backref('level_set'))
+    levels = relationship("Level",
+                          order_by='Level.vertical_level',
+                          collection_class=ordering_list('vertical_level'),
+                          backref=backref('level_set'))
     data_file_variables = relationship("DataFileVariable", backref=backref('level_set'))
 
 
