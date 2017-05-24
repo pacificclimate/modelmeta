@@ -541,87 +541,76 @@ def find_or_insert_timeset(sesh, cf):
     return time_set
 
 
-def find_emission_nc(sesh, cf):
-    return find_emission(sesh, cf.metadata.emissions)
-
-
-def find_emission(sesh, short_name):
-    q = sesh.query(Emission).filter(Emission.short_name == short_name)
+def find_emission(sesh, cf):
+    q = sesh.query(Emission).filter(Emission.short_name == cf.metadata.emissions)
     return q.first()
 
 
-def insert_emission(sesh, name):
-    emission = Emission(short_name=name)
+def insert_emission(sesh, cf):
+    emission = Emission(short_name=cf.metadata.emission)
     sesh.add(emission)
     return emission
 
 
 def find_or_insert_emission(sesh, cf):
-    emission = find_emission(sesh, cf.metadata.emissions)
+    emission = find_emission(sesh, cf)
     if emission:
         return emission
     else:
-        return insert_emission(sesh, cf.metadata.emissions)
+        return insert_emission(sesh, cf)
 
 
-def find_run_nc(sesh, cf):
-    return find_run(sesh, cf.metadata.run, cf.metadata.model, cf.metadata.emissions)
-
-
-def find_run(sesh, run_name, model_name, emissions_name):
-    q = sesh.query(Run).join(Model).join(Emission)\
-        .filter(Model.name == model_name)\
-        .filter(Emission.name == emissions_name)\
-        .filter(Run.name == run_name)
+def find_run(sesh, cf):
+    q = sesh.query(Run).join(Model).join(Emission) \
+        .filter(Model.name == cf.metadata.model) \
+        .filter(Emission.name == cf.metadata.emissions) \
+        .filter(Run.name == cf.metadata.run)
     return q.first()
 
 
-def insert_run(sesh, run_name, model, emission, project):
-    run = Run(name=run_name, model=model, emission=emission, project=project)
+def insert_run(sesh, cf, model, emission):
+    run = Run(name=cf.metadata.run, project=cf.metadata.project, model=model, emission=emission)
     sesh.add(run)
     sesh.commit()
     return run
 
 
 def find_or_insert_run(sesh, cf):
-    run = find_run(sesh, cf.metadata.run, cf.metadata.model, cf.metadata.emissions)
+    run = find_run(sesh, cf)
     if run:
         return run
     model = find_or_insert_model(sesh, cf)
+    if not model:
+        raise RuntimeError('Model not found or inserted!')
     emission = find_or_insert_emission(sesh, cf)
-    if not model and emission:
-        # FIXME:
-        raise Exception('Badness in find_or_insert_run')
-    return insert_run(sesh, cf.metadata.run, model, emission, cf.metadata.project)
+    if not emission:
+        raise RuntimeError('Emission not found or inserted!')
+    return insert_run(sesh, cf, model, emission)
 
 
-def find_model_nc(sesh, cf):
-    return find_model(sesh, cf.metadata.model)
-
-
-def find_model(sesh, short_name):
-    query = sesh.query(Model).filter(Model.short_name == short_name)
+def find_model(sesh, cf):
+    query = sesh.query(Model).filter(Model.short_name == cf.metadata.model)
     return query.first()
 
 
-def insert_model(sesh, short_name, type_, organization):
-    m = Model(short_name=short_name, type=type_, organization=organization)
-    sesh.add(m)
+def insert_model(sesh, cf, model_type):
+    model = Model(short_name=cf.metadata.model, type=model_type, organization=cf.metadata.institution)
+    sesh.add(model)
     sesh.commit()
-    return m
+    return model
 
 
 def find_or_insert_model(sesh, cf):
-    res = find_model_nc(sesh, cf)
-    if not res:
+    model = find_model(sesh, cf)
+    if not model:
         # Really rudimentary GCM/RCM decision making.
         if cf.metadata.project == 'NARCCAP' or \
            cf.metadata.project not in ('IPCC Fourth Assessment', 'CMIP5'):
             model_type = 'RCM'
         else:
             model_type = 'GCM'
-        res = insert_model(sesh, cf.metadata.model, model_type, cf.metadata.institution)
-    return res
+        model = insert_model(sesh, cf, model_type)
+    return model
 
 
 def md5(filepath):
