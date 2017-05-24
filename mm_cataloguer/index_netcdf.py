@@ -334,19 +334,22 @@ def find_or_insert_level_set(sesh, cf, variable):  # get.level.set.id
         .filter(LevelSet.units == level_axis_var.units)\
         .first()
 
-    # Insert appropriate level set (with accompanying levels) if it does not exist
-    if not level_set:
-        level_set = LevelSet(units=level_axis_var.units)
-        sesh.add(level_set)
+    if level_set:
+        return level_set
 
-        sesh.add_all([Level(
-                 level_set=level_set,
-                 vertical_level=vertical_level,
-                 level_start=level_start,
-                 level_end=level_end,
-             ) for level_start, vertical_level, level_end in get_var_bounds_and_values(cf, level_axis_var)
-        ])
-        sesh.commit()
+    # No matching LevelSet: Insert LevelSet with accompanying Level records
+
+    level_set = LevelSet(units=level_axis_var.units)
+    sesh.add(level_set)
+
+    sesh.add_all([Level(
+             level_set=level_set,
+             vertical_level=vertical_level,
+             level_start=level_start,
+             level_end=level_end,
+         ) for level_start, vertical_level, level_end in get_var_bounds_and_values(cf, level_axis_var)
+    ])
+    sesh.commit()
 
     return level_set
 
@@ -394,11 +397,11 @@ def find_or_insert_grid(sesh, cf, variable):  # get.grid.id
         return None
 
     if 'S' in axes_to_dim_names:
-        source = cf.reduced_dims(variable.name)
+        dim_names = cf.reduced_dims(variable.name)
     else:
-        source = axes_to_dim_names
+        dim_names = axes_to_dim_names
 
-    xc_var, yc_var = (cf.variables[source[axis]] for axis in 'XY')
+    xc_var, yc_var = (cf.variables[dim_names[axis]] for axis in 'XY')
     xc_values, yc_values = (var[:] for var in [xc_var, yc_var])
 
     def is_regular_series(values, relative_tolerance=1e-6):
@@ -437,8 +440,14 @@ def find_or_insert_grid(sesh, cf, variable):  # get.grid.id
             .first()
             )
 
+    if grid:
+        return grid
+
+    # No matching Grid: Insert new Grid and associated YCellBound records
+
     def cell_avg_area_sq_km():
         """Compute the average area of a grid cell, in sq km."""
+        # TODO: Move into nchelpers?
         if all(units == 'm' for units in [xc_var.units, yc_var.units]):
             # Assume that grid is regular if specified in meters
             return abs(xc_grid_step * yc_grid_step) / 1e6
@@ -453,31 +462,30 @@ def find_or_insert_grid(sesh, cf, variable):  # get.grid.id
                 np.mean(np.diff(y_vals) * np.cos(y_vals[:-1])) *
                 earth_radius ** 2)
 
-    if not grid:
-        grid = Grid(
-            xc_origin=xc_origin,
-            yc_origin=yc_origin,
-            xc_grid_step=xc_grid_step,
-            yc_grid_step=yc_grid_step,
-            xc_count=len(xc_values),
-            yc_count=len(yc_values),
-            evenly_spaced_y=evenly_spaced_y,
-            cell_avg_area_sq_km=cell_avg_area_sq_km(),
-            xc_units=xc_var.units,
-            yc_units=yc_var.units,
-        )
-        sesh.add(grid)
+    grid = Grid(
+        xc_origin=xc_origin,
+        yc_origin=yc_origin,
+        xc_grid_step=xc_grid_step,
+        yc_grid_step=yc_grid_step,
+        xc_count=len(xc_values),
+        yc_count=len(yc_values),
+        evenly_spaced_y=evenly_spaced_y,
+        cell_avg_area_sq_km=cell_avg_area_sq_km(),
+        xc_units=xc_var.units,
+        yc_units=yc_var.units,
+    )
+    sesh.add(grid)
 
-        if not evenly_spaced_y:
-            y_cell_bounds = [YCellBound(
-                grid=grid,
-                bottom_bnd=bottom_bnd,
-                y_center=y_center,
-                top_bound=top_bound,
-            ) for bottom_bnd, y_center, top_bound in get_var_bounds_and_values(cf, variable)]
-            sesh.add_all(y_cell_bounds)
+    if not evenly_spaced_y:
+        y_cell_bounds = [YCellBound(
+            grid=grid,
+            bottom_bnd=bottom_bnd,
+            y_center=y_center,
+            top_bound=top_bound,
+        ) for bottom_bnd, y_center, top_bound in get_var_bounds_and_values(cf, variable)]
+        sesh.add_all(y_cell_bounds)
 
-        sesh.commit()
+    sesh.commit()
         
     return grid
 
@@ -556,8 +564,7 @@ def find_or_insert_emission(sesh, cf):
     emission = find_emission(sesh, cf)
     if emission:
         return emission
-    else:
-        return insert_emission(sesh, cf)
+    return insert_emission(sesh, cf)
 
 
 def find_run(sesh, cf):
@@ -579,12 +586,17 @@ def find_or_insert_run(sesh, cf):
     run = find_run(sesh, cf)
     if run:
         return run
+
+    # No matching Run: Insert new Run and accompanying Model and Emission records
+
     model = find_or_insert_model(sesh, cf)
     if not model:
         raise RuntimeError('Model not found or inserted!')
+
     emission = find_or_insert_emission(sesh, cf)
     if not emission:
         raise RuntimeError('Emission not found or inserted!')
+
     return insert_run(sesh, cf, model, emission)
 
 
@@ -602,14 +614,19 @@ def insert_model(sesh, cf, model_type):
 
 def find_or_insert_model(sesh, cf):
     model = find_model(sesh, cf)
-    if not model:
-        # Really rudimentary GCM/RCM decision making.
-        if cf.metadata.project == 'NARCCAP' or \
-           cf.metadata.project not in ('IPCC Fourth Assessment', 'CMIP5'):
-            model_type = 'RCM'
-        else:
-            model_type = 'GCM'
-        model = insert_model(sesh, cf, model_type)
+    if model:
+        return model
+
+    # No matching Model: Insert new Model
+
+    # Really rudimentary GCM/RCM decision making.
+    if cf.metadata.project == 'NARCCAP' or \
+       cf.metadata.project not in ('IPCC Fourth Assessment', 'CMIP5'):
+        model_type = 'RCM'
+    else:
+        model_type = 'GCM'
+    model = insert_model(sesh, cf, model_type)
+
     return model
 
 
