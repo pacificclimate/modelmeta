@@ -1,11 +1,18 @@
+import sys
+import os
+# Add helpers directory to pythonpath: See https://stackoverflow.com/a/33515264
+sys.path.append(os.path.join(os.path.dirname(__file__), 'helpers'))
+
 from pkg_resources import resource_filename
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import pytest
-from netCDF4 import Dataset
+from nchelpers import CFDataset
 
 from modelmeta import create_test_database
+
+from mock_helper import Mock
 
 
 @pytest.fixture
@@ -25,5 +32,18 @@ def blank_test_session():
 
 
 @pytest.fixture
+def mock_cf():
+    return Mock(
+        metadata=Mock(
+            project="CMIP5",
+            run="r1e3v3",
+            model="CGCM3",
+            institution="CCCMA",
+            emission="SRESA2"
+        )
+    )
+
+
+@pytest.fixture
 def tiny_gcm():
-    return Dataset(resource_filename('modelmeta', 'data/tiny_gcm.nc'))
+    return CFDataset(resource_filename('modelmeta', 'data/tiny_gcm.nc'))
