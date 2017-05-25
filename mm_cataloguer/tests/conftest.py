@@ -39,7 +39,7 @@ def mock_cf():
             run="r1e3v3",
             model="CGCM3",
             institution="CCCMA",
-            emission="SRESA2"
+            emissions="SRESA2"
         )
     )
 

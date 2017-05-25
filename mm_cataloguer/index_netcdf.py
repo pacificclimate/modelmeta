@@ -555,7 +555,7 @@ def find_emission(sesh, cf):
 
 
 def insert_emission(sesh, cf):
-    emission = Emission(short_name=cf.metadata.emission)
+    emission = Emission(short_name=cf.metadata.emissions)
     sesh.add(emission)
     return emission
 
@@ -569,8 +569,8 @@ def find_or_insert_emission(sesh, cf):
 
 def find_run(sesh, cf):
     q = sesh.query(Run).join(Model).join(Emission) \
-        .filter(Model.name == cf.metadata.model) \
-        .filter(Emission.name == cf.metadata.emissions) \
+        .filter(Model.short_name == cf.metadata.model) \
+        .filter(Emission.short_name == cf.metadata.emissions) \
         .filter(Run.name == cf.metadata.run)
     return q.first()
 
