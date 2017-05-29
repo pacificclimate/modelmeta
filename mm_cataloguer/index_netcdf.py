@@ -1,3 +1,55 @@
+"""Functions for adding NetCDF files to the modelmeta database.
+
+The root function is `index_netcdf_file`, which causes a NetCDF file to be added or updated in the modelmeta database.
+
+`index_netcdf_file` uses a set of database manipulation functions to handle finding or inserting the objects
+(records) in the database necessary to represent the NetCDF file.
+
+Objects in modelmeta database are related to each other as follows. Indentation can be read "has"; the cardinality of
+this association is indicated after the object name. (E.g., Model (1) means a Run has 1 Model associated to it.)
+
+DataFile
+    Run (1)
+        Model (1)
+        Emission (1)
+    DataFileVariable (*)
+        VariableAlias (1)
+            Variable (*)
+        LevelSet (1)
+            Level
+        Grid (1)
+            YCellBound (1)
+        DataFileVar_QCFlag (*)
+            QCFlag (1)
+        DataFileVar_Ensemble (*)
+            Ensemble (1)
+    Timeset (1)
+        Time (*)
+        ClimatologicalTime (*)
+
+Database manipulation functions are organized (ordered) according to the list above.
+
+Database manipulation functions have the following typical names and signatures:
+
+    find_<item>(Session, CFDataset): Item
+        -- Find and return an Item representing the Item part of the NetCDF file. If none exists return None.
+    insert_<item>(Session, CFDataset) -> Item
+        -- Insert and return an Item representing the Item part of the NetCDF file.
+    find_or_insert_<item>(Session, CFDataset) -> Item
+        -- Find or insert and return an Item representing the Item part of the NetCDF file.
+
+where
+
+    Item is one of the object types above (e.g., DataFile)
+    <item> is a snake-case representation of the object type (data_file)
+    Session is a SQLAlchemy database session used to access the database
+    CFDataset is an nchelpers.CFDataset object representing the file to be indexed
+
+Ideally, all such functions are dependent only on the Session and CFDataset parameters. In particular, no additional
+parameters should have to be passed in that characterize the CFDataset. All necessary information should be derived
+from methods/properties of CFDataset, adhering to the principle that all our NetCDF files are fully self-describing.
+"""
+
 import os
 import hashlib
 import logging
@@ -23,6 +75,8 @@ logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 
 
+# Root functions
+
 def index_netcdf_files(filenames, dsn):
     """Index a list of NetCDF files into a modelmeta database.
 
@@ -44,11 +98,11 @@ def index_netcdf_file(filename, session):  # index.netcdf
     :return: DataFile object for file indexed
     """
     with CFDataset(filename) as cf:
-        data_file = find_update_or_insert_nc_file(session, cf)
+        data_file = find_update_or_insert_cf_file(session, cf)
     return data_file
 
 
-def find_update_or_insert_nc_file(sesh, cf):  # get.data.file.id
+def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     """Find, update, or insert a NetCDF file in the modelmeta database, according to whether it is
     already present and up to date.
 
@@ -69,7 +123,7 @@ def find_update_or_insert_nc_file(sesh, cf):  # get.data.file.id
 
     elif id_data_file and not hash_data_file:
         # File changed. Do an update.
-        update_data_file(sesh, id_data_file, cf)
+        update_cf_file(sesh, id_data_file, cf)
         return id_data_file
 
     elif not id_data_file and hash_data_file:
@@ -80,24 +134,10 @@ def find_update_or_insert_nc_file(sesh, cf):  # get.data.file.id
 
     else:
         # File is not indexed in the db yet. Our raison d'être. Do the insertion.
-        return insert_nc_file(sesh, cf)
+        return index_cf_file(sesh, cf)
 
 
-def find_data_file_by_unique_id_and_hash(sesh, cf):
-    """Find and return DataFile records matching file unique id and file hash.
-
-    :param sesh: modelmeta database session
-    :param cf: CFDatafile object representing NetCDF file
-    :return: pair of DataFiles matching unique id, hash (None in a component if no match)
-    """
-    q = sesh.query(DataFile).filter(DataFile.unique_id == cf.unique_id)
-    id_match = q.first()
-    q = sesh.query(DataFile).filter(DataFile.first_1mib_md5sum == cf.first_MiB_md5sum)
-    hash_match = q.first()
-    return id_match, hash_match
-
-
-def insert_nc_file(sesh, cf):
+def index_cf_file(sesh, cf):
     """Insert records for a NetCDF known not to be in the database yet.
 
     :param sesh: modelmeta database session
@@ -109,8 +149,21 @@ def insert_nc_file(sesh, cf):
     return data_file
 
 
-def update_data_file(sesh, data_file, cf):  # not a function in R code; NOT the same as update.data.file.id
-    """Update a the modelmeta entry for a file.
+def reindex_cf_file(sesh, existing_data_file, cf):
+    """Delete the existing modelmeta content for a data file and insert it again de novo.
+    Return the new DataFile object.
+
+    :param sesh: modelmeta database session
+    :param existing_data_file: DataFile object representing data file to be deleted and re-inserted
+    :param cf: CFDatafile object representing NetCDF file
+    :return: DataFile entry for file
+    """
+    delete_data_file(sesh, existing_data_file)
+    return index_cf_file(sesh, cf)
+
+
+def update_cf_file(sesh, data_file, cf):  # not a function in R code; NOT the same as update.data.file.id
+    """Update a the modelmeta entry for a NetCDF file.
 
     WARNING: `data_file` and `cf` MUST represent the SAME file.
 
@@ -134,7 +187,7 @@ def update_data_file(sesh, data_file, cf):  # not a function in R code; NOT the 
             else:
                 # File has changed w/o hash being updated; log warning, then reindex and update existing records.
                 logger.warning("File {}: Hash didn't change, but file was updated.".format(cf.filepath()))
-                return reindex_nc_file(sesh, data_file, cf)
+                return reindex_cf_file(sesh, data_file, cf)
         else:
             # TODO: This branch always taken. See TODO (X) above.
             if cf_modification_time < data_file.index_time:
@@ -142,7 +195,7 @@ def update_data_file(sesh, data_file, cf):  # not a function in R code; NOT the 
                 raise ValueError("File {}: Hash changed, but mod time doesn't reflect update.".format(cf.filepath()))
             else:
                 # File has changed; re-index it.
-                return reindex_nc_file(sesh, data_file, cf)
+                return reindex_cf_file(sesh, data_file, cf)
     else:
         # Name changed and data changed.
         if os.path.isfile(cf.filepath()):
@@ -158,22 +211,48 @@ def update_data_file(sesh, data_file, cf):  # not a function in R code; NOT the 
                 return data_file
             else:
                 # Different file content. May be a newer version of the same file. Reindex it.
-                return reindex_nc_file(sesh, data_file, cf)
+                return reindex_cf_file(sesh, data_file, cf)
 
     raise RuntimeError('Error: This function should return from all branches of if statements.')
 
 
-def reindex_nc_file(sesh, existing_data_file, cf):
-    """Delete the existing modelmeta content for a data file and insert it again de novo.
-    Return the new DataFile object.
+# DataFile
+
+def find_data_file_by_unique_id_and_hash(sesh, cf):
+    """Find and return DataFile records matching file unique id and file hash.
 
     :param sesh: modelmeta database session
-    :param existing_data_file: DataFile object representing data file to be deleted and re-inserted
     :param cf: CFDatafile object representing NetCDF file
-    :return: DataFile entry for file
+    :return: pair of DataFiles matching unique id, hash (None in a component if no match)
     """
-    delete_data_file(sesh, existing_data_file)
-    return insert_nc_file(sesh, cf)
+    q = sesh.query(DataFile).filter(DataFile.unique_id == cf.unique_id)
+    id_match = q.first()
+    q = sesh.query(DataFile).filter(DataFile.first_1mib_md5sum == cf.first_MiB_md5sum)
+    hash_match = q.first()
+    return id_match, hash_match
+
+
+def insert_data_file(sesh, cf):  # create.data.file.id
+    timeset = find_or_insert_timeset(sesh, cf)
+    run = find_or_insert_run(sesh, cf)
+    dim_names = cf.dim_axes_from_names()
+    logger.info("Creating new DataFile for unique_id {}".format(cf.unique_id))
+
+    df = DataFile(
+        filename=cf.filepath(),
+        first_1mib_md5sum=cf.first_MiB_md5sum,
+        unique_id=cf.unique_id,
+        index_time=datetime.datetime.now(),
+        run=run,
+        timeset=timeset,
+        x_dim_name=dim_names.get('X', None),
+        y_dim_name=dim_names.get('Y', None),
+        z_dim_name=dim_names.get('Z', None),
+        t_dim_name=dim_names.get('T', None)
+    )
+    sesh.add(df)
+    sesh.commit()
+    return df
 
 
 def delete_data_file(sesh, existing_data_file):
@@ -199,28 +278,83 @@ def delete_data_file(sesh, existing_data_file):
     sesh.commit()
 
 
-def insert_data_file(sesh, cf):  # create.data.file.id
-    timeset = find_or_insert_timeset(sesh, cf)
-    run = find_or_insert_run(sesh, cf)
-    dim_names = cf.dim_axes_from_names()
-    logger.info("Creating new DataFile for unique_id {}".format(cf.unique_id))
+# Run
 
-    df = DataFile(
-        filename=cf.filepath(),
-        first_1mib_md5sum=cf.first_MiB_md5sum,
-        unique_id=cf.unique_id,
-        index_time=datetime.datetime.now(),
-        run=run,
-        timeset=timeset,
-        x_dim_name=dim_names.get('X', None),
-        y_dim_name=dim_names.get('Y', None),
-        z_dim_name=dim_names.get('Z', None),
-        t_dim_name=dim_names.get('T', None)
-    )
-    sesh.add(df)
+def find_run(sesh, cf):
+    q = sesh.query(Run).join(Model).join(Emission) \
+        .filter(Model.short_name == cf.metadata.model) \
+        .filter(Emission.short_name == cf.metadata.emissions) \
+        .filter(Run.name == cf.metadata.run)
+    return q.first()
+
+
+def insert_run(sesh, cf, model, emission):
+    run = Run(name=cf.metadata.run, project=cf.metadata.project, model=model, emission=emission)
+    sesh.add(run)
     sesh.commit()
-    return df
+    return run
 
+
+def find_or_insert_run(sesh, cf):
+    run = find_run(sesh, cf)
+    if run:
+        return run
+
+    # No matching Run: Insert new Run and find or insert accompanying Model and Emission records
+
+    model = find_or_insert_model(sesh, cf)
+    if not model:
+        raise RuntimeError('Model not found or inserted!')
+
+    emission = find_or_insert_emission(sesh, cf)
+    if not emission:
+        raise RuntimeError('Emission not found or inserted!')
+
+    return insert_run(sesh, cf, model, emission)
+
+
+# Model
+
+def find_model(sesh, cf):
+    query = sesh.query(Model).filter(Model.short_name == cf.metadata.model)
+    return query.first()
+
+
+def insert_model(sesh, cf):
+    model = Model(short_name=cf.metadata.model, type=cf.model_type, organization=cf.metadata.institution)
+    sesh.add(model)
+    sesh.commit()
+    return model
+
+
+def find_or_insert_model(sesh, cf):
+    model = find_model(sesh, cf)
+    if model:
+        return model
+    return insert_model(sesh, cf)
+
+
+# Emission
+
+def find_emission(sesh, cf):
+    q = sesh.query(Emission).filter(Emission.short_name == cf.metadata.emissions)
+    return q.first()
+
+
+def insert_emission(sesh, cf):
+    emission = Emission(short_name=cf.metadata.emissions)
+    sesh.add(emission)
+    return emission
+
+
+def find_or_insert_emission(sesh, cf):
+    emission = find_emission(sesh, cf)
+    if emission:
+        return emission
+    return insert_emission(sesh, cf)
+
+
+# DataFileVariable
 
 def find_or_insert_data_file_variables(sesh, data_file, cf):  # create.data.file.variables
     """Find or insert modelmeta `DataFileVariable`s for the NetCDF file.
@@ -264,6 +398,8 @@ def find_or_insert_data_file_variables(sesh, data_file, cf):  # create.data.file
     return dfvs
 
 
+# VariableAlias
+
 def find_or_insert_variable_alias(sesh, variable):  # get.variable.alias.id
     variable_alias = sesh.query(VariableAlias)\
         .filter(VariableAlias.variable_long_name == variable.long_name)\
@@ -282,6 +418,8 @@ def find_or_insert_variable_alias(sesh, variable):  # get.variable.alias.id
 
     return variable_alias
 
+
+# LevelSet, Level
 
 def find_or_insert_level_set(sesh, cf, variable):  # get.level.set.id
     """Find or insert a LevelSet for a provided NetCDF variable. If the variable has no Z axis, return None.
@@ -356,65 +494,7 @@ def find_or_insert_level_set(sesh, cf, variable):  # get.level.set.id
     return level_set
 
 
-def get_var_bounds_and_values(cf, var_name, bounds_var_name=None):  # get.bnds.center.array
-    """Return a list of tuples describing the bounds and values of a NetCDF variable.
-    One tuple per variable value, defining (lower_bound, value, upper_bound)
-
-    :param cf: CFDatafile object representing NetCDF file
-    :param variable: NetCDF variable that is an level axis
-    :param bounds_var_name: name of bounds variable; if not specified, use level_axis_var.bounds
-    :return: list of tuples of the form (lower_bound, value, upper_bound)
-    """
-    # TODO: Should this be in nchelpers?
-    variable = cf.variables[var_name]
-    values = variable[:]
-    bounds_var_name = bounds_var_name or getattr(variable, 'bounds', None)
-
-    if bounds_var_name:
-        # Explicitly defined bounds: use them
-        bounds_var = cf.variables[bounds_var_name]
-        return zip(bounds_var[:, 0], values, bounds_var[:, 1])
-    else:
-        # No explicit bounds: manufacture them
-        midpoints = (
-            [(3*values[0] - values[1]) / 2] +   # fake lower "midpoint", half of previous step below first value
-            [(values[i] + values[i+1]) / 2 for i in range(len(values)-1)] +
-            [(3*values[-1] - values[-2]) / 2]   # fake upper "midpoint", half of previous step above last value
-        )
-        return zip(midpoints[:-1], values, midpoints[1:])
-
-
-@functools.lru_cache(maxsize=4)
-def get_grid_info(cf, var_name):
-    """Get information defining the Grid record corresponding to the spatial dimensions of a variable in a NetCDF file.
-    
-    :param cf: CFDatafile object representing NetCDF file
-    :param var_name: (str) name of variable
-    """
-    # TODO: Move this function into nchelpers?
-    axes_to_dim_names = cf.axes_dim(cf.variables[var_name].dimensions)
-
-    if not all(axis in axes_to_dim_names for axis in 'XY'):
-        return None
-
-    if 'S' in axes_to_dim_names:
-        dim_names = cf.reduced_dims(var_name)
-    else:
-        dim_names = axes_to_dim_names
-
-    xc_var, yc_var = (cf.variables[dim_names[axis]] for axis in 'XY')
-    xc_values, yc_values = (var[:] for var in [xc_var, yc_var])
-
-    return {
-        'xc_var': xc_var,
-        'yc_var': yc_var,
-        'xc_values': xc_values,
-        'yc_values': yc_values,
-        'xc_grid_step': mean_step_size(xc_values),
-        'yc_grid_step': mean_step_size(yc_values),
-        'evenly_spaced_y': is_regular_series(yc_values),
-    }
-
+# Grid, YCellBound
 
 def find_grid(sesh, cf, var_name):
     """Find existing Grid record corresponding to spatial dimensions of a variable in a NetCDF file.
@@ -521,6 +601,8 @@ def find_or_insert_grid(sesh, cf, var_name):  # get.grid.id
     return insert_grid(sesh, cf, var_name)
 
 
+# Timeset, Time, ClimatologicalTime
+
 def find_timeset(sesh, cf):
     """Find existing TimeSet record corresponding a NetCDF file.
 
@@ -601,76 +683,8 @@ def find_or_insert_timeset(sesh, cf):
     return insert_timeset(sesh, cf)
 
 
-def find_emission(sesh, cf):
-    q = sesh.query(Emission).filter(Emission.short_name == cf.metadata.emissions)
-    return q.first()
-
-
-def insert_emission(sesh, cf):
-    emission = Emission(short_name=cf.metadata.emissions)
-    sesh.add(emission)
-    return emission
-
-
-def find_or_insert_emission(sesh, cf):
-    emission = find_emission(sesh, cf)
-    if emission:
-        return emission
-    return insert_emission(sesh, cf)
-
-
-def find_run(sesh, cf):
-    q = sesh.query(Run).join(Model).join(Emission) \
-        .filter(Model.short_name == cf.metadata.model) \
-        .filter(Emission.short_name == cf.metadata.emissions) \
-        .filter(Run.name == cf.metadata.run)
-    return q.first()
-
-
-def insert_run(sesh, cf, model, emission):
-    run = Run(name=cf.metadata.run, project=cf.metadata.project, model=model, emission=emission)
-    sesh.add(run)
-    sesh.commit()
-    return run
-
-
-def find_or_insert_run(sesh, cf):
-    run = find_run(sesh, cf)
-    if run:
-        return run
-
-    # No matching Run: Insert new Run and accompanying Model and Emission records
-
-    model = find_or_insert_model(sesh, cf)
-    if not model:
-        raise RuntimeError('Model not found or inserted!')
-
-    emission = find_or_insert_emission(sesh, cf)
-    if not emission:
-        raise RuntimeError('Emission not found or inserted!')
-
-    return insert_run(sesh, cf, model, emission)
-
-
-def find_model(sesh, cf):
-    query = sesh.query(Model).filter(Model.short_name == cf.metadata.model)
-    return query.first()
-
-
-def insert_model(sesh, cf):
-    model = Model(short_name=cf.metadata.model, type=cf.model_type, organization=cf.metadata.institution)
-    sesh.add(model)
-    sesh.commit()
-    return model
-
-
-def find_or_insert_model(sesh, cf):
-    model = find_model(sesh, cf)
-    if model:
-        return model
-    model = insert_model(sesh, cf)
-    return model
-
+# Helper functions
+# Possibly most of these functions should be moved into nchelpers
 
 def to_datetime(value):
     """Convert (iterables of) datetime-like values to real datetime values.
@@ -724,3 +738,64 @@ def get_variable_range(variable):  # get.variable.range
     # TODO: What about fill values?
     values = variable[:]
     return np.nanmin(values), np.nanmax(values)
+
+def get_var_bounds_and_values(cf, var_name, bounds_var_name=None):  # get.bnds.center.array
+    """Return a list of tuples describing the bounds and values of a NetCDF variable.
+    One tuple per variable value, defining (lower_bound, value, upper_bound)
+
+    :param cf: CFDatafile object representing NetCDF file
+    :param variable: NetCDF variable that is an level axis
+    :param bounds_var_name: name of bounds variable; if not specified, use level_axis_var.bounds
+    :return: list of tuples of the form (lower_bound, value, upper_bound)
+    """
+    # TODO: Should this be in nchelpers?
+    variable = cf.variables[var_name]
+    values = variable[:]
+    bounds_var_name = bounds_var_name or getattr(variable, 'bounds', None)
+
+    if bounds_var_name:
+        # Explicitly defined bounds: use them
+        bounds_var = cf.variables[bounds_var_name]
+        return zip(bounds_var[:, 0], values, bounds_var[:, 1])
+    else:
+        # No explicit bounds: manufacture them
+        midpoints = (
+            [(3*values[0] - values[1]) / 2] +   # fake lower "midpoint", half of previous step below first value
+            [(values[i] + values[i+1]) / 2 for i in range(len(values)-1)] +
+            [(3*values[-1] - values[-2]) / 2]   # fake upper "midpoint", half of previous step above last value
+        )
+        return zip(midpoints[:-1], values, midpoints[1:])
+
+
+@functools.lru_cache(maxsize=4)
+def get_grid_info(cf, var_name):
+    """Get information defining the Grid record corresponding to the spatial dimensions of a variable in a NetCDF file.
+
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable
+    """
+    # TODO: Move this function into nchelpers?
+    axes_to_dim_names = cf.axes_dim(cf.variables[var_name].dimensions)
+
+    if not all(axis in axes_to_dim_names for axis in 'XY'):
+        return None
+
+    if 'S' in axes_to_dim_names:
+        dim_names = cf.reduced_dims(var_name)
+    else:
+        dim_names = axes_to_dim_names
+
+    xc_var, yc_var = (cf.variables[dim_names[axis]] for axis in 'XY')
+    xc_values, yc_values = (var[:] for var in [xc_var, yc_var])
+
+    return {
+        'xc_var': xc_var,
+        'yc_var': yc_var,
+        'xc_values': xc_values,
+        'yc_values': yc_values,
+        'xc_grid_step': mean_step_size(xc_values),
+        'yc_grid_step': mean_step_size(yc_values),
+        'evenly_spaced_y': is_regular_series(yc_values),
+    }
+
+

@@ -12,7 +12,7 @@ from mm_cataloguer.index_netcdf import \
     to_datetime
 
 
-# Helper functions
+# Helper functions for defining tests
 
 def conditional(f, false_value=None):
     """Return a function that, dependent on an additional boolean keyword parameter `invoke`,
@@ -47,6 +47,49 @@ def check_find_or_insert(find_or_insert_thing, cond_insert_thing, session, cf, *
         assert thing_found_or_inserted == thing_inserted
     else:
         assert thing_found_or_inserted
+
+
+# TODO: DataFile
+
+
+# Run
+
+def insert_run_plus(blank_test_session, mock_cf):
+    """Insert a run plus associated emission and model objects.
+    Return run, model, and emission inserted.
+    """
+    emission = insert_emission(blank_test_session, mock_cf)
+    model = insert_model(blank_test_session, mock_cf)
+    run = insert_run(blank_test_session, mock_cf, model, emission)
+    return run, model, emission
+
+
+def insert_run_plus_prime(*args):
+    """Same as above, but just return the run."""
+    return insert_run_plus(*args)[0]
+
+
+cond_insert_run_plus = conditional(insert_run_plus, false_value=(None, None, None))
+cond_insert_run_plus_prime = conditional(insert_run_plus_prime)
+
+
+def test_insert_run(blank_test_session, mock_cf):
+    run, model, emission = insert_run_plus(blank_test_session, mock_cf)
+    assert run.name == mock_cf.metadata.run
+    assert run.project == mock_cf.metadata.project
+    assert run.model == model
+    assert run.emission == emission
+
+
+@pytest.mark.parametrize('insert', [False, True])
+def test_find_run(blank_test_session, mock_cf, insert):
+    check_find(find_run, cond_insert_run_plus_prime, blank_test_session, mock_cf, invoke=insert)
+
+
+@pytest.mark.parametrize('insert', [False, True])
+def test_find_or_insert_run(blank_test_session, mock_cf, insert):
+    check_find_or_insert(find_or_insert_run, cond_insert_run_plus_prime, blank_test_session, mock_cf,
+                         invoke=insert)
 
 
 # Model
@@ -93,47 +136,41 @@ def test_find_or_insert_emission(blank_test_session, mock_cf, insert):
                          invoke=insert)
 
 
-# Run
-
-def insert_run_plus(blank_test_session, mock_cf):
-    """Insert a run plus associated emission and model objects.
-    Return run, model, and emission inserted.
-    """
-    emission = insert_emission(blank_test_session, mock_cf)
-    model = insert_model(blank_test_session, mock_cf)
-    run = insert_run(blank_test_session, mock_cf, model, emission)
-    return run, model, emission
+# TODO: DataFileVariable
 
 
-def insert_run_plus_prime(*args):
-    """Same as above, but just return the run."""
-    return insert_run_plus(*args)[0]
+# TODO: VariableAlias
 
 
-cond_insert_run_plus = conditional(insert_run_plus, false_value=(None, None, None))
-cond_insert_run_plus_prime = conditional(insert_run_plus_prime)
+# TODO: LevelSet
 
 
-def test_insert_run(blank_test_session, mock_cf):
-    run, model, emission = insert_run_plus(blank_test_session, mock_cf)
-    assert run.name == mock_cf.metadata.run
-    assert run.project == mock_cf.metadata.project
-    assert run.model == model
-    assert run.emission == emission
+# Grid, YCellBound
+# TODO: Add tests for YCellBound
+
+cond_insert_grid = conditional(insert_grid)
+
+
+def test_insert_grid(blank_test_session, mock_cf):
+    grid = insert_grid(blank_test_session, mock_cf, mock_cf.dependent_varnames[0])
+    assert grid
 
 
 @pytest.mark.parametrize('insert', [False, True])
-def test_find_run(blank_test_session, mock_cf, insert):
-    check_find(find_run, cond_insert_run_plus_prime, blank_test_session, mock_cf, invoke=insert)
+def test_find_grid(blank_test_session, mock_cf, insert):
+    check_find(find_grid, cond_insert_grid, blank_test_session, mock_cf, mock_cf.dependent_varnames[0],
+               invoke=insert)
 
 
 @pytest.mark.parametrize('insert', [False, True])
-def test_find_or_insert_run(blank_test_session, mock_cf, insert):
-    check_find_or_insert(find_or_insert_run, cond_insert_run_plus_prime, blank_test_session, mock_cf,
-                         invoke=insert)
+def test_find_or_insert_grid(blank_test_session, mock_cf, insert):
+    check_find_or_insert(find_or_insert_grid, cond_insert_grid, blank_test_session, mock_cf,
+                         mock_cf.dependent_varnames[0], invoke=insert)
+
 
 
 # Timeset
+# TODO: Add tests for Time, ClimatologicalTime
 
 cond_insert_timeset = conditional(insert_timeset)
 
@@ -161,7 +198,7 @@ def test_find_or_insert_timeset(blank_test_session, mock_cf, insert):
                          invoke=insert)
 
 
-# Grid
+# Helper functions
 
 def test_get_grid_info(mock_cf):
     info = get_grid_info(mock_cf, mock_cf.dependent_varnames[0])
@@ -178,23 +215,4 @@ def test_get_var_bounds_and_values(mock_cf):
         assert lower < value < upper
         assert value == lat[i]
 
-
-cond_insert_grid = conditional(insert_grid)
-
-
-def test_insert_grid(blank_test_session, mock_cf):
-    grid = insert_grid(blank_test_session, mock_cf, mock_cf.dependent_varnames[0])
-    assert grid
-
-
-@pytest.mark.parametrize('insert', [False, True])
-def test_find_grid(blank_test_session, mock_cf, insert):
-    check_find(find_grid, cond_insert_grid, blank_test_session, mock_cf, mock_cf.dependent_varnames[0],
-               invoke=insert)
-
-
-@pytest.mark.parametrize('insert', [False, True])
-def test_find_or_insert_grid(blank_test_session, mock_cf, insert):
-    check_find_or_insert(find_or_insert_grid, cond_insert_grid, blank_test_session, mock_cf,
-                         mock_cf.dependent_varnames[0], invoke=insert)
 
