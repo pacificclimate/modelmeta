@@ -2,6 +2,8 @@ import os
 import hashlib
 import logging
 import datetime
+import functools
+import collections
 
 import numpy as np
 from sqlalchemy import create_engine, func
@@ -240,7 +242,7 @@ def find_or_insert_data_file_variables(sesh, data_file, cf):  # create.data.file
             variable = cf.variables[var_name]
             variable_alias = find_or_insert_variable_alias(sesh, variable)
             level_set = find_or_insert_level_set(sesh, cf, variable)
-            grid = find_or_insert_grid(sesh, cf, variable)
+            grid = find_or_insert_grid(sesh, cf, var_name)
             range_min, range_max = get_variable_range(variable)
             dfv = DataFileVariable(
                 file=data_file,
@@ -354,7 +356,7 @@ def find_or_insert_level_set(sesh, cf, variable):  # get.level.set.id
     return level_set
 
 
-def get_var_bounds_and_values(cf, variable, bounds_var_name=None):  # get.bnds.center.array
+def get_var_bounds_and_values(cf, var_name, bounds_var_name=None):  # get.bnds.center.array
     """Return a list of tuples describing the bounds and values of a NetCDF variable.
     One tuple per variable value, defining (lower_bound, value, upper_bound)
 
@@ -364,13 +366,14 @@ def get_var_bounds_and_values(cf, variable, bounds_var_name=None):  # get.bnds.c
     :return: list of tuples of the form (lower_bound, value, upper_bound)
     """
     # TODO: Should this be in nchelpers?
+    variable = cf.variables[var_name]
     values = variable[:]
-
     bounds_var_name = bounds_var_name or getattr(variable, 'bounds', None)
+
     if bounds_var_name:
         # Explicitly defined bounds: use them
-        bounds_var = cf.variables.get[bounds_var_name]
-        return zip(bounds_var[1, :], values, bounds_var[2, :])
+        bounds_var = cf.variables[bounds_var_name]
+        return zip(bounds_var[:, 0], values, bounds_var[:, 1])
     else:
         # No explicit bounds: manufacture them
         midpoints = (
@@ -381,44 +384,48 @@ def get_var_bounds_and_values(cf, variable, bounds_var_name=None):  # get.bnds.c
         return zip(midpoints[:-1], values, midpoints[1:])
 
 
-def find_or_insert_grid(sesh, cf, variable):  # get.grid.id
-    """Find existing or insert new Grid record (and associated YCellBound records) corresponding to
-    a variable in a NetCDF file.
+@functools.lru_cache(maxsize=4)
+def get_grid_info(cf, var_name):
+    """Get information defining the Grid record corresponding to the spatial dimensions of a variable in a NetCDF file.
     
-    :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :param variable: (netCDF4.Variable) variable for which to find or insert grid
-    :return: existing or new Grid record
+    :param var_name: (str) name of variable
     """
-    dim_names_to_axes = cf.dim_axes(variable.name)
-    axes_to_dim_names = {axis: dim_name for dim_name, axis in dim_names_to_axes.items()}
+    # TODO: Move this function into nchelpers?
+    axes_to_dim_names = cf.axes_dim(cf.variables[var_name].dimensions)
 
     if not all(axis in axes_to_dim_names for axis in 'XY'):
         return None
 
     if 'S' in axes_to_dim_names:
-        dim_names = cf.reduced_dims(variable.name)
+        dim_names = cf.reduced_dims(var_name)
     else:
         dim_names = axes_to_dim_names
 
     xc_var, yc_var = (cf.variables[dim_names[axis]] for axis in 'XY')
     xc_values, yc_values = (var[:] for var in [xc_var, yc_var])
 
-    def is_regular_series(values, relative_tolerance=1e-6):
-        """Return True iff the given series of values is regular, i.e., has equal steps between values,
-        within a relative tolerance."""
-        diffs = np.diff(values)
-        return abs((np.max(diffs) / np.min(diffs) - 1) < relative_tolerance)
+    return {
+        'xc_var': xc_var,
+        'yc_var': yc_var,
+        'xc_values': xc_values,
+        'yc_values': yc_values,
+        'xc_grid_step': mean_step_size(xc_values),
+        'yc_grid_step': mean_step_size(yc_values),
+        'evenly_spaced_y': is_regular_series(yc_values),
+    }
 
-    evenly_spaced_y = is_regular_series(yc_values)
 
-    def mean_step_size(values):
-        """Return mean of differences between successive elements of values list"""
-        return np.mean(np.diff(values))
+def find_grid(sesh, cf, var_name):
+    """Find existing Grid record corresponding to spatial dimensions of a variable in a NetCDF file.
 
-    xc_grid_step, yc_grid_step = (mean_step_size(values) for values in [xc_values, yc_values])
-    xc_origin, yc_origin = (values[0] for values in [xc_values, yc_values])
-
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable for which to find or insert grid
+    :return: (tuple) (grid, info)
+        grid: existing Grid record or else None
+        info: dict containing costly information to compute for finding/inserting Grid record
+    """
     def approx_equal(attribute, value, relative_tolerance=1e-6):
         """Return a column expression specifying that `attribute` and `value` are equal within a specified
         relative tolerance.
@@ -429,110 +436,141 @@ def find_or_insert_grid(sesh, cf, variable):  # get.grid.id
         else:
             return func.abs((attribute - value) / attribute < relative_tolerance)
 
-    grid = (sesh.query(Grid)
-            .filter(approx_equal(Grid.xc_origin, xc_origin))
-            .filter(approx_equal(Grid.yc_origin, yc_origin))
-            .filter(approx_equal(Grid.xc_grid_step, xc_grid_step))
-            .filter(approx_equal(Grid.yc_grid_step, yc_grid_step))
-            .filter(Grid.xc_count == len(xc_values))
-            .filter(Grid.yc_count == len(yc_values))
-            .filter(Grid.evenly_spaced_y == evenly_spaced_y)
+    info = get_grid_info(cf, var_name)
+    
+    return (sesh.query(Grid)
+            .filter(approx_equal(Grid.xc_origin, info['xc_values'][0]))
+            .filter(approx_equal(Grid.yc_origin, info['yc_values'][0]))
+            .filter(approx_equal(Grid.xc_grid_step, info['xc_grid_step']))
+            .filter(approx_equal(Grid.yc_grid_step, info['yc_grid_step']))
+            .filter(Grid.xc_count == len(info['xc_values']))
+            .filter(Grid.yc_count == len(info['yc_values']))
+            .filter(Grid.evenly_spaced_y == info['evenly_spaced_y'])
             .first()
             )
 
-    if grid:
-        return grid
 
-    # No matching Grid: Insert new Grid and associated YCellBound records
+def insert_grid(sesh, cf, var_name):
+    """Insert new Grid record and associated YCellBound records corresponding to spatial dimensions of
+    a variable in a NetCDF file.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable for which to find or insert grid
+    :return: existing or new Grid record
+    """
+    info = get_grid_info(cf, var_name)
 
     def cell_avg_area_sq_km():
         """Compute the average area of a grid cell, in sq km."""
         # TODO: Move into nchelpers?
-        if all(units == 'm' for units in [xc_var.units, yc_var.units]):
+        if all(units == 'm' for units in [info['xc_var'].units, info['yc_var'].units]):
             # Assume that grid is regular if specified in meters
-            return abs(xc_grid_step * yc_grid_step) / 1e6
+            return abs(info['xc_grid_step'] * info['yc_grid_step']) / 1e6
         else:
             # Assume lat-lon coordinates in degrees.
             # Assume that coordinate values are in increasing order (i.e., coord[i} < coord[j] for i < j).
             earth_radius = 6371
-            y_vals = np.deg2rad(yc_values)
+            y_vals = np.deg2rad(info['yc_values'])
             # TODO: Improve this computation? See https://github.com/pacificclimate/modelmeta/issues/4
             return (
-                np.deg2rad(np.abs(xc_values[1] - xc_values[0])) *
+                np.deg2rad(np.abs(info['xc_values'][1] - info['xc_values'][0])) *
                 np.mean(np.diff(y_vals) * np.cos(y_vals[:-1])) *
                 earth_radius ** 2)
 
     grid = Grid(
-        xc_origin=xc_origin,
-        yc_origin=yc_origin,
-        xc_grid_step=xc_grid_step,
-        yc_grid_step=yc_grid_step,
-        xc_count=len(xc_values),
-        yc_count=len(yc_values),
-        evenly_spaced_y=evenly_spaced_y,
+        xc_origin=info['xc_values'][0],
+        yc_origin=info['yc_values'][0],
+        xc_grid_step=info['xc_grid_step'],
+        yc_grid_step=info['yc_grid_step'],
+        xc_count=len(info['xc_values']),
+        yc_count=len(info['yc_values']),
+        evenly_spaced_y=info['evenly_spaced_y'],
         cell_avg_area_sq_km=cell_avg_area_sq_km(),
-        xc_units=xc_var.units,
-        yc_units=yc_var.units,
+        xc_units=info['xc_var'].units,
+        yc_units=info['yc_var'].units,
     )
     sesh.add(grid)
 
-    if not evenly_spaced_y:
+    if not info['evenly_spaced_y']:
         y_cell_bounds = [YCellBound(
             grid=grid,
             bottom_bnd=bottom_bnd,
             y_center=y_center,
-            top_bound=top_bound,
-        ) for bottom_bnd, y_center, top_bound in get_var_bounds_and_values(cf, variable)]
+            top_bnd=top_bnd,
+        ) for bottom_bnd, y_center, top_bnd in get_var_bounds_and_values(cf, info['yc_var'].name)]
         sesh.add_all(y_cell_bounds)
 
     sesh.commit()
-        
+
     return grid
 
 
-def find_or_insert_timeset(sesh, cf):
-    """Find existing or insert new TimeSet record (and associated Time and ClimagologicalTime records)
-    corresponding a NetCDF file.
+def find_or_insert_grid(sesh, cf, var_name):  # get.grid.id
+    """Find existing or insert new Grid record (and associated YCellBound records) corresponding to
+    a variable in a NetCDF file.
+    
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable for which to find or insert grid
+    :return: existing or new Grid record
+    """
+    grid = find_grid(sesh, cf, var_name)
+    if grid:
+        return grid
+    return insert_grid(sesh, cf, var_name)
+
+
+def find_timeset(sesh, cf):
+    """Find existing TimeSet record corresponding a NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: existing or new TimeSet record
+    :return: existing TimeSet record or None
     """
-    start_date, end_date = cf.time_range_as_dates
+    start_date, end_date = to_datetime(cf.time_range_as_dates)
 
     # Check for existing TimeSet matching this file's set of time values
-    # TODO: Is the encoding for TimeSet.calendar the same as for cf.time_var.calendar?
-    time_set = sesh.query(TimeSet)\
-        .filter(TimeSet.start_date == start_date)\
-        .filter(TimeSet.end_date == end_date) \
-        .filter(TimeSet.multi_year_mean == cf.is_multi_year_mean) \
-        .filter(TimeSet.time_resolution == cf.time_resolution)\
-        .filter(TimeSet.num_times == cf.time_var.size)\
-        .filter(TimeSet.calendar == cf.time_var.calendar)\
-        .first()
+    # TODO: Verify encoding for TimeSet.calendar the same as for cf.time_var.calendar
+    return (
+        sesh.query(TimeSet)
+            .filter(TimeSet.start_date == start_date)
+            .filter(TimeSet.end_date == end_date)
+            .filter(TimeSet.multi_year_mean == cf.is_multi_year_mean)
+            .filter(TimeSet.time_resolution == cf.time_resolution)
+            .filter(TimeSet.num_times == int(cf.time_var.size))
+            .filter(TimeSet.calendar == cf.time_var.calendar)
+            .first()
+    )
 
-    if time_set:
-        return time_set
 
-    # No matching TimeSet: Create new TimeSet, Time, and ClimatologicalTime records
+def insert_timeset(sesh, cf):
+    """Insert new TimeSet record and associated Time and ClimagologicalTime records corresponding a NetCDF file.
 
-    # TODO: Convert time values in case of 360_day calendar? See R script, ll. 468-478.
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :return: new TimeSet record
+    """
+    start_date, end_date = to_datetime(cf.time_range_as_dates)
+
     time_set = TimeSet(
         calendar=cf.time_var.calendar,
         start_date=start_date,
         end_date=end_date,
         multi_year_mean=cf.is_multi_year_mean,
-        num_times=cf.time_var.size,
-        time_resolution=cf.time_resolution
+        num_times=int(cf.time_var.size),  # convert from numpy representation
+        time_resolution=cf.time_resolution,
     )
     sesh.add(time_set)
+
+    # TODO: Factor out inserts for Time and ClimatologicalTime as separate functions
 
     times = [Time(
         time_idx=time_idx,
         timestep=timestep,
-        timeset=time_set
-    ) for time_idx, timestep in enumerate(cf.time_var_values)]
-    sesh.add(times)
+        timeset=time_set,
+    ) for time_idx, timestep in enumerate(to_datetime(cf.time_steps['datetime']))]
+    sesh.add_all(times)
 
     if cf.is_multi_year_mean:
         climatology_bounds = cf.variable[cf.climatology_bounds_var_name][:]
@@ -547,6 +585,20 @@ def find_or_insert_timeset(sesh, cf):
     sesh.commit()
 
     return time_set
+
+
+def find_or_insert_timeset(sesh, cf):
+    """Find existing or insert new TimeSet record (and associated Time and ClimagologicalTime records)
+    corresponding a NetCDF file.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :return: existing or new TimeSet record
+    """
+    time_set = find_timeset(sesh, cf)
+    if time_set:
+        return time_set
+    return insert_timeset(sesh, cf)
 
 
 def find_emission(sesh, cf):
@@ -605,8 +657,8 @@ def find_model(sesh, cf):
     return query.first()
 
 
-def insert_model(sesh, cf, model_type):
-    model = Model(short_name=cf.metadata.model, type=model_type, organization=cf.metadata.institution)
+def insert_model(sesh, cf):
+    model = Model(short_name=cf.metadata.model, type=cf.model_type, organization=cf.metadata.institution)
     sesh.add(model)
     sesh.commit()
     return model
@@ -616,18 +668,38 @@ def find_or_insert_model(sesh, cf):
     model = find_model(sesh, cf)
     if model:
         return model
-
-    # No matching Model: Insert new Model
-
-    # Really rudimentary GCM/RCM decision making.
-    if cf.metadata.project == 'NARCCAP' or \
-       cf.metadata.project not in ('IPCC Fourth Assessment', 'CMIP5'):
-        model_type = 'RCM'
-    else:
-        model_type = 'GCM'
-    model = insert_model(sesh, cf, model_type)
-
+    model = insert_model(sesh, cf)
     return model
+
+
+def to_datetime(value):
+    """Convert (iterables of) datetime-like values to real datetime values.
+    WARNING: Does not recode for non-standard calendars.
+
+    Because: SQLite DateTime type only accepts Python datetime and date objects as input,
+    and this messes up our testing at minimum.
+    """
+    # TODO: Move into nchelpers?
+    # TODO: Convert time values in case of 360_day calendar? See R script, ll. 468-478.
+    if isinstance(value, collections.Iterable):
+        return (to_datetime(v) for v in value)
+    if isinstance(value, (datetime.datetime, datetime.date)):
+        return value
+    return datetime.datetime(
+        *(getattr(value, attr) for attr in 'year month day hour minute second microsecond'.split())
+    )
+
+
+def is_regular_series(values, relative_tolerance=1e-6):
+    """Return True iff the given series of values is regular, i.e., has equal steps between values,
+    within a relative tolerance."""
+    diffs = np.diff(values)
+    return abs((np.max(diffs) / np.min(diffs) - 1) < relative_tolerance)
+
+
+def mean_step_size(values):
+    """Return mean of differences between successive elements of values list"""
+    return np.mean(np.diff(values))
 
 
 def md5(filepath):
