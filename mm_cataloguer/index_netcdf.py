@@ -31,11 +31,11 @@ Database manipulation functions are organized (ordered) according to the list ab
 
 Database manipulation functions have the following typical names and signatures:
 
-    find_<item>(Session, CFDataset): Item
+    find_<item>(Session, CFDataset, ...): Item
         -- Find and return an Item representing the Item part of the NetCDF file. If none exists return None.
-    insert_<item>(Session, CFDataset) -> Item
+    insert_<item>(Session, CFDataset, ...) -> Item
         -- Insert and return an Item representing the Item part of the NetCDF file.
-    find_or_insert_<item>(Session, CFDataset) -> Item
+    find_or_insert_<item>(Session, CFDataset, ...) -> Item
         -- Find or insert and return an Item representing the Item part of the NetCDF file.
 
 where
@@ -145,7 +145,7 @@ def index_cf_file(sesh, cf):
     :return: DataFile entry for file
     """
     data_file = insert_data_file(sesh, cf)
-    find_or_insert_data_file_variables(sesh, data_file, cf)
+    find_or_insert_data_file_variables(sesh, cf, data_file)
     return data_file
 
 
@@ -233,9 +233,16 @@ def find_data_file_by_unique_id_and_hash(sesh, cf):
 
 
 def insert_data_file(sesh, cf):  # create.data.file.id
+    """Insert a DataFile (but no associated records) representing a NetCDF file.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :return: inserted DataFile
+    """
+    # TODO: Parametrize on timeset, run; like run on model, emission
     timeset = find_or_insert_timeset(sesh, cf)
     run = find_or_insert_run(sesh, cf)
-    dim_names = cf.dim_axes_from_names()
+    dim_names = cf.axes_dim()
     logger.info("Creating new DataFile for unique_id {}".format(cf.unique_id))
 
     df = DataFile(
@@ -257,23 +264,25 @@ def insert_data_file(sesh, cf):  # create.data.file.id
 
 def delete_data_file(sesh, existing_data_file):
     """Delete existing `DataFile` object, associated `DataFileVariable`s,
-    and the associations of those `DataFileVariable`s with `Ensembles` (via object `EnsembleDataFileVariables`).
+    and the associations of those `DataFileVariable`s to `Ensembles` (via object `EnsembleDataFileVariables`).
     (Existing `Ensemble`s are preserved).
 
     :param sesh: modelmeta database session
     :param existing_data_file: DataFile object representing data file to be deleted and re-inserted
     """
     # TODO: Also delete associations with `QCFlag`s? (via `DataFileVariablesQcFlag`)
-    existing_data_file_variables = existing_data_file.data_file_variables
+    # existing_data_file_variables = existing_data_file.data_file_variables
+    existing_data_file_variables = (
+        sesh.query(DataFileVariable).filter(DataFileVariable.file == existing_data_file)
+    )
     existing_ensemble_data_file_variables = (
         sesh.query(EnsembleDataFileVariables)
             .filter(EnsembleDataFileVariables.data_file_variable_id.in_(
                 edfv.id for edfv in existing_data_file_variables
             ))
-            .all()
     )
-    sesh.delete_all(existing_ensemble_data_file_variables)
-    sesh.delete_all(existing_data_file_variables)
+    existing_ensemble_data_file_variables.delete()
+    existing_data_file_variables.delete()
     sesh.delete(existing_data_file)
     sesh.commit()
 
@@ -303,6 +312,7 @@ def find_or_insert_run(sesh, cf):
     # No matching Run: Insert new Run and find or insert accompanying Model and Emission records
 
     model = find_or_insert_model(sesh, cf)
+    # TODO: Remove these checks? Unless something is *really* broken, find_or_insert_x returns an x.
     if not model:
         raise RuntimeError('Model not found or inserted!')
 
@@ -356,142 +366,152 @@ def find_or_insert_emission(sesh, cf):
 
 # DataFileVariable
 
-def find_or_insert_data_file_variables(sesh, data_file, cf):  # create.data.file.variables
-    """Find or insert modelmeta `DataFileVariable`s for the NetCDF file.
-    One DataFileVariable is found or inserted for every variable in the NetCDF file.
+def find_data_file_variable(sesh, cf, var_name, data_file):
+    q = (sesh.query(DataFileVariable)
+         .filter(DataFileVariable.file == data_file)
+         .filter(DataFileVariable.netcdf_variable_name == var_name)
+         )
+    return q.first()
 
-    :param sesh: modelmeta database session
-    :param cf: CFDatafile object representing NetCDF file
-    :param data_file: DataFile to attach variables to
-    :return: list of DataFileVariable found or inserted
-    """
-    dfvs = []
-    for var_name in cf.dependent_varnames:
-        dfv = (sesh.query(DataFileVariable)
-               .filter(DataFileVariable.file == data_file)
-               .filter(DataFileVariable.netcdf_variable_name == var_name)
-               .first())
 
-        if not dfv:
-            variable = cf.variables[var_name]
-            variable_alias = find_or_insert_variable_alias(sesh, variable)
-            level_set = find_or_insert_level_set(sesh, cf, variable)
-            grid = find_or_insert_grid(sesh, cf, var_name)
-            range_min, range_max = get_variable_range(variable)
-            dfv = DataFileVariable(
-                file=data_file,
-                variable_alias=variable_alias,
-                # derivation_method=,  # TODO: verify no value for this and other unspecified attributes
-                variable_cell_methods=variable.cell_method,
-                level_set=level_set,
-                grid=grid,
-                netcdf_variable_name=var_name,
-                range_min=range_min,
-                range_max=range_max,
-                disabled=False,
-            )
-            sesh.add(dfv)
-            sesh.commit()  # should this be outside loop?
+def insert_data_file_variable(sesh, cf, var_name, data_file, variable_alias, level_set, grid):
+    variable = cf.variables[var_name]
+    range_min, range_max = get_variable_range(cf, var_name)
+    dfv = DataFileVariable(
+        file=data_file,
+        variable_alias=variable_alias,
+        # derivation_method=,  # TODO: verify no value for this and other unspecified attributes
+        variable_cell_methods=variable.cell_methods,
+        level_set=level_set,
+        grid=grid,
+        netcdf_variable_name=var_name,
+        range_min=range_min,
+        range_max=range_max,
+        disabled=False,
+    )
+    sesh.add(dfv)
+    sesh.commit()
+    return dfv
 
-        dfvs.append(dfv)
 
-    return dfvs
+def find_or_insert_data_file_variable(sesh, cf, var_name, data_file):
+    dfv = find_data_file_variable(sesh, cf, var_name, data_file)
+    if dfv:
+        return dfv
+    variable_alias = find_or_insert_variable_alias(sesh, cf, var_name)
+    level_set = find_or_insert_level_set(sesh, cf, var_name)
+    grid = find_or_insert_grid(sesh, cf, var_name)
+    return insert_data_file_variable(sesh, cf, var_name, data_file, variable_alias, level_set, grid)
+
+
+def find_or_insert_data_file_variables(sesh, cf, data_file):  # create.data.file.variables
+    return [find_or_insert_data_file_variable(sesh, cf, var_name, data_file) for var_name in cf.dependent_varnames]
 
 
 # VariableAlias
 
-def find_or_insert_variable_alias(sesh, variable):  # get.variable.alias.id
-    variable_alias = sesh.query(VariableAlias)\
-        .filter(VariableAlias.variable_long_name == variable.long_name)\
-        .filter(VariableAlias.variable_standard_name == variable.standard_name)\
-        .filter(VariableAlias.variable_units == variable.units)\
-        .first()
+def find_variable_alias(sesh, cf, var_name):
+    """Find a VariableAlias for the named NetCDF variable. If none exists, return None.
 
-    if not variable_alias:
-        variable_alias = VariableAlias(
-            variable_long_name=variable.long_name,
-            variable_standard_name=variable.standard_name,
-            variable_units=variable.units,
-        )
-        sesh.add(variable_alias)
-        sesh.commit()
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable
+    :return found VariableAlias object or None
+    """
+    variable = cf.variables[var_name]
+    q = sesh.query(VariableAlias) \
+        .filter(VariableAlias.long_name == variable.long_name) \
+        .filter(VariableAlias.standard_name == variable.standard_name) \
+        .filter(VariableAlias.units == variable.units)
+    return q.first()
 
+
+def insert_variable_alias(sesh, cf, var_name):
+    """Insert a VariableAlias for the named NetCDF variable.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable
+    :return inserted VariableAlias object
+    """
+    variable = cf.variables[var_name]
+    variable_alias = VariableAlias(
+        long_name=variable.long_name,
+        standard_name=variable.standard_name,
+        units=variable.units,
+    )
+    sesh.add(variable_alias)
+    sesh.commit()
     return variable_alias
+
+
+def find_or_insert_variable_alias(sesh, cf, var_name):  # get.variable.alias.id
+    variable_alias = find_variable_alias(sesh, cf, var_name)
+    if variable_alias:
+        return variable_alias
+    return insert_variable_alias(sesh, cf, var_name)
 
 
 # LevelSet, Level
 
-def find_or_insert_level_set(sesh, cf, variable):  # get.level.set.id
-    """Find or insert a LevelSet for a provided NetCDF variable. If the variable has no Z axis, return None.
+def find_level_set(sesh, cf, var_name):
+    """Find a LevelSet for a named NetCDF variable. If the variable has no Z (level) axis, return None.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :param variable: NetCDF variable (in `cf`)
+    :param var_name: name of NetCDF variable
     :return LevelSet object corresponding to the level set for the provided varible,
         None if no level set (variable has no Z axis)
     """
-    # Find the level dimension if it exists
-    axis_to_dim_name = cf.dim_axes_from_names(variable.dimensions)
-    level_axis_dim_name = axis_to_dim_name.get('Z', None)
-
-    if not level_axis_dim_name:
+    info = get_level_set_info(cf, var_name)
+    if not info:
         return None
-    level_axis_var = cf.variables[level_axis_dim_name]
+    q = sesh.query(LevelSet) \
+        .filter(LevelSet.levels == info['vertical_levels']) \
+        .filter(LevelSet.units == info['level_axis_var'].units)
+    return q.first()
 
-    # Find LevelSet corresponding to the level axis
-    vertical_levels = level_axis_var[:]
-    # TODO: WTF? R code queries on non-existent column `pressure_level`:
-    #
-    #   query <- paste("SELECT level_set_id ",
-    #                  "FROM levels NATURAL JOIN level_sets ",
-    #                  "WHERE pressure_level IN (",
-    #                  paste(levels, collapse=",", sep=","),
-    #                  ") AND level_units = '", levels.dim$units, "' ",
-    #                  "GROUP BY level_set_id ",
-    #                  "HAVING count(vertical_level)=", length(levels), ";", sep="")
-    #
-    # NB: R variable 'levels' corresponds to this function's 'vertical_levels'
-    #
-    # Rewritten:
-    #   SELECT ls.level_set_id
-    #   FROM
-    #       levels AS l
-    #       NATURAL JOIN level_sets AS ls
-    #   WHERE l.pressure_level (??) IN (<vertical_levels>)
-    #   AND ls.level_units = <level_axis_var.units>
-    #   GROUP BY ls.level_set_id
-    #   HAVING count(l.vertical_level) = <len(vertical_levels)>
-    #
-    # Apparent meaning:
-    #   select level sets
-    #   such that the aggregate of all levels associated to a given level set match all levels in NC file
-    #
-    # TODO: Verify pro-tem assumption that pressure_level should be vertical_level.
-    # TODO: Verify that the following query works (levels comparison). Requires that LevelSet.levels relationship is
-    #   ordered by Level.vertical_level (ORM declaration now modified accordingly)
-    level_set = sesh.query(LevelSet)\
-        .filter(LevelSet.levels == vertical_levels)\
-        .filter(LevelSet.units == level_axis_var.units)\
-        .first()
 
-    if level_set:
-        return level_set
+def insert_level_set(sesh, cf, var_name):
+    """Insert a LevelSet for a named NetCDF variable. If the variable has no Z (level) axis, return None.
 
-    # No matching LevelSet: Insert LevelSet with accompanying Level records
-
-    level_set = LevelSet(units=level_axis_var.units)
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: name of NetCDF variable
+    :return LevelSet object corresponding to the level set for the provided varible,
+        None if no level set (variable has no Z axis)
+    """
+    info = get_level_set_info(cf, var_name)
+    if not info:
+        return None
+    level_set = LevelSet(units=info['level_axis_var'].units)
     sesh.add(level_set)
 
-    sesh.add_all([Level(
-             level_set=level_set,
-             vertical_level=vertical_level,
-             level_start=level_start,
-             level_end=level_end,
-         ) for level_start, vertical_level, level_end in get_var_bounds_and_values(cf, level_axis_var)
-    ])
+    sesh.add_all([Level(level_set=level_set,
+                         vertical_level=vertical_level,
+                         level_start=level_start,
+                         level_end=level_end,
+                     ) for level_start, vertical_level, level_end in
+                     get_var_bounds_and_values(cf, info['level_axis_var'])
+                     ])
     sesh.commit()
 
     return level_set
+
+
+def find_or_insert_level_set(sesh, cf, var_name):  # get.level.set.id
+    """Find or insert a LevelSet for a named NetCDF variable. If the variable has no Z (level) axis, return None.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: name of NetCDF variable
+    :return LevelSet object corresponding to the level set for the provided varible,
+        None if no level set (variable has no Z axis)
+    """
+    level_set = find_level_set(sesh, cf, var_name)
+    if level_set:
+        return level_set
+    return insert_level_set(sesh, cf, var_name)
 
 
 # Grid, YCellBound
@@ -655,7 +675,7 @@ def insert_timeset(sesh, cf):
     sesh.add_all(times)
 
     if cf.is_multi_year_mean:
-        climatology_bounds = cf.variable[cf.climatology_bounds_var_name][:]
+        climatology_bounds = cf.variables[cf.climatology_bounds_var_name][:]
         climatological_times = [ClimatologicalTime(
             time_set_id=time_set.id,
             time_idx=time_idx,
@@ -728,24 +748,27 @@ def md5(filepath):
     return hash_md5.hexdigest()
 
 
-def get_variable_range(variable):  # get.variable.range
+def get_variable_range(cf, var_name):  # get.variable.range
     """Return minimum and maximum value taken by variable (over all dimensions).
 
-    :param variable: (netCDF4.Variable)
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable
     :return (tuple) (min, max) minimum and maximum values
     """
-    # TODO: Should this be in nchelpers?
+    # TODO: Move into nchelpers
     # TODO: What about fill values?
+    variable = cf.variables[var_name]
     values = variable[:]
     return np.nanmin(values), np.nanmax(values)
+
 
 def get_var_bounds_and_values(cf, var_name, bounds_var_name=None):  # get.bnds.center.array
     """Return a list of tuples describing the bounds and values of a NetCDF variable.
     One tuple per variable value, defining (lower_bound, value, upper_bound)
 
     :param cf: CFDatafile object representing NetCDF file
-    :param variable: NetCDF variable that is an level axis
-    :param bounds_var_name: name of bounds variable; if not specified, use level_axis_var.bounds
+    :param var_name: (str) name of NetCDF variable
+    :param bounds_var_name: name of bounds variable; if not specified, use variable.bounds
     :return: list of tuples of the form (lower_bound, value, upper_bound)
     """
     # TODO: Should this be in nchelpers?
@@ -768,11 +791,73 @@ def get_var_bounds_and_values(cf, var_name, bounds_var_name=None):  # get.bnds.c
 
 
 @functools.lru_cache(maxsize=4)
+def get_level_set_info(cf, var_name):
+    """Return a dict containing information characterizing the level set (Z axis values) associated with a
+    specified dependent variable, or None if there is no associated Z axis we can identify.
+
+    This information is expensive to compute, and typically requested 2 or more times in quick succession,
+    so it is cached.
+
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of NetCDF dependent variable (variable with associated level set)
+    :return (dict)
+    """
+    variable = cf.variables[var_name]
+    # Find the level dimension if it exists
+    axis_to_dim_name = cf.dim_axes_from_names(variable.dimensions)
+    level_axis_dim_name = axis_to_dim_name.get('Z', None)
+
+    if not level_axis_dim_name:
+        return None
+    level_axis_var = cf.variables[level_axis_dim_name]
+
+    # Find LevelSet corresponding to the level axis
+    vertical_levels = level_axis_var[:]
+    # TODO: WTF? R code queries on non-existent column `pressure_level`:
+    #
+    #   query <- paste("SELECT level_set_id ",
+    #                  "FROM levels NATURAL JOIN level_sets ",
+    #                  "WHERE pressure_level IN (",
+    #                  paste(levels, collapse=",", sep=","),
+    #                  ") AND level_units = '", levels.dim$units, "' ",
+    #                  "GROUP BY level_set_id ",
+    #                  "HAVING count(vertical_level)=", length(levels), ";", sep="")
+    #
+    # NB: R variable 'levels' corresponds to this function's 'vertical_levels'
+    #
+    # Rewritten:
+    #   SELECT ls.level_set_id
+    #   FROM
+    #       levels AS l
+    #       NATURAL JOIN level_sets AS ls
+    #   WHERE l.pressure_level (??) IN (<vertical_levels>)
+    #   AND ls.level_units = <level_axis_var.units>
+    #   GROUP BY ls.level_set_id
+    #   HAVING count(l.vertical_level) = <len(vertical_levels)>
+    #
+    # Apparent meaning:
+    #   select level sets
+    #   such that the aggregate of all levels associated to a given level set match all levels in NC file
+    #
+    # TODO: Verify pro-tem assumption that pressure_level should be vertical_level.
+    # TODO: Verify that the following query works (levels comparison). Requires that LevelSet.levels relationship is
+    #   ordered by Level.vertical_level (ORM declaration now modified accordingly)
+    return {
+        'level_axis_var': level_axis_var,
+        'vertical_levels': vertical_levels,
+    }
+
+
+@functools.lru_cache(maxsize=4)
 def get_grid_info(cf, var_name):
     """Get information defining the Grid record corresponding to the spatial dimensions of a variable in a NetCDF file.
 
+    This information is expensive to compute, and typically requested 2 or more times in quick succession,
+    so it is cached.
+
     :param cf: CFDatafile object representing NetCDF file
     :param var_name: (str) name of variable
+    :return (dict)
     """
     # TODO: Move this function into nchelpers?
     axes_to_dim_names = cf.axes_dim(cf.variables[var_name].dimensions)
