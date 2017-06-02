@@ -5,6 +5,8 @@ addons:
       - libhdf5-serial-dev
       - libnetcdf-dev
       - libspatialite-dev
+dist: trusty
+sudo: false
 python:
   - 2.7
   - 3.3
