@@ -204,14 +204,15 @@ def update_cf_file(sesh, data_file, cf):  # not a function in R code; NOT the sa
             logger.info("{} refers to the same file as {}".format(data_file.filename, cf.filename()))
             return data_file
         else:
-            if md5(cf.filepath()) == md5(data_file.filename):
-                # TODO: Seems unlikely this path will ever be taken for same reason as TODO (X) above.
-                # Same content. Scream about a copy.
-                logger.warning("File {} is a copy of {}. Figure out why.".format(cf.filepath(), data_file.filename))
-                return data_file
-            else:
-                # Different file content. May be a newer version of the same file. Reindex it.
-                return reindex_cf_file(sesh, data_file, cf)
+            with CFDataset(data_file.filename) as data_file_cf:
+                if cf.md5 == data_file_cf.md5:
+                    # TODO: Seems unlikely this path will ever be taken for same reason as TODO (X) above.
+                    # Same content. Scream about a copy.
+                    logger.warning("File {} is a copy of {}. Figure out why.".format(cf.filepath(), data_file.filename))
+                    return data_file
+                else:
+                    # Different file content. May be a newer version of the same file. Reindex it.
+                    return reindex_cf_file(sesh, data_file, cf)
 
     raise RuntimeError('Error: This function should return from all branches of if statements.')
 
@@ -734,18 +735,6 @@ def is_regular_series(values, relative_tolerance=1e-6):
 def mean_step_size(values):
     """Return mean of differences between successive elements of values list"""
     return np.mean(np.diff(values))
-
-
-def md5(filepath):
-    """Return MD5 checksum of entire file.
-    Parsimonious with memory. Adopted from https://stackoverflow.com/a/3431838
-    """
-    # TODO: Should this be in nchelpers? (property of CFDataset)
-    hash_md5 = hashlib.md5()
-    with open(filepath, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
 
 
 def get_variable_range(cf, var_name):  # get.variable.range
