@@ -12,6 +12,7 @@ python:
   - 3.3
   - 3.4
 install:
-  - python setup.py install
+  - pip install -i https://pypi.pacificclimate.org/simple -r requirements.txt
+  - pip install .
 # command to run tests
 script: py.test -v
