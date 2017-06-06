@@ -12,7 +12,7 @@ setup(
     url="http://www.pacificclimate.org/",
     author="James Hiebert",
     author_email="hiebert@uvic.ca",
-    zip_safe=True,
+    zip_safe=False,
     install_requires = '''
         sqlalchemy
         psycopg2
