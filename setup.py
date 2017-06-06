@@ -18,7 +18,7 @@ setup(
         psycopg2
         numpy
         netCDF4
-        nchelpers>=1.0.3
+        nchelpers>=1.0.4
     '''.split(),
     package_data = {'modelmeta': ['data/mddb-v1.sqlite', 'data/mddb-v2.sqlite', 'data/tiny_gcm.nc']},
     include_package_data = True,
