@@ -875,5 +875,5 @@ def get_grid_info(cf, var_name):
 
 if sys.version_info[0:2] >= (3, 2):
     import functools
-    get_level_set_info = functools.lru_cache(get_level_set_info, maxsize=4)
-    get_grid_info = functools.lru_cache(get_grid_info, maxsize=4)
+    get_level_set_info = functools.lru_cache(maxsize=4)(get_level_set_info)
+    get_grid_info = functools.lru_cache(maxsize=4)(get_grid_info)
