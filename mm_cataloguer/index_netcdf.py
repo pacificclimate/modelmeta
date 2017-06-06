@@ -1,3 +1,5 @@
+# coding=utf-8
+
 """Functions for adding NetCDF files to the modelmeta database.
 
 The root function is `index_netcdf_file`, which causes a NetCDF file to be added or updated in the modelmeta database.
