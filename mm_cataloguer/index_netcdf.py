@@ -53,10 +53,10 @@ from methods/properties of CFDataset, adhering to the principle that all our Net
 """
 
 import os
+import sys
 import hashlib
 import logging
 import datetime
-import functools
 import collections
 
 import numpy as np
@@ -781,7 +781,6 @@ def get_var_bounds_and_values(cf, var_name, bounds_var_name=None):  # get.bnds.c
         return zip(midpoints[:-1], values, midpoints[1:])
 
 
-@functools.lru_cache(maxsize=4)
 def get_level_set_info(cf, var_name):
     """Return a dict containing information characterizing the level set (Z axis values) associated with a
     specified dependent variable, or None if there is no associated Z axis we can identify.
@@ -839,7 +838,6 @@ def get_level_set_info(cf, var_name):
     }
 
 
-@functools.lru_cache(maxsize=4)
 def get_grid_info(cf, var_name):
     """Get information defining the Grid record corresponding to the spatial dimensions of a variable in a NetCDF file.
 
@@ -875,3 +873,7 @@ def get_grid_info(cf, var_name):
     }
 
 
+if sys.version_info[0:2] >= (3, 2):
+    import functools
+    get_level_set_info = functools.lru_cache(get_level_set_info, maxsize=4)
+    get_grid_info = functools.lru_cache(get_grid_info, maxsize=4)
