@@ -235,7 +235,7 @@ cond_insert_data_file_variable_plus = conditional(insert_data_file_variable_plus
 def test_insert_data_file_variable(blank_test_session, mock_cf):
     var_name = mock_cf.dependent_varnames[0]
     variable = mock_cf.variables[var_name]
-    range_min, range_max = mock_cf.variable_range(var_name)
+    range_min, range_max = mock_cf.var_range(var_name)
     data_file = insert_data_file(blank_test_session, mock_cf)
     dfv = check_insert(
         insert_data_file_variable_plus, blank_test_session, mock_cf, var_name, data_file,
