@@ -377,7 +377,7 @@ def find_data_file_variable(sesh, cf, var_name, data_file):
 
 def insert_data_file_variable(sesh, cf, var_name, data_file, variable_alias, level_set, grid):
     variable = cf.variables[var_name]
-    range_min, range_max = get_variable_range(cf, var_name)
+    range_min, range_max = cf.variable_range(var_name)
     dfv = DataFileVariable(
         file=data_file,
         variable_alias=variable_alias,
@@ -717,20 +717,6 @@ def is_regular_series(values, relative_tolerance=1e-6):
 def mean_step_size(values):
     """Return mean of differences between successive elements of values list"""
     return np.mean(np.diff(values))
-
-
-def get_variable_range(cf, var_name):  # get.variable.range
-    """Return minimum and maximum value taken by variable (over all dimensions).
-
-    :param cf: CFDatafile object representing NetCDF file
-    :param var_name: (str) name of variable
-    :return (tuple) (min, max) minimum and maximum values
-    """
-    # TODO: Move into nchelpers
-    # TODO: What about fill values?
-    variable = cf.variables[var_name]
-    values = variable[:]
-    return np.nanmin(values), np.nanmax(values)
 
 
 def get_var_bounds_and_values(cf, var_name, bounds_var_name=None):  # get.bnds.center.array

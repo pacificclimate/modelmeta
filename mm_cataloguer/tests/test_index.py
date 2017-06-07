@@ -2,6 +2,8 @@ import datetime
 
 import pytest
 
+from nchelpers.date_utils import to_datetime
+
 from mm_cataloguer.index_netcdf import \
     find_data_file_by_unique_id_and_hash, insert_data_file, delete_data_file, \
     insert_run, find_run, find_or_insert_run, \
@@ -12,8 +14,7 @@ from mm_cataloguer.index_netcdf import \
     insert_level_set, find_level_set, find_or_insert_level_set, \
     insert_grid, find_grid, find_or_insert_grid, \
     insert_timeset, find_timeset, find_or_insert_timeset, \
-    get_grid_info, get_level_set_info, get_var_bounds_and_values, get_variable_range, \
-    to_datetime
+    get_grid_info, get_level_set_info, get_var_bounds_and_values \
 
 
 # Helper functions for defining tests
@@ -234,7 +235,7 @@ cond_insert_data_file_variable_plus = conditional(insert_data_file_variable_plus
 def test_insert_data_file_variable(blank_test_session, mock_cf):
     var_name = mock_cf.dependent_varnames[0]
     variable = mock_cf.variables[var_name]
-    range_min, range_max = get_variable_range(mock_cf, var_name)
+    range_min, range_max = mock_cf.variable_range(var_name)
     data_file = insert_data_file(blank_test_session, mock_cf)
     dfv = check_insert(
         insert_data_file_variable_plus, blank_test_session, mock_cf, var_name, data_file,
