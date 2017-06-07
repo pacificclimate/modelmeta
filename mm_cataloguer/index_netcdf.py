@@ -55,13 +55,13 @@ import hashlib
 import logging
 import datetime
 import functools
-import collections
 
 import numpy as np
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
 
 from nchelpers import CFDataset
+from nchelpers.date_utils import to_datetime
 from modelmeta import Model, Run, Emission, DataFile, TimeSet, Time, ClimatologicalTime, DataFileVariable, \
     VariableAlias, LevelSet, Level, Grid, YCellBound, EnsembleDataFileVariables
 
@@ -706,24 +706,6 @@ def find_or_insert_timeset(sesh, cf):
 
 # Helper functions
 # Possibly most of these functions should be moved into nchelpers
-
-def to_datetime(value):
-    """Convert (iterables of) datetime-like values to real datetime values.
-    WARNING: Does not recode for non-standard calendars.
-
-    Because: SQLite DateTime type only accepts Python datetime and date objects as input,
-    and this messes up our testing at minimum.
-    """
-    # TODO: Move into nchelpers?
-    # TODO: Convert time values in case of 360_day calendar? See R script, ll. 468-478.
-    if isinstance(value, collections.Iterable):
-        return (to_datetime(v) for v in value)
-    if isinstance(value, (datetime.datetime, datetime.date)):
-        return value
-    return datetime.datetime(
-        *(getattr(value, attr) for attr in 'year month day hour minute second microsecond'.split())
-    )
-
 
 def is_regular_series(values, relative_tolerance=1e-6):
     """Return True iff the given series of values is regular, i.e., has equal steps between values,
