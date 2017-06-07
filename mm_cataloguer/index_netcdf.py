@@ -493,7 +493,7 @@ def insert_level_set(sesh, cf, var_name):
                          level_start=level_start,
                          level_end=level_end,
                      ) for level_start, vertical_level, level_end in
-                     get_var_bounds_and_values(cf, info['level_axis_var'])
+                     cf.var_bounds_and_values(info['level_axis_var'])
                      ])
     sesh.commit()
 
@@ -599,7 +599,7 @@ def insert_grid(sesh, cf, var_name):
             bottom_bnd=bottom_bnd,
             y_center=y_center,
             top_bnd=top_bnd,
-        ) for bottom_bnd, y_center, top_bnd in get_var_bounds_and_values(cf, info['yc_var'].name)]
+        ) for bottom_bnd, y_center, top_bnd in cf.var_bounds_and_values(info['yc_var'].name)]
         sesh.add_all(y_cell_bounds)
 
     sesh.commit()

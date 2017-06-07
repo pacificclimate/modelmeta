@@ -14,7 +14,7 @@ from mm_cataloguer.index_netcdf import \
     insert_level_set, find_level_set, find_or_insert_level_set, \
     insert_grid, find_grid, find_or_insert_grid, \
     insert_timeset, find_timeset, find_or_insert_timeset, \
-    get_grid_info, get_level_set_info, get_var_bounds_and_values \
+    get_grid_info, get_level_set_info
 
 
 # Helper functions for defining tests
@@ -412,13 +412,5 @@ def test_get_level_set_info(mock_cf):
     # assert set(info.keys()) == \
     #        set('level_axis_var vertical_levels'.split())
     # assert info['level_axis_var'] == mock_cf.variables['lon']
-
-
-def test_get_var_bounds_and_values(mock_cf):
-    bvs = get_var_bounds_and_values(mock_cf, 'lat')
-    lat = mock_cf.variables['lat']
-    for i, (lower, value, upper) in enumerate(bvs):
-        assert lower < value < upper
-        assert value == lat[i]
 
 
