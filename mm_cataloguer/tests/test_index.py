@@ -26,20 +26,20 @@ def conditional(f, false_value=None):
 
      Argument function is invoked with positional arguments passed to returned function.
      """
-    def wrapper(*args, invoke=True):
+    def cond_f(*args, invoke=True):
         if not invoke:
             return false_value
         return f(*args)
-    return wrapper
+    return cond_f
 
 
-def check_properties(object, properties):
+def check_properties(obj, properties):
     """Check that object has expected values for all properties (attributes) specified in dict."""
     if not properties:
-        assert object == None
+        assert obj is None
     else:
         for key, value in properties.items():
-            assert getattr(object, key) == value
+            assert getattr(obj, key) == value
 
 
 def check_insert(insert_thing, *args, **properties):
@@ -79,10 +79,12 @@ def freeze_now(monkeypatch, *args):
     This would be more elegant as a fixture or decorator, but it would be a lot more work.
     """
     fake_now = datetime.datetime(*args)
+
     class fake_datetime(datetime.datetime):
         @classmethod
         def now(cls):
             return fake_now
+
     monkeypatch.setattr(datetime, 'datetime', fake_datetime)
     return fake_now
 
@@ -177,7 +179,8 @@ cond_insert_model = conditional(insert_model)
 
 
 def test_insert_model(blank_test_session, mock_cf):
-    check_insert(insert_model, blank_test_session, mock_cf,
+    check_insert(
+        insert_model, blank_test_session, mock_cf,
         short_name=mock_cf.metadata.model,
         organization=mock_cf.metadata.institution,
         type=mock_cf.model_type,
@@ -263,8 +266,8 @@ def test_find_data_file_variable(blank_test_session, mock_cf, insert):
 def test_find_or_insert_data_file_variable(blank_test_session, mock_cf, insert):
     var_name = mock_cf.dependent_varnames[0]
     data_file = insert_data_file(blank_test_session, mock_cf)
-    check_find_or_insert(find_or_insert_data_file_variable, cond_insert_data_file_variable_plus, blank_test_session, mock_cf,
-                         var_name, data_file, invoke=insert)
+    check_find_or_insert(find_or_insert_data_file_variable, cond_insert_data_file_variable_plus, blank_test_session,
+                         mock_cf, var_name, data_file, invoke=insert)
 
 
 # VariableAlias
@@ -275,10 +278,11 @@ cond_insert_variable_alias = conditional(insert_variable_alias)
 def test_insert_variable_alias(blank_test_session, mock_cf):
     var_name = mock_cf.dependent_varnames[0]
     variable = mock_cf.variables[var_name]
-    check_insert(insert_variable_alias, blank_test_session, mock_cf, var_name,
-                 long_name=variable.long_name,
-                 standard_name=variable.standard_name,
-                 units=variable.units,
+    check_insert(
+        insert_variable_alias, blank_test_session, mock_cf, var_name,
+        long_name=variable.long_name,
+        standard_name=variable.standard_name,
+        units=variable.units,
     )
 
 
@@ -303,12 +307,13 @@ cond_insert_level_set = conditional(insert_level_set)
 
 def test_insert_level_set(blank_test_session, mock_cf):
     var_name = mock_cf.dependent_varnames[0]
-    variable = mock_cf.variables[var_name]
-    check_insert(insert_level_set, blank_test_session, mock_cf, var_name,
-                 # long_name=variable.long_name,
-                 # standard_name=variable.standard_name,
-                 # units=variable.units,
-                 )
+    # variable = mock_cf.variables[var_name]
+    check_insert(
+        insert_level_set, blank_test_session, mock_cf, var_name,
+        # long_name=variable.long_name,
+        # standard_name=variable.standard_name,
+        # units=variable.units,
+    )
 
 
 @pytest.mark.parametrize('insert', [False, True])
@@ -361,7 +366,6 @@ def test_find_or_insert_grid(blank_test_session, mock_cf, insert):
                          mock_cf.dependent_varnames[0], invoke=insert)
 
 
-
 # Timeset
 
 cond_insert_timeset = conditional(insert_timeset)
@@ -408,9 +412,7 @@ def test_get_grid_info(mock_cf):
 # TODO: Establish test cf file with levels, and use in this test:
 def test_get_level_set_info(mock_cf):
     info = get_level_set_info(mock_cf, mock_cf.dependent_varnames[0])
-    assert info == None
+    assert info is None
     # assert set(info.keys()) == \
     #        set('level_axis_var vertical_levels'.split())
     # assert info['level_axis_var'] == mock_cf.variables['lon']
-
-

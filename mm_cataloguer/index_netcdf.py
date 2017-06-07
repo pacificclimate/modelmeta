@@ -51,7 +51,6 @@ from methods/properties of CFDataset, adhering to the principle that all our Net
 """
 
 import os
-import hashlib
 import logging
 import datetime
 import functools
@@ -368,6 +367,19 @@ def find_or_insert_emission(sesh, cf):
 # DataFileVariable
 
 def find_data_file_variable(sesh, cf, var_name, data_file):
+    """Find existing DataFileVariable record corresponding to a named variable in a NetCDF file and associated
+    to a specified DataFile record.
+
+    NOTE: Parameter `cf` is not used in this function, but it is retained to maintain a consistent signature
+    amongst all `find_` functions. This is useful in testing, although its absence could be accommodated with more
+    complex testing code.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable
+    :param data_file: (DataFile) data file to associate this dfv to
+    :return: existing DataFileVariable record or None
+    """
     q = (sesh.query(DataFileVariable)
          .filter(DataFileVariable.file == data_file)
          .filter(DataFileVariable.netcdf_variable_name == var_name)
@@ -376,6 +388,22 @@ def find_data_file_variable(sesh, cf, var_name, data_file):
 
 
 def insert_data_file_variable(sesh, cf, var_name, data_file, variable_alias, level_set, grid):
+    """Insert a new DataFileVariable record corresponding to a named variable in a NetCDF file and associated
+    to a specified DataFile record.
+
+    NOTE: Parameter `cf` is not used in this function, but it is retained to maintain a consistent signature
+    amongst all `find_` functions. This is useful in testing, although its absence could be accommodated with more
+    complex testing code.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable
+    :param data_file: (DataFile) data file to associate this dfv to
+    :param variable_alias: (VariableAlias) variable alias to associate to this dfv
+    :param level_set: (LevelSet) level set to associate to this dfv
+    :param grid: (Grid) grid to associate to this dfv
+    :return: inserted DataFileVariable record
+    """
     variable = cf.variables[var_name]
     range_min, range_max = cf.var_range(var_name)
     dfv = DataFileVariable(
@@ -396,6 +424,19 @@ def insert_data_file_variable(sesh, cf, var_name, data_file, variable_alias, lev
 
 
 def find_or_insert_data_file_variable(sesh, cf, var_name, data_file):
+    """Find or insert a DataFileVariable record corresponding to a named variable in a NetCDF file and associated
+    to a specified DataFile record. If none exists, return None.
+
+    NOTE: Parameter `cf` is not used in this function, but it is retained to maintain a consistent signature
+    amongst all `find_` functions. This is useful in testing, although its absence could be accommodated with more
+    complex testing code.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable
+    :param data_file: (DataFile) data file to associate this dfv to
+    :return: found or inserted DataFileVariable record
+    """
     dfv = find_data_file_variable(sesh, cf, var_name, data_file)
     if dfv:
         return dfv
@@ -406,6 +447,14 @@ def find_or_insert_data_file_variable(sesh, cf, var_name, data_file):
 
 
 def find_or_insert_data_file_variables(sesh, cf, data_file):  # create.data.file.variables
+    """Find or insert DataFileVariables for all dependent variables in a NetCDF file, associated to a specified
+    DataFile record.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param data_file: (DataFile) data file to associate this dfv to
+    :return: list of found or inserted DataFileVariable records
+    """
     return [find_or_insert_data_file_variable(sesh, cf, var_name, data_file) for var_name in cf.dependent_varnames]
 
 
@@ -447,6 +496,13 @@ def insert_variable_alias(sesh, cf, var_name):
 
 
 def find_or_insert_variable_alias(sesh, cf, var_name):  # get.variable.alias.id
+    """Find or insert a VariableAlias for the named NetCDF variable.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable
+    :return found VariableAlias object or None
+    """
     variable_alias = find_variable_alias(sesh, cf, var_name)
     if variable_alias:
         return variable_alias
@@ -489,12 +545,11 @@ def insert_level_set(sesh, cf, var_name):
     sesh.add(level_set)
 
     sesh.add_all([Level(level_set=level_set,
-                         vertical_level=vertical_level,
-                         level_start=level_start,
-                         level_end=level_end,
-                     ) for level_start, vertical_level, level_end in
-                     cf.var_bounds_and_values(info['level_axis_var'])
-                     ])
+                        vertical_level=vertical_level,
+                        level_start=level_start,
+                        level_end=level_end,
+                     ) for level_start, vertical_level, level_end in cf.var_bounds_and_values(info['level_axis_var'])
+                 ])
     sesh.commit()
 
     return level_set
@@ -811,5 +866,3 @@ def get_grid_info(cf, var_name):
         'yc_grid_step': mean_step_size(yc_values),
         'evenly_spaced_y': is_regular_series(yc_values),
     }
-
-
