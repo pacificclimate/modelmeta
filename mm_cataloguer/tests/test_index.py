@@ -28,6 +28,7 @@ from modelmeta import Level
 from nchelpers.date_utils import to_datetime
 
 from mm_cataloguer.index_netcdf import \
+    find_update_or_insert_cf_file, \
     find_data_file_by_unique_id_and_hash, insert_data_file, delete_data_file, \
     insert_run, find_run, find_or_insert_run, \
     insert_model, find_model, find_or_insert_model, \
@@ -110,6 +111,18 @@ def freeze_now(monkeypatch, *args):
 
     monkeypatch.setattr(datetime, 'datetime', fake_datetime)
     return fake_now
+
+
+# Indexing functions
+
+def test_find_update_or_insert_cf_file__new(blank_test_session, tiny_dataset):
+    """Test inserting a new (not already indexed) NetCDF file into the database."""
+    data_file = find_update_or_insert_cf_file(blank_test_session, tiny_dataset)
+    check_properties(data_file,
+                     filename=tiny_dataset.filepath(),
+                     first_1mib_md5sum=tiny_dataset.first_MiB_md5sum,
+                     unique_id=tiny_dataset.unique_id,
+                     )
 
 
 # DataFile
