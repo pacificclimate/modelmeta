@@ -292,6 +292,12 @@ def delete_data_file(sesh, existing_data_file):
 # Run
 
 def find_run(sesh, cf):
+    """Find existing Run record corresponding to a NetCDF file.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :return: existing Run record or None
+    """
     q = sesh.query(Run).join(Model).join(Emission) \
         .filter(Model.short_name == cf.metadata.model) \
         .filter(Emission.short_name == cf.metadata.emissions) \
@@ -300,6 +306,14 @@ def find_run(sesh, cf):
 
 
 def insert_run(sesh, cf, model, emission):
+    """Insert new Run record corresponding to a NetCDF file.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param model: (Model) Model record corresponding to NetCDF file
+    :param emission: (Emission) Emission record corresponding to NetCDF file
+    :return: new Run record
+    """
     run = Run(name=cf.metadata.run, project=cf.metadata.project, model=model, emission=emission)
     sesh.add(run)
     sesh.commit()
@@ -307,6 +321,13 @@ def insert_run(sesh, cf, model, emission):
 
 
 def find_or_insert_run(sesh, cf):
+    """Find existing or insert new Run record corresponding to a NetCDF file.
+    Find or insert required Model and Emission records as necessary.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :return: existing or new Run record
+    """
     run = find_run(sesh, cf)
     if run:
         return run
@@ -322,11 +343,23 @@ def find_or_insert_run(sesh, cf):
 # Model
 
 def find_model(sesh, cf):
+    """Find existing Model record corresponding to a NetCDF file.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :return: existing Model record or None
+    """
     query = sesh.query(Model).filter(Model.short_name == cf.metadata.model)
     return query.first()
 
 
 def insert_model(sesh, cf):
+    """Insert new Model record corresponding to a NetCDF file.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :return: new Model record
+    """
     model = Model(short_name=cf.metadata.model, type=cf.model_type, organization=cf.metadata.institution)
     sesh.add(model)
     sesh.commit()
@@ -334,6 +367,12 @@ def insert_model(sesh, cf):
 
 
 def find_or_insert_model(sesh, cf):
+    """Find existing or insert new Model record corresponding to a NetCDF file.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :return: existing or new Model record
+    """
     model = find_model(sesh, cf)
     if model:
         return model
@@ -343,17 +382,35 @@ def find_or_insert_model(sesh, cf):
 # Emission
 
 def find_emission(sesh, cf):
+    """Find existing Emission record corresponding to a NetCDF file.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :return: existing Emission record or None
+    """
     q = sesh.query(Emission).filter(Emission.short_name == cf.metadata.emissions)
     return q.first()
 
 
 def insert_emission(sesh, cf):
+    """Insert new Emission record corresponding to a NetCDF file.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :return: new Emission record
+    """
     emission = Emission(short_name=cf.metadata.emissions)
     sesh.add(emission)
     return emission
 
 
 def find_or_insert_emission(sesh, cf):
+    """Find existing or insert new Emission record corresponding to a NetCDF file.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :return: existing or new Emission record
+    """
     emission = find_emission(sesh, cf)
     if emission:
         return emission
