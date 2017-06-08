@@ -125,6 +125,13 @@ def test_find_update_or_insert_cf_file__new(blank_test_session, tiny_dataset):
                      )
 
 
+def test_find_update_or_insert_cf_file__duplicate(blank_test_session, tiny_dataset):
+    """Test inserting a duplicate (already indexed, unchanged) NetCDF file into the database."""
+    data_file1 = find_update_or_insert_cf_file(blank_test_session, tiny_dataset)
+    data_file2 = find_update_or_insert_cf_file(blank_test_session, tiny_dataset)
+    assert data_file1 == data_file2
+
+
 # DataFile
 
 cond_insert_data_file = conditional(insert_data_file)
