@@ -241,7 +241,9 @@ def insert_data_file(sesh, cf):  # create.data.file.id
     """
     # TODO: Parametrize on timeset, run; like run on model, emission
     timeset = find_or_insert_timeset(sesh, cf)
+    assert timeset
     run = find_or_insert_run(sesh, cf)
+    assert run
     dim_names = cf.axes_dim()
     logger.info("Creating new DataFile for unique_id {}".format(cf.unique_id))
 
@@ -310,16 +312,10 @@ def find_or_insert_run(sesh, cf):
         return run
 
     # No matching Run: Insert new Run and find or insert accompanying Model and Emission records
-
     model = find_or_insert_model(sesh, cf)
-    # TODO: Remove these checks? Unless something is *really* broken, find_or_insert_x returns an x.
-    if not model:
-        raise RuntimeError('Model not found or inserted!')
-
+    assert model
     emission = find_or_insert_emission(sesh, cf)
-    if not emission:
-        raise RuntimeError('Emission not found or inserted!')
-
+    assert emission
     return insert_run(sesh, cf, model, emission)
 
 
@@ -441,8 +437,11 @@ def find_or_insert_data_file_variable(sesh, cf, var_name, data_file):
     if dfv:
         return dfv
     variable_alias = find_or_insert_variable_alias(sesh, cf, var_name)
+    assert variable_alias
     level_set = find_or_insert_level_set(sesh, cf, var_name)
+    assert level_set
     grid = find_or_insert_grid(sesh, cf, var_name)
+    assert grid
     return insert_data_file_variable(sesh, cf, var_name, data_file, variable_alias, level_set, grid)
 
 
