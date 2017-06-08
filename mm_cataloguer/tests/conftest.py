@@ -37,6 +37,19 @@ def tiny_gcm():
     return CFDataset(resource_filename('modelmeta', 'data/tiny_gcm.nc'))
 
 
+@pytest.fixture
+def tiny_dataset(request):
+    """Return a 'tiny' test dataset, based on request param.
+    This fixture is used to parametrize over test data files.
+    This fixture must be invoked with indirection.
+
+    request.param: (str) selects the test file to be returned
+    returns: (nchelpers.CFDataset) test file as a CFDataset object
+    """
+    filename = 'data/tiny_{}.nc'.format(request.param)
+    return CFDataset(resource_filename('modelmeta', filename))
+
+
 # @pytest.fixture
 # def mock_cf():
 #     num_time_values = 99
