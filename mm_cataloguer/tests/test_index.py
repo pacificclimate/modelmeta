@@ -56,7 +56,7 @@ def conditional(f, false_value=None):
     return cond_f
 
 
-def check_properties(obj, properties):
+def check_properties(obj, **properties):
     """Check that object has expected values for all properties (attributes) specified in dict."""
     if not properties:
         assert obj is None
@@ -68,7 +68,7 @@ def check_properties(obj, properties):
 def check_insert(insert_thing, *args, **properties):
     """Test an insert operation."""
     thing_inserted = insert_thing(*args)
-    check_properties(thing_inserted, properties)
+    check_properties(thing_inserted, **properties)
     return thing_inserted
 
 
@@ -177,12 +177,12 @@ cond_insert_run_plus_prime = conditional(insert_run_plus_prime)
 
 def test_insert_run(blank_test_session, tiny_dataset):
     run, model, emission = insert_run_plus(blank_test_session, tiny_dataset)
-    check_properties(run, {
-        'name': tiny_dataset.metadata.run,
-        'project': tiny_dataset.metadata.project,
-        'model': model,
-        'emission': emission,
-    })
+    check_properties(run,
+        name=tiny_dataset.metadata.run,
+        project=tiny_dataset.metadata.project,
+        model=model,
+        emission=emission,
+    )
 
 
 @pytest.mark.parametrize('insert', [False, True])
