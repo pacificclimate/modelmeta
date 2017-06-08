@@ -37,7 +37,12 @@ def tiny_gcm():
     return CFDataset(resource_filename('modelmeta', 'data/tiny_gcm.nc'))
 
 
-@pytest.fixture
+# We parametrize this fixture so that every test that uses it is run for all params.
+# This can be overridden on specific tests by using `@pytest.mark.parametrize` with arg `indirect=['tiny_dataset']`;
+# see `test_get_level_set_info` for an example.
+# TODO: Parametrize over more tiny datasets. But that requires changes to the indexing code, which handles only
+# GCM ouptput files now.
+@pytest.fixture(params='gcm'.split())
 def tiny_dataset(request):
     """Return a 'tiny' test dataset, based on request param.
     This fixture is used to parametrize over test data files.
@@ -71,9 +76,3 @@ def tiny_dataset(request):
 #             'datetime': (start_date + datetime.timedelta(days=d) for d in range(num_time_values))
 #         }
 #     )
-
-
-@pytest.fixture
-def mock_cf(monkeypatch, tiny_gcm):
-    yield tiny_gcm
-
