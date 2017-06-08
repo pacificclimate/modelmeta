@@ -541,14 +541,16 @@ def insert_level_set(sesh, cf, var_name):
     info = get_level_set_info(cf, var_name)
     if not info:
         return None
-    level_set = LevelSet(units=info['level_axis_var'].units)
+    level_set = LevelSet(level_units=info['level_axis_var'].units)
     sesh.add(level_set)
 
     sesh.add_all([Level(level_set=level_set,
+                        level_idx=level_idx,
                         vertical_level=vertical_level,
                         level_start=level_start,
                         level_end=level_end,
-                     ) for level_start, vertical_level, level_end in cf.var_bounds_and_values(info['level_axis_var'])
+                     ) for level_idx, (level_start, vertical_level, level_end) in
+                  enumerate(cf.var_bounds_and_values(info['level_axis_var'].name))
                  ])
     sesh.commit()
 
@@ -788,8 +790,7 @@ def get_level_set_info(cf, var_name):
     """
     variable = cf.variables[var_name]
     # Find the level dimension if it exists
-    axis_to_dim_name = cf.dim_axes_from_names(variable.dimensions)
-    level_axis_dim_name = axis_to_dim_name.get('Z', None)
+    level_axis_dim_name = cf.axes_dim(variable.dimensions).get('Z', None)
 
     if not level_axis_dim_name:
         return None

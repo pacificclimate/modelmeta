@@ -1,7 +1,26 @@
+"""Test indexing functions against 'tiny' data files:
+
+    tiny_gcm: unprocessed GCM output
+    tiny_downscaled: downscaled GCM output (TODO)
+    tiny_hydromodel_obs: Interpolated observation-forced hydrological model output (TODO)
+    tiny_hydromodel_gcm: GCM-forced hydrological model output
+
+The data in these files is very limited spatially and temporally (though valid) in order to reduce their size,
+and their global metadata is standard.
+
+Some tests are parameterized over these files, which requires a little trickiness with fixtures.
+pytest doesn't directly support parametrizing over fixtures (which here delivers the test input file)
+To get around that, we use indirect fixtures, which are passed a parameter that they use to determine
+what tiny data file to return.
+"""
+
+# TODO: Tests against more types of files (as above)
+
 import datetime
 
 import pytest
 
+from modelmeta import Level
 from nchelpers.date_utils import to_datetime
 
 from mm_cataloguer.index_netcdf import \
@@ -299,21 +318,29 @@ def test_find_or_insert_variable_alias(blank_test_session, mock_cf, insert):
 
 
 # LevelSet, Level
-# TODO: Add a test NetCDF file with levels (Z axis)
-# TODO: Add tests for Level
 
 cond_insert_level_set = conditional(insert_level_set)
 
 
-def test_insert_level_set(blank_test_session, mock_cf):
-    var_name = mock_cf.dependent_varnames[0]
-    # variable = mock_cf.variables[var_name]
-    check_insert(
-        insert_level_set, blank_test_session, mock_cf, var_name,
-        # long_name=variable.long_name,
-        # standard_name=variable.standard_name,
-        # units=variable.units,
-    )
+@pytest.mark.parametrize('tiny_dataset, var_name, level_axis_var_name', [
+    ('gcm', 'tasmax', None),
+    ('hydromodel_gcm', 'SWE_BAND', 'depth'),
+], indirect=['tiny_dataset'])
+def test_insert_level_set(blank_test_session, tiny_dataset, var_name, level_axis_var_name):
+    variable = tiny_dataset.variables[var_name]
+    if level_axis_var_name:
+        level_axis_var = tiny_dataset.variables[level_axis_var_name]
+        assert level_axis_var_name in variable.dimensions
+        level_set = check_insert(
+            insert_level_set, blank_test_session, tiny_dataset, var_name,
+            level_units=level_axis_var.units
+        )
+        levels = blank_test_session.query(Level).filter(Level.level_set == level_set).all()
+        assert level_set.levels == levels
+        assert list(level.vertical_level for level in levels) == \
+               list(vertical_level for vertical_level in level_axis_var[:])
+    else:
+        check_insert(insert_level_set, blank_test_session, tiny_dataset, var_name)
 
 
 @pytest.mark.parametrize('insert', [False, True])
@@ -409,10 +436,15 @@ def test_get_grid_info(mock_cf):
     assert info['yc_var'] == mock_cf.variables['lat']
 
 
-# TODO: Establish test cf file with levels, and use in this test:
-def test_get_level_set_info(mock_cf):
-    info = get_level_set_info(mock_cf, mock_cf.dependent_varnames[0])
-    assert info is None
-    # assert set(info.keys()) == \
-    #        set('level_axis_var vertical_levels'.split())
-    # assert info['level_axis_var'] == mock_cf.variables['lon']
+@pytest.mark.parametrize('tiny_dataset, var_name, level_axis_var_name', [
+    ('gcm', 'tasmax', None),
+    ('hydromodel_gcm', 'SWE_BAND', 'depth'),
+], indirect=['tiny_dataset'])
+def test_get_level_set_info(tiny_dataset, var_name, level_axis_var_name):
+    info = get_level_set_info(tiny_dataset, var_name)
+    if level_axis_var_name:
+        assert set(info.keys()) == \
+               set('level_axis_var vertical_levels'.split())
+        assert info['level_axis_var'] == tiny_dataset.variables[level_axis_var_name]
+    else:
+        assert info is None
