@@ -798,35 +798,6 @@ def get_level_set_info(cf, var_name):
 
     # Find LevelSet corresponding to the level axis
     vertical_levels = level_axis_var[:]
-    # TODO: WTF? R code queries on non-existent column `pressure_level`:
-    #
-    #   query <- paste("SELECT level_set_id ",
-    #                  "FROM levels NATURAL JOIN level_sets ",
-    #                  "WHERE pressure_level IN (",
-    #                  paste(levels, collapse=",", sep=","),
-    #                  ") AND level_units = '", levels.dim$units, "' ",
-    #                  "GROUP BY level_set_id ",
-    #                  "HAVING count(vertical_level)=", length(levels), ";", sep="")
-    #
-    # NB: R variable 'levels' corresponds to this function's 'vertical_levels'
-    #
-    # Rewritten:
-    #   SELECT ls.level_set_id
-    #   FROM
-    #       levels AS l
-    #       NATURAL JOIN level_sets AS ls
-    #   WHERE l.pressure_level (??) IN (<vertical_levels>)
-    #   AND ls.level_units = <level_axis_var.units>
-    #   GROUP BY ls.level_set_id
-    #   HAVING count(l.vertical_level) = <len(vertical_levels)>
-    #
-    # Apparent meaning:
-    #   select level sets
-    #   such that the aggregate of all levels associated to a given level set match all levels in NC file
-    #
-    # TODO: Verify pro-tem assumption that pressure_level should be vertical_level.
-    # TODO: Verify that the following query works (levels comparison). Requires that LevelSet.levels relationship is
-    #   ordered by Level.vertical_level (ORM declaration now modified accordingly)
     return {
         'level_axis_var': level_axis_var,
         'vertical_levels': vertical_levels,
@@ -844,7 +815,6 @@ def get_grid_info(cf, var_name):
     :param var_name: (str) name of variable
     :return (dict)
     """
-    # TODO: Move this function into nchelpers?
     axes_to_dim_names = cf.axes_dim(cf.variables[var_name].dimensions)
 
     if not all(axis in axes_to_dim_names for axis in 'XY'):
