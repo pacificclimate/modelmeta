@@ -496,7 +496,6 @@ def find_or_insert_data_file_variable(sesh, cf, var_name, data_file):
     variable_alias = find_or_insert_variable_alias(sesh, cf, var_name)
     assert variable_alias
     level_set = find_or_insert_level_set(sesh, cf, var_name)
-    assert level_set
     grid = find_or_insert_grid(sesh, cf, var_name)
     assert grid
     return insert_data_file_variable(sesh, cf, var_name, data_file, variable_alias, level_set, grid)
