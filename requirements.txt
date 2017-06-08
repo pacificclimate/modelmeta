@@ -1,0 +1,5 @@
+SQLAlchemy
+psycopg2
+numpy
+netCDF4
+nchelpers>=1.0.3
