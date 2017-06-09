@@ -13,7 +13,7 @@ from nchelpers import CFDataset
 
 from modelmeta import create_test_database
 
-from mock_helper import Mock
+from mock_helper import Fake
 
 
 @pytest.fixture
@@ -60,8 +60,8 @@ def tiny_dataset(request):
 #     num_time_values = 99
 #     start_date = datetime.datetime(2000, 1, 1)
 #     end_date = start_date + datetime.timedelta(days=num_time_values-1)
-#     return Mock(
-#         metadata=Mock(
+#     return Fake(
+#         metadata=Fake(
 #             project="CMIP5",
 #             run="r1e3v3",
 #             model="CGCM3",
@@ -71,7 +71,7 @@ def tiny_dataset(request):
 #         is_multi_year_mean=False,
 #         time_resolution='daily',
 #         time_range_as_dates=(start_date, end_date),
-#         time_var=Mock(size=num_time_values, calendar='standard'),
+#         time_var=Fake(size=num_time_values, calendar='standard'),
 #         time_steps={
 #             'datetime': (start_date + datetime.timedelta(days=d) for d in range(num_time_values))
 #         }
