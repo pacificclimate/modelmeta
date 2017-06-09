@@ -40,6 +40,8 @@ from mm_cataloguer.index_netcdf import \
     insert_timeset, find_timeset, find_or_insert_timeset, \
     get_grid_info, get_level_set_info
 
+from mock_helper import Mock
+
 
 # Helper functions for defining tests
 
@@ -129,6 +131,15 @@ def test_find_update_or_insert_cf_file__duplicate(blank_test_session, tiny_datas
     """Test inserting a duplicate (already indexed, unchanged) NetCDF file into the database."""
     data_file1 = find_update_or_insert_cf_file(blank_test_session, tiny_dataset)
     data_file2 = find_update_or_insert_cf_file(blank_test_session, tiny_dataset)
+    assert data_file1 == data_file2
+
+
+def test_find_update_or_insert_cf_file__dup_different_unique_id(blank_test_session, tiny_dataset):
+    """Test inserting a duplicate (already indexed) NetCDF file with a different unique id into the database."""
+    data_file1 = find_update_or_insert_cf_file(blank_test_session, tiny_dataset)
+    # mock a different unique id for the second indexing
+    other_tiny_dataset = Mock(tiny_dataset, unique_id='different')
+    data_file2 = find_update_or_insert_cf_file(blank_test_session, other_tiny_dataset)
     assert data_file1 == data_file2
 
 
