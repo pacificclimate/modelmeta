@@ -71,7 +71,7 @@ handler.setFormatter(formatter)
 
 logger = logging.getLogger(__name__)
 logger.addHandler(handler)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 # Root functions
@@ -122,8 +122,8 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
 
     elif id_data_file and not hash_data_file:
         # File changed. Do an update.
-        update_cf_file(sesh, id_data_file, cf)
-        return id_data_file
+        logger.info("File {}: Content changed. Updating database accordingly.".format(cf.filepath()))
+        return update_cf_file(sesh, id_data_file, cf)
 
     elif not id_data_file and hash_data_file:
         # We've indexed this file under a different unique id. Warn and skip.
@@ -189,11 +189,12 @@ def update_cf_file(sesh, data_file, cf):  # not a function in R code; NOT the sa
                 return reindex_cf_file(sesh, data_file, cf)
         else:
             # TODO: This branch always taken. See TODO (X) above.
-            if cf_modification_time < data_file.index_time:
+            if cf_modification_time < seconds_since_epoch(data_file.index_time):
                 # Error condition. Should never happen.
                 raise ValueError("File {}: Hash changed, but mod time doesn't reflect update.".format(cf.filepath()))
             else:
                 # File has changed; re-index it.
+                logger.info("File modification date later than last indexing. Reindexing file.")
                 return reindex_cf_file(sesh, data_file, cf)
     else:
         # Name changed and data changed.
@@ -273,18 +274,17 @@ def delete_data_file(sesh, existing_data_file):
     :param existing_data_file: DataFile object representing data file to be deleted and re-inserted
     """
     # TODO: Also delete associations with `QCFlag`s? (via `DataFileVariablesQcFlag`)
-    # existing_data_file_variables = existing_data_file.data_file_variables
-    existing_data_file_variables = (
-        sesh.query(DataFileVariable).filter(DataFileVariable.file == existing_data_file)
-    )
+    existing_data_file_variables = existing_data_file.data_file_variables
     existing_ensemble_data_file_variables = (
         sesh.query(EnsembleDataFileVariables)
             .filter(EnsembleDataFileVariables.data_file_variable_id.in_(
-                edfv.id for edfv in existing_data_file_variables
+                [edfv.id for edfv in existing_data_file_variables]
             ))
     )
-    existing_ensemble_data_file_variables.delete()
-    existing_data_file_variables.delete()
+    for obj in existing_ensemble_data_file_variables:
+        sesh.delete(obj)
+    for obj in existing_data_file_variables:
+        sesh.delete(obj)
     sesh.delete(existing_data_file)
     sesh.commit()
 
@@ -817,7 +817,6 @@ def find_or_insert_timeset(sesh, cf):
 
 
 # Helper functions
-# Possibly most of these functions should be moved into nchelpers
 
 def is_regular_series(values, relative_tolerance=1e-6):
     """Return True iff the given series of values is regular, i.e., has equal steps between values,
@@ -829,6 +828,11 @@ def is_regular_series(values, relative_tolerance=1e-6):
 def mean_step_size(values):
     """Return mean of differences between successive elements of values list"""
     return np.mean(np.diff(values))
+
+
+def seconds_since_epoch(t):
+    """Convert a datetime to the number of seconds since the Unix epoch."""
+    return (t-datetime.datetime(1970,1,1)).total_seconds()
 
 
 @functools.lru_cache(maxsize=4)

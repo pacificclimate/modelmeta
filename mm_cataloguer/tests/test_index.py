@@ -20,6 +20,7 @@ See fixture definition for more details.
 
 # TODO: Tests against more types of files (as above)
 
+import os
 import datetime
 
 import pytest
@@ -38,7 +39,8 @@ from mm_cataloguer.index_netcdf import \
     insert_level_set, find_level_set, find_or_insert_level_set, \
     insert_grid, find_grid, find_or_insert_grid, \
     insert_timeset, find_timeset, find_or_insert_timeset, \
-    get_grid_info, get_level_set_info
+    get_grid_info, get_level_set_info, \
+    seconds_since_epoch
 
 from mock_helper import Mock
 
@@ -65,7 +67,7 @@ def check_properties(obj, **properties):
         assert obj is None
     else:
         for key, value in properties.items():
-            assert getattr(obj, key) == value
+            assert getattr(obj, key) == value, 'attribute: {}'.format(key)
 
 
 def check_insert(insert_thing, *args, **properties):
@@ -141,6 +143,19 @@ def test_find_update_or_insert_cf_file__dup_different_unique_id(blank_test_sessi
     other_tiny_dataset = Mock(tiny_dataset, unique_id='different')
     data_file2 = find_update_or_insert_cf_file(blank_test_session, other_tiny_dataset)
     assert data_file1 == data_file2
+
+
+def test_find_update_or_insert_cf_file__dup_same_name_diff_content(monkeypatch, blank_test_session, tiny_dataset):
+    """Test indexing a duplicate (already indexed) NetCDF file whose filename and unique id are the same,
+    but whose content and modification time have changed.
+    Should result in re-indexing file, i.e. delete and re-insert.
+    """
+    data_file1 = find_update_or_insert_cf_file(blank_test_session, tiny_dataset)
+    # mock a different hash and different content and different mod time for the second indexing
+    other_tiny_dataset = Mock(tiny_dataset, first_MiB_md5sum='different', md5='different')
+    monkeypatch.setattr(os.path, 'getmtime', lambda fp: seconds_since_epoch(datetime.datetime.now()))
+    data_file2 = find_update_or_insert_cf_file(blank_test_session, other_tiny_dataset)
+    check_properties(data_file2, first_1mib_md5sum='different', )
 
 
 # DataFile
