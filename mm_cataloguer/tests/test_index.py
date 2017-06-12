@@ -54,7 +54,8 @@ def conditional(f, false_value=None):
 
      Argument function is invoked with positional arguments passed to returned function.
      """
-    def cond_f(*args, invoke=True):
+    def cond_f(*args, **kwargs):
+        invoke = kwargs.get('invoke', True)
         if not invoke:
             return false_value
         return f(*args)
@@ -70,28 +71,34 @@ def check_properties(obj, **properties):
             assert getattr(obj, key) == value, 'attribute: {}'.format(key)
 
 
-def check_insert(insert_thing, *args, **properties):
+def check_insert(*args, **properties):
     """Test an insert operation."""
+    insert_thing, args = args[0], args[1:]
     thing_inserted = insert_thing(*args)
     check_properties(thing_inserted, **properties)
     return thing_inserted
 
 
-def check_find(find_thing, cond_insert_thing, *args, **kwargs):
+def check_find(*args, **kwargs):
     """"Test a find operation.
     Handles cases that thing to be found was previously inserted or not, controlled by keyword param `invoke`.
     """
+    find_thing, cond_insert_thing = args[0:2]
+    args = args[2:]
     thing_inserted = cond_insert_thing(*args, **kwargs)
     thing_found = find_thing(*args)
     assert thing_inserted == thing_found  # Both are None when not inserted and not found
 
 
-def check_find_or_insert(find_or_insert_thing, cond_insert_thing, *args, expect_insert=True, **kwargs):
+def check_find_or_insert(*args, **kwargs):
     """"Test a find-or-insert operation.
     Handles cases that thing to be found was previously inserted or not, controlled by keyword param `invoke`.
     Parameter `expect_insert` allows for cases where the insert operation correctly does not insert and instead
     returns None.
     """
+    find_or_insert_thing, cond_insert_thing = args[0:2]
+    args = args[2:]
+    expect_insert = kwargs.get('expect_insert', True)
     thing_inserted = cond_insert_thing(*args, **kwargs)
     thing_found_or_inserted = find_or_insert_thing(*args)
     if kwargs['invoke']:
@@ -102,11 +109,12 @@ def check_find_or_insert(find_or_insert_thing, cond_insert_thing, *args, expect_
         assert not thing_found_or_inserted
 
 
-def freeze_now(monkeypatch, *args):
+def freeze_now(*args):
     """Freeze datetime.datetime.now()
     This would be more elegant as a fixture or decorator, but it would be a lot more work.
     """
-    fake_now = datetime.datetime(*args)
+    monkeypatch = args[0]
+    fake_now = datetime.datetime(*args[1:])
 
     class fake_datetime(datetime.datetime):
         @classmethod
