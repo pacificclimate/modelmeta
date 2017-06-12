@@ -20,7 +20,14 @@ setup(
         netCDF4
         nchelpers>=1.0.4
     '''.split(),
-    package_data = {'modelmeta': ['data/mddb-v1.sqlite', 'data/mddb-v2.sqlite', 'data/tiny_gcm.nc']},
+    package_data = {
+        'modelmeta': [
+            'data/mddb-v1.sqlite',
+            'data/mddb-v2.sqlite',
+            'data/tiny_gcm.nc',
+            'data/tiny_hydromodel_gcm.nc',
+        ]
+    },
     include_package_data = True,
     scripts = ['scripts/mkblankdb.py', 'scripts/mktestdb.py'],
     classifiers=['Development Status :: 5 - Production/Stable',
