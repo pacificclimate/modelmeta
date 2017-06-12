@@ -1,15 +1,19 @@
 language: python
+addons:
+  apt:
+    packages:
+      - libhdf5-serial-dev
+      - libnetcdf-dev
+      - libspatialite-dev
 dist: trusty
 sudo: false
 python:
   - 2.7
-  - 3.3
   - 3.4
-addons:
-  apt:
-    packages:
-      - libspatialite-dev
+  - 3.5
+  - 3.6
 install:
-  - python setup.py install
+  - pip install -i https://pypi.pacificclimate.org/simple -r requirements.txt
+  - pip install .
 # command to run tests
 script: py.test -v

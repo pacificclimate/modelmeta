@@ -8,6 +8,7 @@ from pkg_resources import resource_filename
 
 from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean, Enum, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.orderinglist import ordering_list
 from sqlalchemy.orm import relationship, backref, sessionmaker
 
 Base = declarative_base()
@@ -35,7 +36,10 @@ class DataFile(Base):
     #column definitions
     id = Column('data_file_id', Integer, primary_key=True, nullable=False)
     filename = Column(String(length=2048), nullable=False)
+    # FIXME: If this db is to be properly normalized, there should probably
+    # be a unique constraint on this hash
     first_1mib_md5sum = Column('first_1mib_md5sum', String(length=32), nullable=False)
+    # FIXME: Why is there no unique constraint on a "unique" id?!
     unique_id = Column(String(length=255), nullable=False)
     x_dim_name = Column(String(length=32), nullable=False)
     y_dim_name = Column(String(length=32), nullable=False)
@@ -162,7 +166,10 @@ class LevelSet(Base):
     level_units = Column(String(length=32), nullable=False)
 
     #relation definitions
-    levels = relationship("Level", backref=backref('level_set'))
+    levels = relationship("Level",
+                          order_by='Level.vertical_level',
+                          collection_class=ordering_list('vertical_level'),
+                          backref=backref('level_set'))
     data_file_variables = relationship("DataFileVariable", backref=backref('level_set'))
 
 
