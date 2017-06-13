@@ -99,12 +99,11 @@ def check_find_or_insert(*args, **kwargs):
     """
     find_or_insert_thing, cond_insert_thing = args[0:2]
     args = args[2:]
-    expect_insert = kwargs.get('expect_insert', True)
     thing_inserted = cond_insert_thing(*args, **kwargs)
     thing_found_or_inserted = find_or_insert_thing(*args)
-    if kwargs['invoke']:
+    if kwargs.get('invoke', True):
         assert thing_found_or_inserted == thing_inserted
-    elif expect_insert:
+    elif kwargs.get('expect_insert', True):
         assert thing_found_or_inserted
     else:
         assert not thing_found_or_inserted
