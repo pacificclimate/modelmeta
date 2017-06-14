@@ -56,6 +56,7 @@ import os
 import sys
 import logging
 import datetime
+from argparse import ArgumentParser
 
 import numpy as np
 from sqlalchemy import create_engine, func
@@ -84,12 +85,12 @@ def index_netcdf_files(filenames, dsn):
 
     :param filenames: list of files to index
     :param dsn: connection info for the modelmeta database to update
-    :return: generator yielding DataFile objects for each file indexed
+    :return: list of DataFile objects for each file indexed
     """
     engine = create_engine(dsn)
     session = sessionmaker(bind=engine)()
 
-    return (index_netcdf_file(f, session) for f in filenames)
+    return [index_netcdf_file(f, session) for f in filenames]
 
 
 def index_netcdf_file(filename, session):  # index.netcdf
@@ -935,3 +936,11 @@ if sys.version_info[0:2] >= (3, 2):
     import functools
     get_level_set_info = functools.lru_cache(maxsize=4)(get_level_set_info)
     get_grid_info = functools.lru_cache(maxsize=4)(get_grid_info)
+
+
+if __name__ == '__main__':
+    parser = ArgumentParser(description='Index PCIC metadata standard compliant NetCDF files into modelmeta database')
+    parser.add_argument("-d", "--dsn", help="DSN for metadata database")
+    parser.add_argument('filenames', nargs='+', help='Files to process')
+    args = parser.parse_args()
+    index_netcdf_files(args.filenames, args.dsn)
