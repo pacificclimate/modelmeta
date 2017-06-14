@@ -463,11 +463,13 @@ cond_insert_level_set = conditional(insert_level_set)
 
 # Note: Overriding default parametrization of tiny_dataset in these tests.
 
-@pytest.mark.parametrize('tiny_dataset, var_name, level_axis_var_name', [
+level_set_parametrization = ('tiny_dataset, var_name, level_axis_var_name', [
     ('gcm', 'tasmax', None),
     ('downscaled', 'tasmax', None),
     ('hydromodel_gcm', 'SWE_BAND', 'depth'),
-], indirect=['tiny_dataset'])
+])
+
+@pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
 def test_insert_level_set(blank_test_session, tiny_dataset, var_name, level_axis_var_name):
     variable = tiny_dataset.variables[var_name]
     if level_axis_var_name:
@@ -486,22 +488,14 @@ def test_insert_level_set(blank_test_session, tiny_dataset, var_name, level_axis
 
 
 @pytest.mark.parametrize('insert', [False, True])
-@pytest.mark.parametrize('tiny_dataset, var_name, level_axis_var_name', [
-    ('gcm', 'tasmax', None),
-    ('downscaled', 'tasmax', None),
-    ('hydromodel_gcm', 'SWE_BAND', 'depth'),
-], indirect=['tiny_dataset'])
+@pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
 def test_find_level_set(blank_test_session, tiny_dataset, var_name, level_axis_var_name, insert):
     check_find(find_level_set, cond_insert_level_set, blank_test_session, tiny_dataset,
                var_name, invoke=insert)
 
 
 @pytest.mark.parametrize('insert', [False, True])
-@pytest.mark.parametrize('tiny_dataset, var_name, level_axis_var_name', [
-    ('gcm', 'tasmax', None),
-    ('downscaled', 'tasmax', None),
-    ('hydromodel_gcm', 'SWE_BAND', 'depth'),
-], indirect=['tiny_dataset'])
+@pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
 def test_find_or_insert_level_set(blank_test_session, tiny_dataset, var_name, level_axis_var_name, insert):
     check_find_or_insert(find_or_insert_level_set, cond_insert_level_set, blank_test_session, tiny_dataset,
                          var_name, invoke=insert, expect_insert=bool(level_axis_var_name))
@@ -589,11 +583,7 @@ def test_get_grid_info(tiny_dataset):
 
 # Note: Overriding default parametrization of tiny_dataset in these tests.
 
-@pytest.mark.parametrize('tiny_dataset, var_name, level_axis_var_name', [
-    ('gcm', 'tasmax', None),
-    ('downscaled', 'tasmax', None),
-    ('hydromodel_gcm', 'SWE_BAND', 'depth'),
-], indirect=['tiny_dataset'])
+@pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
 def test_get_level_set_info(tiny_dataset, var_name, level_axis_var_name):
     info = get_level_set_info(tiny_dataset, var_name)
     if level_axis_var_name:
