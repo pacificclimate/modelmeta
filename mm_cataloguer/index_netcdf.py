@@ -139,7 +139,7 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     if len(set(matches)) != 1:
         logger.error('Multiple entries for same file, not all the same:')
         log_data_files(logger.error)
-        return matches
+        raise ValueError('Multiple entries for same file, not all the same. See log for details.')
 
     # At this point, we know that all matches are the same DataFile object, so the following values are
     # valid and consistent for all cases.
@@ -189,6 +189,7 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     log_data_files(logger.error)
     logger.error('old_filename_exists = {}; normalized_filenames_match = {}; index_up_to_date = {}'
                  .format(old_filename_exists, normalized_filenames_match, index_up_to_date))
+    raise ValueError('Unanticipated case. See log for details.')
 
 
 def index_cf_file(sesh, cf):
