@@ -54,10 +54,8 @@ from methods/properties of CFDataset, adhering to the principle that all our Net
 
 import os
 import sys
-import hashlib
 import logging
 import datetime
-import collections
 
 import numpy as np
 from sqlalchemy import create_engine, func
@@ -124,8 +122,8 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     id_match, hash_match, filename_match = find_data_file_by_id_hash_filename(sesh, cf)
 
     def log_data_files(log):
-        def log_data_file(label, data_file):
-            log('{}.id = {}'.format(label, data_file and data_file.id))
+        def log_data_file(label, df):
+            log('{}.id = {}'.format(label, df and df.id))
         log_data_file('id_match', id_match)
         log_data_file('hash_match', hash_match)
         log_data_file('filename_match', filename_match)
@@ -542,6 +540,7 @@ def usable_name(variable):
     except AttributeError:
         return variable.name
 
+
 def find_variable_alias(sesh, cf, var_name):
     """Find a VariableAlias for the named NetCDF variable. If none exists, return None.
 
@@ -630,14 +629,16 @@ def insert_level_set(sesh, cf, var_name):
     level_set = LevelSet(level_units=info['level_axis_var'].units)
     sesh.add(level_set)
 
-    sesh.add_all([Level(level_set=level_set,
-                        level_idx=level_idx,
-                        vertical_level=vertical_level,
-                        level_start=level_start,
-                        level_end=level_end,
-                     ) for level_idx, (level_start, vertical_level, level_end) in
-                  enumerate(cf.var_bounds_and_values(info['level_axis_var'].name))
-                 ])
+    sesh.add_all(
+        [Level(level_set=level_set,
+               level_idx=level_idx,
+               vertical_level=vertical_level,
+               level_start=level_start,
+               level_end=level_end,
+               ) for level_idx, (level_start, vertical_level, level_end) in
+         enumerate(cf.var_bounds_and_values(info['level_axis_var'].name))
+         ]
+    )
     sesh.commit()
 
     return level_set
@@ -866,7 +867,7 @@ def mean_step_size(values):
 
 def seconds_since_epoch(t):
     """Convert a datetime to the number of seconds since the Unix epoch."""
-    return (t-datetime.datetime(1970,1,1)).total_seconds()
+    return (t-datetime.datetime(1970, 1, 1)).total_seconds()
 
 
 def get_level_set_info(cf, var_name):

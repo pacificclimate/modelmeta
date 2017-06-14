@@ -22,7 +22,6 @@ See fixture definition for more details.
 
 import os
 import datetime
-from collections import namedtuple
 
 import pytest
 
@@ -150,31 +149,31 @@ def freeze_now(*args):
      {
          'isfile': lambda fp: True,  # old file still exists
          'realpath': lambda fp: 'bar',  # links to another file
-         'getmtime': lambda fp: 0, # don't care (prevent exception)
+         'getmtime': lambda fp: 0,  # don't care (prevent exception)
      },
      True),
 
     # copy of file
     ({
-         'filepath': lambda: 'foo', # different filepath
+         'filepath': lambda: 'foo',  # different filepath
 
      },
      {
-         'isfile': lambda fp: True, # old file still exists
-         'realpath': lambda fp: fp, # is the same file
-         'getmtime': lambda fp: 0, # don't care (prevent exception)
+         'isfile': lambda fp: True,  # old file still exists
+         'realpath': lambda fp: fp,  # is the same file
+         'getmtime': lambda fp: 0,  # don't care (prevent exception)
      },
      True),
 
     # moved file
     ({
-         'filepath': lambda: 'foo', # different filepath
+         'filepath': lambda: 'foo',  # different filepath
 
      },
      {
-         'isfile': lambda fp: False, # old file gone
-         'realpath': lambda fp: 'foo', # resolve to same file name
-         'getmtime': lambda fp: 0, # don't care (prevent exception)
+         'isfile': lambda fp: False,  # old file gone
+         'realpath': lambda fp: 'foo',  # resolve to same file name
+         'getmtime': lambda fp: 0,  # don't care (prevent exception)
      },
      True),
 
@@ -195,7 +194,7 @@ def freeze_now(*args):
     # modified file: modification time changed
     ({},
      {
-         'getmtime': lambda fp: seconds_since_epoch(datetime.datetime(2100, 1, 1)) # much later
+         'getmtime': lambda fp: seconds_since_epoch(datetime.datetime(2100, 1, 1))  # much later
      },
      False),
 
@@ -226,8 +225,8 @@ def test_find_update_or_insert_cf_file__dup(
     data_file2 = find_update_or_insert_cf_file(blank_test_session, other_tiny_dataset)
     
     # Set up checks for second indexing
-    def mock_value(attr):
-        thing = dataset_mocks.get(attr, None)
+    def mock_value(key):
+        thing = dataset_mocks.get(key, None)
         if callable(thing):
             return thing()
         else:
@@ -313,7 +312,8 @@ cond_insert_run_plus_prime = conditional(insert_run_plus_prime)
 
 def test_insert_run(blank_test_session, tiny_dataset):
     run, model, emission = insert_run_plus(blank_test_session, tiny_dataset)
-    check_properties(run,
+    check_properties(
+        run,
         name=tiny_dataset.metadata.run,
         project=tiny_dataset.metadata.project,
         model=model,
@@ -470,6 +470,7 @@ level_set_parametrization = ('tiny_dataset, var_name, level_axis_var_name', [
     ('climo_gcm', 'tasmax', None),
 ])
 
+
 @pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
 def test_insert_level_set(blank_test_session, tiny_dataset, var_name, level_axis_var_name):
     variable = tiny_dataset.variables[var_name]
@@ -582,8 +583,8 @@ def test_get_grid_info(tiny_dataset):
     assert info['xc_var'] == tiny_dataset.variables['lon']
     assert info['yc_var'] == tiny_dataset.variables['lat']
 
-# Note: Overriding default parametrization of tiny_dataset in these tests.
 
+# Note: Overriding default parametrization of tiny_dataset in these tests.
 @pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
 def test_get_level_set_info(tiny_dataset, var_name, level_axis_var_name):
     info = get_level_set_info(tiny_dataset, var_name)
