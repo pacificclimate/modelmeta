@@ -333,7 +333,7 @@ def insert_run(sesh, cf, model, emission):
     :param emission: (Emission) Emission record corresponding to NetCDF file
     :return: new Run record
     """
-    run = Run(name=cf.metadata.run, project=cf.metadata.project, model=model, emission=emission)
+    run = Run(name=cf.metadata.ensemble_member, project=cf.metadata.project, model=model, emission=emission)
     sesh.add(run)
     sesh.commit()
     return run
@@ -534,6 +534,13 @@ def find_or_insert_data_file_variables(sesh, cf, data_file):  # create.data.file
 
 # VariableAlias
 
+def usable_name(variable):
+    """Returns a usable name for a variable. Tries, in order: `variable.standard_name`, `variable.name`"""
+    try:
+        return variable.standard_name
+    except AttributeError:
+        return variable.name
+
 def find_variable_alias(sesh, cf, var_name):
     """Find a VariableAlias for the named NetCDF variable. If none exists, return None.
 
@@ -545,7 +552,7 @@ def find_variable_alias(sesh, cf, var_name):
     variable = cf.variables[var_name]
     q = sesh.query(VariableAlias) \
         .filter(VariableAlias.long_name == variable.long_name) \
-        .filter(VariableAlias.standard_name == variable.standard_name) \
+        .filter(VariableAlias.standard_name == usable_name(variable)) \
         .filter(VariableAlias.units == variable.units)
     return q.first()
 
@@ -561,7 +568,7 @@ def insert_variable_alias(sesh, cf, var_name):
     variable = cf.variables[var_name]
     variable_alias = VariableAlias(
         long_name=variable.long_name,
-        standard_name=variable.standard_name,
+        standard_name=usable_name(variable),
         units=variable.units,
     )
     sesh.add(variable_alias)
@@ -597,9 +604,13 @@ def find_level_set(sesh, cf, var_name):
     info = get_level_set_info(cf, var_name)
     if not info:
         return None
-    q = sesh.query(LevelSet) \
-        .filter(LevelSet.levels == info['vertical_levels']) \
-        .filter(LevelSet.units == info['level_axis_var'].units)
+    units = info['level_axis_var'].units
+    vertical_levels = info['vertical_levels']
+    q = sesh.query(LevelSet).join(Level) \
+        .filter(LevelSet.level_units == units) \
+        .filter(Level.vertical_level.in_(vertical_levels)) \
+        .group_by(Level.level_set_id) \
+        .having(func.count(Level.vertical_level) == len(vertical_levels))
     return q.first()
 
 

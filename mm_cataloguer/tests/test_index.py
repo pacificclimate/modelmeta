@@ -41,7 +41,7 @@ from mm_cataloguer.index_netcdf import \
     insert_grid, find_grid, find_or_insert_grid, \
     insert_timeset, find_timeset, find_or_insert_timeset, \
     get_grid_info, get_level_set_info, \
-    seconds_since_epoch
+    seconds_since_epoch, usable_name
 
 from mock_helper import Mock
 
@@ -440,7 +440,7 @@ def test_insert_variable_alias(blank_test_session, tiny_dataset):
     check_insert(
         insert_variable_alias, blank_test_session, tiny_dataset, var_name,
         long_name=variable.long_name,
-        standard_name=variable.standard_name,
+        standard_name=usable_name(variable),
         units=variable.units,
     )
 
@@ -484,15 +484,23 @@ def test_insert_level_set(blank_test_session, tiny_dataset, var_name, level_axis
 
 
 @pytest.mark.parametrize('insert', [False, True])
-def test_find_level_set(blank_test_session, tiny_dataset, insert):
+@pytest.mark.parametrize('tiny_dataset, var_name, level_axis_var_name', [
+    ('gcm', 'tasmax', None),
+    ('hydromodel_gcm', 'SWE_BAND', 'depth'),
+], indirect=['tiny_dataset'])
+def test_find_level_set(blank_test_session, tiny_dataset, var_name, level_axis_var_name, insert):
     check_find(find_level_set, cond_insert_level_set, blank_test_session, tiny_dataset,
-               tiny_dataset.dependent_varnames[0], invoke=insert)
+               var_name, invoke=insert)
 
 
 @pytest.mark.parametrize('insert', [False, True])
-def test_find_or_insert_level_set(blank_test_session, tiny_dataset, insert):
+@pytest.mark.parametrize('tiny_dataset, var_name, level_axis_var_name', [
+    ('gcm', 'tasmax', None),
+    ('hydromodel_gcm', 'SWE_BAND', 'depth'),
+], indirect=['tiny_dataset'])
+def test_find_or_insert_level_set(blank_test_session, tiny_dataset, var_name, level_axis_var_name, insert):
     check_find_or_insert(find_or_insert_level_set, cond_insert_level_set, blank_test_session, tiny_dataset,
-                         tiny_dataset.dependent_varnames[0], invoke=insert, expect_insert=False)
+                         var_name, invoke=insert, expect_insert=bool(level_axis_var_name))
 
 
 # Grid, YCellBound
