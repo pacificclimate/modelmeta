@@ -184,6 +184,11 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     if filename_match and not index_up_to_date:
         return reindex_cf_file(sesh, data_file, cf)
 
+    # moved and modified file (hash changed)
+    if id_match and not hash_match and not filename_match and not old_filename_exists:
+        return reindex_cf_file(sesh, data_file, cf)
+
+
     # Oops, missed something. We think this won't happen, but ...
     logger.error('Encountered an unanticipated case:')
     log_data_files(logger.error)

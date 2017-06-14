@@ -211,7 +211,16 @@ def test_index_netcdf_files():
      },
      False),
 
-
+    # moved and modified file (hash changed)
+    ({
+         'first_MiB_md5sum': 'foo',  # different hash
+         'filepath': lambda: 'foo',  # different filepath
+     },
+     {
+         'isfile': lambda fp: False,  # old file gone
+         'getmtime': lambda fp: 0,  # don't care (prevent exception)
+     },
+     False),
 ])
 def test_find_update_or_insert_cf_file__dup(
         monkeypatch, blank_test_session, tiny_dataset,
