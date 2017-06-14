@@ -157,8 +157,20 @@ def test_index_netcdf_files():
     # same file
     ({}, {}, True),
 
-    # symlinked file
+    # symlinked and unmodified file
     ({
+         'filepath': lambda: 'foo',  # different filepath
+     },
+     {
+         'isfile': lambda fp: True,  # old file still exists
+         'realpath': lambda fp: 'bar',  # links to another file
+         'getmtime': lambda fp: 0,  # don't care (prevent exception)
+     },
+     True),
+
+    # symlinked and modified file (hash changed)
+    ({
+         'first_MiB_md5sum': 'foo',  # different hash
          'filepath': lambda: 'foo',  # different filepath
      },
      {

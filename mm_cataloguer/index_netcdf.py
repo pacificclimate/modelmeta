@@ -160,8 +160,8 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
             index_up_to_date:
         return update_data_file_index_time(sesh, data_file)
 
-    # symlinked file
-    if id_match and hash_match and not filename_match and old_filename_exists and normalized_filenames_match:
+    # symlinked file (modified or not)
+    if id_match and not filename_match and old_filename_exists and normalized_filenames_match:
         return skip_file('file is symlink to an indexed file')
 
     # copy of file
