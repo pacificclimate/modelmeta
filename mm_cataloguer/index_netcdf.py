@@ -176,11 +176,11 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     if not id_match and hash_match and filename_match:
         return skip_file('file already already indexed under different unique id')
 
-    # modified file: hash changed
+    # modified file (hash changed)
     if id_match and not hash_match and filename_match:
         return reindex_cf_file(sesh, data_file, cf)
 
-    # modified file: modification time changed, but not hash?
+    # modified file (modification time changed, but not hash?)
     if filename_match and not index_up_to_date:
         return reindex_cf_file(sesh, data_file, cf)
 

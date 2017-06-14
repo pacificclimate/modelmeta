@@ -160,7 +160,6 @@ def test_index_netcdf_files():
     # symlinked file
     ({
          'filepath': lambda: 'foo',  # different filepath
-
      },
      {
          'isfile': lambda fp: True,  # old file still exists
@@ -172,7 +171,6 @@ def test_index_netcdf_files():
     # copy of file
     ({
          'filepath': lambda: 'foo',  # different filepath
-
      },
      {
          'isfile': lambda fp: True,  # old file still exists
@@ -184,7 +182,6 @@ def test_index_netcdf_files():
     # moved file
     ({
          'filepath': lambda: 'foo',  # different filepath
-
      },
      {
          'isfile': lambda fp: False,  # old file gone
@@ -195,19 +192,19 @@ def test_index_netcdf_files():
 
     # indexed under different id
     ({
-        'unique_id': 'foo'
+        'unique_id': 'foo'  # different unique id
      },
      {},
      True),
 
-    # modified file: hash changed
+    # modified file (hash changed)
     ({
-         'first_MiB_md5sum': 'foo'
+         'first_MiB_md5sum': 'foo'  # different hash
      },
      {},
      False),
 
-    # modified file: modification time changed
+    # modified file (modification time changed)
     ({},
      {
          'getmtime': lambda fp: seconds_since_epoch(datetime.datetime(2100, 1, 1))  # much later
