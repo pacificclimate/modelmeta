@@ -180,6 +180,17 @@ def test_index_netcdf_files():
      },
      True),
 
+    # symlinked and modified file (mod time changed)
+    ({
+         'filepath': lambda: 'foo',  # different filepath
+     },
+     {
+         'isfile': lambda fp: True,  # old file still exists
+         'realpath': lambda fp: 'bar',  # links to another file
+         'getmtime': lambda fp: seconds_since_epoch(datetime.datetime(2100, 1, 1))  # much later
+     },
+     True),
+
     # copy of file
     ({
          'filepath': lambda: 'foo',  # different filepath
