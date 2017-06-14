@@ -27,6 +27,7 @@ setup(
             'data/tiny_gcm.nc',
             'data/tiny_downscaled.nc',
             'data/tiny_hydromodel_gcm.nc',
+            'data/tiny_climo_gcm.nc',
         ]
     },
     include_package_data = True,

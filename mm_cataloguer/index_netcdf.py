@@ -63,6 +63,7 @@ import numpy as np
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
 
+from netCDF4 import num2date
 from nchelpers import CFDataset
 from nchelpers.date_utils import to_datetime
 from modelmeta import Model, Run, Emission, DataFile, TimeSet, Time, ClimatologicalTime, DataFileVariable, \
@@ -811,16 +812,19 @@ def insert_timeset(sesh, cf):
     # TODO: Factor out inserts for Time and ClimatologicalTime as separate functions
 
     times = [Time(
+        timeset=time_set,
         time_idx=time_idx,
         timestep=timestep,
-        timeset=time_set,
     ) for time_idx, timestep in enumerate(to_datetime(cf.time_steps['datetime']))]
     sesh.add_all(times)
 
     if cf.is_multi_year_mean:
-        climatology_bounds = cf.variables[cf.climatology_bounds_var_name][:]
+        climatology_bounds = to_datetime(
+            num2date(cf.variables[cf.climatology_bounds_var_name][:],
+                     cf.time_var.units, cf.time_var.calendar)
+        )
         climatological_times = [ClimatologicalTime(
-            time_set_id=time_set.id,
+            timeset=time_set,
             time_idx=time_idx,
             time_start=time_start,
             time_end=time_end,
