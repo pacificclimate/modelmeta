@@ -22,6 +22,7 @@ See fixture definition for more details.
 
 import os
 import datetime
+from pkg_resources import resource_filename
 
 import pytest
 
@@ -29,6 +30,7 @@ from modelmeta import Level
 from nchelpers.date_utils import to_datetime
 
 from mm_cataloguer.index_netcdf import \
+    index_netcdf_files, \
     find_update_or_insert_cf_file, index_cf_file, \
     find_data_file_by_id_hash_filename, insert_data_file, delete_data_file, \
     insert_run, find_run, find_or_insert_run, \
@@ -124,7 +126,21 @@ def freeze_now(*args):
     return fake_now
 
 
-# Indexing functions
+# Root functions
+
+def test_index_netcdf_files():
+    f = resource_filename('modelmeta', 'data/mddb-v2.sqlite')
+    dsn = 'sqlite:///{0}'.format(f)
+    test_files = [
+        'data/tiny_gcm.nc',
+        'data/tiny_downscaled.nc',
+        'data/tiny_hydromodel_gcm.nc',
+        'data/tiny_climo_gcm.nc',
+    ]
+    filenames = [resource_filename('modelmeta', f) for f in test_files]
+    results = index_netcdf_files(filenames, dsn)
+    assert all(r and r.filename == f for (r, f) in zip(results, filenames))
+
 
 # TODO: Test for multiple entries for same file
 
