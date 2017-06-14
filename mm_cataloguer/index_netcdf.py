@@ -181,7 +181,7 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
         return reindex_cf_file(sesh, data_file, cf)
 
     # modified file (modification time changed, but not hash?)
-    if filename_match and not index_up_to_date:
+    if id_match and filename_match and not index_up_to_date:
         return reindex_cf_file(sesh, data_file, cf)
 
     # moved and modified file (hash changed)
