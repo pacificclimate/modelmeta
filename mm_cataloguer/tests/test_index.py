@@ -244,6 +244,16 @@ def test_index_netcdf_files():
          'getmtime': lambda fp: 0,  # don't care (prevent exception)
      },
      False),
+
+    # moved and modified file (modification time changed)
+    ({
+         'filepath': lambda: 'foo',  # different filepath
+     },
+     {
+         'isfile': lambda fp: False,  # old file gone
+         'getmtime': lambda fp: seconds_since_epoch(datetime.datetime(2100, 1, 1))  # much later
+     },
+     False),
 ])
 def test_find_update_or_insert_cf_file__dup(
         monkeypatch, blank_test_session, tiny_dataset,

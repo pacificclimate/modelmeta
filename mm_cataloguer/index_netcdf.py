@@ -169,7 +169,7 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
         return skip_file('file is a copy of an indexed file')
 
     # moved file
-    if id_match and hash_match and not filename_match and not old_filename_exists:
+    if id_match and hash_match and not filename_match and not old_filename_exists and index_up_to_date:
         return update_data_file_filename(sesh, data_file, cf)
 
     # indexed under different unique id
@@ -188,6 +188,9 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     if id_match and not hash_match and not filename_match and not old_filename_exists:
         return reindex_cf_file(sesh, data_file, cf)
 
+    # moved and modified file (modification time changed)
+    if id_match and not filename_match and not old_filename_exists and not index_up_to_date:
+        return reindex_cf_file(sesh, data_file, cf)
 
     # Oops, missed something. We think this won't happen, but ...
     logger.error('Encountered an unanticipated case:')
