@@ -41,7 +41,7 @@ def tiny_gcm():
 # This can be overridden on specific tests by using `@pytest.mark.parametrize` with arg `indirect=['tiny_dataset']`;
 # see `test_get_level_set_info` for an example.
 # TODO: Parametrize over more tiny datasets.
-@pytest.fixture(params='gcm hydromodel_gcm'.split())
+@pytest.fixture(params='gcm downscaled hydromodel_gcm'.split())
 def tiny_dataset(request):
     """Return a 'tiny' test dataset, based on request param.
     This fixture is used to parametrize over test data files.

@@ -461,9 +461,11 @@ def test_find_or_insert_variable_alias(blank_test_session, tiny_dataset, insert)
 
 cond_insert_level_set = conditional(insert_level_set)
 
+# Note: Overriding default parametrization of tiny_dataset in these tests.
 
 @pytest.mark.parametrize('tiny_dataset, var_name, level_axis_var_name', [
     ('gcm', 'tasmax', None),
+    ('downscaled', 'tasmax', None),
     ('hydromodel_gcm', 'SWE_BAND', 'depth'),
 ], indirect=['tiny_dataset'])
 def test_insert_level_set(blank_test_session, tiny_dataset, var_name, level_axis_var_name):
@@ -486,6 +488,7 @@ def test_insert_level_set(blank_test_session, tiny_dataset, var_name, level_axis
 @pytest.mark.parametrize('insert', [False, True])
 @pytest.mark.parametrize('tiny_dataset, var_name, level_axis_var_name', [
     ('gcm', 'tasmax', None),
+    ('downscaled', 'tasmax', None),
     ('hydromodel_gcm', 'SWE_BAND', 'depth'),
 ], indirect=['tiny_dataset'])
 def test_find_level_set(blank_test_session, tiny_dataset, var_name, level_axis_var_name, insert):
@@ -496,6 +499,7 @@ def test_find_level_set(blank_test_session, tiny_dataset, var_name, level_axis_v
 @pytest.mark.parametrize('insert', [False, True])
 @pytest.mark.parametrize('tiny_dataset, var_name, level_axis_var_name', [
     ('gcm', 'tasmax', None),
+    ('downscaled', 'tasmax', None),
     ('hydromodel_gcm', 'SWE_BAND', 'depth'),
 ], indirect=['tiny_dataset'])
 def test_find_or_insert_level_set(blank_test_session, tiny_dataset, var_name, level_axis_var_name, insert):
@@ -583,9 +587,11 @@ def test_get_grid_info(tiny_dataset):
     assert info['xc_var'] == tiny_dataset.variables['lon']
     assert info['yc_var'] == tiny_dataset.variables['lat']
 
+# Note: Overriding default parametrization of tiny_dataset in these tests.
 
 @pytest.mark.parametrize('tiny_dataset, var_name, level_axis_var_name', [
     ('gcm', 'tasmax', None),
+    ('downscaled', 'tasmax', None),
     ('hydromodel_gcm', 'SWE_BAND', 'depth'),
 ], indirect=['tiny_dataset'])
 def test_get_level_set_info(tiny_dataset, var_name, level_axis_var_name):
