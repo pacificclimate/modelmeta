@@ -56,6 +56,7 @@ import os
 import sys
 import logging
 import datetime
+import functools
 from argparse import ArgumentParser
 
 import numpy as np
@@ -861,6 +862,28 @@ def find_or_insert_timeset(sesh, cf):
     return insert_timeset(sesh, cf)
 
 
+# Decorators
+
+def memoize(obj):
+    """Memoize a callable object with only positional args, and where those args are hashable.
+    This is simple and sufficient for its application in this code. It works in all versions of Python >= 2.7,
+    which is not true for many of the more featureful modules (e.g., `functools.lru_cache`).
+    Adapted from http://book.pythontips.com/en/latest/function_caching.html
+    """
+    memo = {}
+
+    @functools.wraps(obj)
+    def memoized(*args):
+        if args in memo:
+            return memo[args]
+        else:
+            value = obj(*args)
+            memo[args] = value
+            return value
+
+    return memoized
+
+
 # Helper functions
 
 def is_regular_series(values, relative_tolerance=1e-6):
@@ -880,6 +903,7 @@ def seconds_since_epoch(t):
     return (t-datetime.datetime(1970, 1, 1)).total_seconds()
 
 
+@memoize
 def get_level_set_info(cf, var_name):
     """Return a dict containing information characterizing the level set (Z axis values) associated with a
     specified dependent variable, or None if there is no associated Z axis we can identify.
@@ -907,6 +931,7 @@ def get_level_set_info(cf, var_name):
     }
 
 
+@memoize
 def get_grid_info(cf, var_name):
     """Get information defining the Grid record corresponding to the spatial dimensions of a variable in a NetCDF file.
 
@@ -939,12 +964,6 @@ def get_grid_info(cf, var_name):
         'yc_grid_step': mean_step_size(yc_values),
         'evenly_spaced_y': is_regular_series(yc_values),
     }
-
-
-if sys.version_info[0:2] >= (3, 2):
-    import functools
-    get_level_set_info = functools.lru_cache(maxsize=4)(get_level_set_info)
-    get_grid_info = functools.lru_cache(maxsize=4)(get_grid_info)
 
 
 if __name__ == '__main__':
