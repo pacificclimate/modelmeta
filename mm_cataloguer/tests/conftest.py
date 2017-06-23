@@ -8,6 +8,7 @@ import pytest
 from nchelpers import CFDataset
 
 from modelmeta import create_test_database
+from modelmeta import Ensemble
 
 # Add helpers directory to pythonpath: See https://stackoverflow.com/a/33515264
 sys.path.append(os.path.join(os.path.dirname(__file__), 'helpers'))
@@ -28,6 +29,31 @@ def blank_test_session():
     create_test_database(engine)
     session = sessionmaker(bind=engine)
     return session()
+
+
+def make_ensemble(id):
+    return Ensemble(
+        changes='wonder what this is for',
+        description='Ensemble {}'.format(id),
+        name='ensemble{}'.format(id),
+        version=float(id)
+    )
+
+
+@pytest.fixture
+def ensemble1():
+    return make_ensemble(1)
+
+
+@pytest.fixture
+def ensemble2():
+    return make_ensemble(2)
+
+
+@pytest.fixture
+def test_session_with_ensembles(blank_test_session, ensemble1, ensemble2):
+    blank_test_session.add_all([ensemble1, ensemble2])
+    yield blank_test_session
 
 
 @pytest.fixture
