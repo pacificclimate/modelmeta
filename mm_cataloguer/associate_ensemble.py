@@ -35,6 +35,7 @@ def find_ensemble(sesh, name, version):
 def associate_ensemble_to_cf(sesh, cf, ensemble_name, ensemble_ver):
     """Associate an existing NetCDF file to an existing ensemble in the modelmeta database.
     Raise an error if no ensemble in the database matches the given name and version.
+    Do nothing if the association already exists.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
@@ -56,8 +57,16 @@ def associate_ensemble_to_cf(sesh, cf, ensemble_name, ensemble_ver):
     data_file = id_match or hash_match or filename_match  # Any will do; this is robust to changes to matching criteria
 
     for data_file_variable in data_file.data_file_variables:
-        ensemble_dfv = EnsembleDataFileVariables(ensemble_id=ensemble.id, data_file_variable_id=data_file_variable.id)
-        sesh.add(ensemble_dfv)
+        ensemble_dfv = sesh.query(EnsembleDataFileVariables)\
+            .filter(EnsembleDataFileVariables.ensemble_id == ensemble.id)\
+            .filter(EnsembleDataFileVariables.data_file_variable_id == data_file_variable.id)\
+            .first()
+        if ensemble_dfv:
+            logger.info('Assocation for variable id {} to ensemble already exists'.format(data_file_variable.id))
+        else:
+            logger.info('Assocating variable id {} to ensemble'.format(data_file_variable.id))
+            ensemble_dfv = EnsembleDataFileVariables(ensemble_id=ensemble.id, data_file_variable_id=data_file_variable.id)
+            sesh.add(ensemble_dfv)
 
     return data_file
 
@@ -89,7 +98,9 @@ def associate_ensemble_to_files(filepaths, dsn, ensemble_name, ensemble_ver):
     engine = create_engine(dsn)
     session = sessionmaker(bind=engine)()
 
-    return [associate_ensemble_to_file(f, session, ensemble_name, ensemble_ver) for f in filepaths]
+    result = [associate_ensemble_to_file(f, session, ensemble_name, ensemble_ver) for f in filepaths]
+
+    return result
 
 
 if __name__ == '__main__':
