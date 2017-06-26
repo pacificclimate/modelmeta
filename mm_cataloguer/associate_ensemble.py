@@ -67,6 +67,7 @@ def associate_ensemble_to_cf(sesh, cf, ensemble_name, ensemble_ver):
             logger.info('Assocating variable id {} to ensemble'.format(data_file_variable.id))
             ensemble_dfv = EnsembleDataFileVariables(ensemble_id=ensemble.id, data_file_variable_id=data_file_variable.id)
             sesh.add(ensemble_dfv)
+            sesh.commit()
 
     return data_file
 
