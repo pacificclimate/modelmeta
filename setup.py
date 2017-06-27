@@ -18,7 +18,7 @@ setup(
         psycopg2
         numpy
         netCDF4
-        nchelpers>=1.0.4
+        nchelpers>=1.0.5
     '''.split(),
     package_data = {
         'modelmeta': [
