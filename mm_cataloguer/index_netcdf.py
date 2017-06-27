@@ -54,15 +54,16 @@ from methods/properties of CFDataset, adhering to the principle that all our Net
 
 import os
 import sys
-import hashlib
 import logging
 import datetime
-import collections
+import functools
+from argparse import ArgumentParser
 
 import numpy as np
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
 
+from netCDF4 import num2date
 from nchelpers import CFDataset
 from nchelpers.date_utils import to_datetime
 from modelmeta import Model, Run, Emission, DataFile, TimeSet, Time, ClimatologicalTime, DataFileVariable, \
@@ -85,12 +86,12 @@ def index_netcdf_files(filenames, dsn):
 
     :param filenames: list of files to index
     :param dsn: connection info for the modelmeta database to update
-    :return: generator yielding DataFile objects for each file indexed
+    :return: list of DataFile objects for each file indexed
     """
     engine = create_engine(dsn)
     session = sessionmaker(bind=engine)()
 
-    return (index_netcdf_file(f, session) for f in filenames)
+    return [index_netcdf_file(f, session) for f in filenames]
 
 
 def index_netcdf_file(filename, session):  # index.netcdf
@@ -112,32 +113,92 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :return: DataFile entry for file
+
+    The algorithm is a sequence of tests for conditions corresponding to what relation the input NetCDF file
+    may bear to the existing database: e.g., a new file, an already-known file, a modified file, etc.
+    This sequence deliberately avoids nesting if statements, which has proven confusing and hard to maintain.
+    The flip side of this choice is that we may not have exhausted all possible cases. This situation is signalled
+    by the final statements after all the if statements.
     """
-    id_data_file, hash_data_file = find_data_file_by_unique_id_and_hash(sesh, cf)
+    logger.info('Processing file: {}'.format(cf.filepath()))
+    id_match, hash_match, filename_match = find_data_file_by_id_hash_filename(sesh, cf)
 
-    if id_data_file and hash_data_file:
-        # File located using both unique id and hash. Check they're indexed by the same DataFile object.
-        if id_data_file == hash_data_file:
-            logger.info("Skipping file {}. Already in the db as id {}.".format(cf.filepath(), id_data_file.id))
-        else:
-            logger.error("Split brain! File {} is in the database under multiple entries: data_file_id {} and {}"
-                         .format(cf.filepath(), id_data_file.id, hash_data_file.id))
-        return id_data_file
+    def log_data_files(log):
+        def log_data_file(label, df):
+            log('{}.id = {}'.format(label, df and df.id))
+        log_data_file('id_match', id_match)
+        log_data_file('hash_match', hash_match)
+        log_data_file('filename_match', filename_match)
 
-    elif id_data_file and not hash_data_file:
-        # File changed. Do an update.
-        logger.info("File {}: Content changed. Updating database accordingly.".format(cf.filepath()))
-        return update_cf_file(sesh, id_data_file, cf)
+    matches = tuple(df for df in (id_match, hash_match, filename_match) if df)
 
-    elif not id_data_file and hash_data_file:
-        # We've indexed this file under a different unique id. Warn and skip.
-        logger.warning("Skipping file {}. Already in the db under unique id {}."
-                       .format(cf.filepath(), hash_data_file.unique_id))
-        return hash_data_file
-
-    else:
-        # File is not indexed in the db yet. Our raison d'être. Do the insertion.
+    # new file
+    if len(matches) == 0:
         return index_cf_file(sesh, cf)
+
+    # multiple entries for same file: more than one match, but they are not all the same
+    if len(set(matches)) != 1:
+        logger.error('Multiple entries for same file, not all the same:')
+        log_data_files(logger.error)
+        raise ValueError('Multiple entries for same file, not all the same. See log for details.')
+
+    # At this point, we know that all matches are the same DataFile object, so the following values are
+    # valid and consistent for all cases.
+    data_file = id_match or hash_match or filename_match
+    old_filename_exists = os.path.isfile(data_file.filename)
+    normalized_filenames_match = os.path.realpath(data_file.filename) == os.path.realpath(cf.filepath())
+    cf_modification_time = os.path.getmtime(cf.filepath())
+    data_file_index_time = seconds_since_epoch(data_file.index_time)
+    index_up_to_date = data_file_index_time > cf_modification_time
+
+    def skip_file(reason):
+        logger.info('Skipping file: {}'.format(reason))
+        return data_file
+
+    # same file
+    if id_match and hash_match and filename_match and \
+            id_match == hash_match == filename_match and \
+            index_up_to_date:
+        return update_data_file_index_time(sesh, data_file)
+
+    # symlinked file (modified or not)
+    if id_match and not filename_match and old_filename_exists and normalized_filenames_match:
+        return skip_file('file is symlink to an indexed file')
+
+    # copy of file
+    if id_match and hash_match and not filename_match and old_filename_exists and not normalized_filenames_match:
+        return skip_file('file is a copy of an indexed file')
+
+    # moved file
+    if id_match and hash_match and not filename_match and not old_filename_exists and index_up_to_date:
+        return update_data_file_filename(sesh, data_file, cf)
+
+    # indexed under different unique id
+    if not id_match and hash_match and filename_match:
+        return skip_file('file already already indexed under different unique id')
+
+    # modified file (hash changed)
+    if id_match and not hash_match and filename_match:
+        return reindex_cf_file(sesh, data_file, cf)
+
+    # modified file (modification time changed, but not hash?)
+    if id_match and filename_match and not index_up_to_date:
+        return reindex_cf_file(sesh, data_file, cf)
+
+    # moved and modified file (hash changed)
+    if id_match and not hash_match and not filename_match and not old_filename_exists:
+        return reindex_cf_file(sesh, data_file, cf)
+
+    # moved and modified file (modification time changed)
+    if id_match and not filename_match and not old_filename_exists and not index_up_to_date:
+        return reindex_cf_file(sesh, data_file, cf)
+
+    # Oops, missed something. We think this won't happen, but ...
+    logger.error('Encountered an unanticipated case:')
+    log_data_files(logger.error)
+    logger.error('old_filename_exists = {}; normalized_filenames_match = {}; index_up_to_date = {}'
+                 .format(old_filename_exists, normalized_filenames_match, index_up_to_date))
+    raise ValueError('Unanticipated case. See log for details.')
 
 
 def index_cf_file(sesh, cf):
@@ -161,80 +222,43 @@ def reindex_cf_file(sesh, existing_data_file, cf):
     :param cf: CFDatafile object representing NetCDF file
     :return: DataFile entry for file
     """
+    logger.info('Reindexing file')
     delete_data_file(sesh, existing_data_file)
     return index_cf_file(sesh, cf)
 
 
-def update_cf_file(sesh, data_file, cf):  # not a function in R code; NOT the same as update.data.file.id
-    """Update a the modelmeta entry for a NetCDF file.
+def update_data_file_index_time(sesh, data_file):
+    """Update the index time recorded for data_file"""
+    logger.info('Updating index time (only)')
+    data_file.index_time = datetime.datetime.now()
+    sesh.commit()
+    return data_file
 
-    WARNING: `data_file` and `cf` MUST represent the SAME file.
 
-    :param sesh: modelmeta database session
-    :param data_file: DataFile entry for NetCDF file
-    :param cf: CFDatafile object representing NetCDF file
-    :return: DataFile object, updated (may be different than the data_file passed in)
-    """
-    cf_modification_time = os.path.getmtime(cf.filepath())
-    if cf.filepath() == data_file.filename:
-        if cf.first_MiB_md5sum == data_file.first_1mib_md5sum:
-            # TODO (X): Uh-oh, this branch will never be taken, because `find_update_or_insert_file` calls this method
-            # only when no match in the database has been made on the file's hash. That's the complement of the if
-            # condition. However, if this routine is regarded as general-purpose, then this branch covers a possbile
-            # case
-            if cf_modification_time < data_file.index_time:
-                # Update the index time
-                data_file.index_time = datetime.datetime.now()
-                sesh.commit()
-                return data_file
-            else:
-                # File has changed w/o hash being updated; log warning, then reindex and update existing records.
-                logger.warning("File {}: Hash didn't change, but file was updated.".format(cf.filepath()))
-                return reindex_cf_file(sesh, data_file, cf)
-        else:
-            # TODO: This branch always taken. See TODO (X) above.
-            if cf_modification_time < seconds_since_epoch(data_file.index_time):
-                # Error condition. Should never happen.
-                raise ValueError("File {}: Hash changed, but mod time doesn't reflect update.".format(cf.filepath()))
-            else:
-                # File has changed; re-index it.
-                logger.info("File modification date later than last indexing. Reindexing file.")
-                return reindex_cf_file(sesh, data_file, cf)
-    else:
-        # Name changed and data changed.
-        if os.path.isfile(cf.filepath()):
-            # Same file (probably a symlink). Ignore the file; we'll hit it later.
-            # FIXME: CHECK THE ASSUMPTION HERE.
-            logger.info("{} refers to the same file as {}".format(data_file.filename, cf.filename()))
-            return data_file
-        else:
-            with CFDataset(data_file.filename) as data_file_cf:
-                if cf.md5 == data_file_cf.md5:
-                    # TODO: Seems unlikely this path will ever be taken for same reason as TODO (X) above.
-                    # Same content. Scream about a copy.
-                    logger.warning("File {} is a copy of {}. Figure out why.".format(cf.filepath(), data_file.filename))
-                    return data_file
-                else:
-                    # Different file content. May be a newer version of the same file. Reindex it.
-                    return reindex_cf_file(sesh, data_file, cf)
-
-    raise RuntimeError('Error: This function should return from all branches of if statements.')
+def update_data_file_filename(sesh, data_file, cf):
+    """Update the filename recorded for data_file with the cf filename."""
+    logger.info('Updating filename (only)')
+    data_file.filename = cf.filepath()
+    sesh.commit()
+    return data_file
 
 
 # DataFile
 
-def find_data_file_by_unique_id_and_hash(sesh, cf):
-    """Find and return DataFile records matching file unique id and file hash.
+def find_data_file_by_id_hash_filename(sesh, cf):
+    """Find and return DataFile records matching file unique id, file hash, and filename.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: pair of DataFiles matching unique id, hash (None in a component if no match)
+    :return: tuple of DataFiles matching unique id, hash, filename (None in a component if no match)
     """
     q = sesh.query(DataFile).filter(DataFile.unique_id == cf.unique_id)
     id_match = q.first()
     q = sesh.query(DataFile).filter(DataFile.first_1mib_md5sum == cf.first_MiB_md5sum)
     hash_match = q.first()
-    return id_match, hash_match
+    q = sesh.query(DataFile).filter(DataFile.filename == cf.filepath())
+    filename_match = q.first()
+    return id_match, hash_match, filename_match
 
 
 def insert_data_file(sesh, cf):  # create.data.file.id
@@ -244,13 +268,13 @@ def insert_data_file(sesh, cf):  # create.data.file.id
     :param cf: CFDatafile object representing NetCDF file
     :return: inserted DataFile
     """
+    logger.info("Creating new DataFile for unique_id {}".format(cf.unique_id))
     # TODO: Parametrize on timeset, run; like run on model, emission
     timeset = find_or_insert_timeset(sesh, cf)
     assert timeset
     run = find_or_insert_run(sesh, cf)
     assert run
     dim_names = cf.axes_dim()
-    logger.info("Creating new DataFile for unique_id {}".format(cf.unique_id))
 
     df = DataFile(
         filename=cf.filepath(),
@@ -277,6 +301,7 @@ def delete_data_file(sesh, existing_data_file):
     :param sesh: modelmeta database session
     :param existing_data_file: DataFile object representing data file to be deleted and re-inserted
     """
+    logger.info("Deleting DataFile for unique_id {}".format(existing_data_file.unique_id))
     # TODO: Also delete associations with `QCFlag`s? (via `DataFileVariablesQcFlag`)
     existing_data_file_variables = existing_data_file.data_file_variables
     existing_ensemble_data_file_variables = (
@@ -318,7 +343,7 @@ def insert_run(sesh, cf, model, emission):
     :param emission: (Emission) Emission record corresponding to NetCDF file
     :return: new Run record
     """
-    run = Run(name=cf.metadata.run, project=cf.metadata.project, model=model, emission=emission)
+    run = Run(name=cf.metadata.ensemble_member, project=cf.metadata.project, model=model, emission=emission)
     sesh.add(run)
     sesh.commit()
     return run
@@ -519,6 +544,14 @@ def find_or_insert_data_file_variables(sesh, cf, data_file):  # create.data.file
 
 # VariableAlias
 
+def usable_name(variable):
+    """Returns a usable name for a variable. Tries, in order: `variable.standard_name`, `variable.name`"""
+    try:
+        return variable.standard_name
+    except AttributeError:
+        return variable.name
+
+
 def find_variable_alias(sesh, cf, var_name):
     """Find a VariableAlias for the named NetCDF variable. If none exists, return None.
 
@@ -530,7 +563,7 @@ def find_variable_alias(sesh, cf, var_name):
     variable = cf.variables[var_name]
     q = sesh.query(VariableAlias) \
         .filter(VariableAlias.long_name == variable.long_name) \
-        .filter(VariableAlias.standard_name == variable.standard_name) \
+        .filter(VariableAlias.standard_name == usable_name(variable)) \
         .filter(VariableAlias.units == variable.units)
     return q.first()
 
@@ -546,7 +579,7 @@ def insert_variable_alias(sesh, cf, var_name):
     variable = cf.variables[var_name]
     variable_alias = VariableAlias(
         long_name=variable.long_name,
-        standard_name=variable.standard_name,
+        standard_name=usable_name(variable),
         units=variable.units,
     )
     sesh.add(variable_alias)
@@ -582,9 +615,13 @@ def find_level_set(sesh, cf, var_name):
     info = get_level_set_info(cf, var_name)
     if not info:
         return None
-    q = sesh.query(LevelSet) \
-        .filter(LevelSet.levels == info['vertical_levels']) \
-        .filter(LevelSet.units == info['level_axis_var'].units)
+    units = info['level_axis_var'].units
+    vertical_levels = info['vertical_levels']
+    q = sesh.query(LevelSet).join(Level) \
+        .filter(LevelSet.level_units == units) \
+        .filter(Level.vertical_level.in_(vertical_levels)) \
+        .group_by(Level.level_set_id) \
+        .having(func.count(Level.vertical_level) == len(vertical_levels))
     return q.first()
 
 
@@ -603,14 +640,16 @@ def insert_level_set(sesh, cf, var_name):
     level_set = LevelSet(level_units=info['level_axis_var'].units)
     sesh.add(level_set)
 
-    sesh.add_all([Level(level_set=level_set,
-                        level_idx=level_idx,
-                        vertical_level=vertical_level,
-                        level_start=level_start,
-                        level_end=level_end,
-                     ) for level_idx, (level_start, vertical_level, level_end) in
-                  enumerate(cf.var_bounds_and_values(info['level_axis_var'].name))
-                 ])
+    sesh.add_all(
+        [Level(level_set=level_set,
+               level_idx=level_idx,
+               vertical_level=vertical_level,
+               level_start=level_start,
+               level_end=level_end,
+               ) for level_idx, (level_start, vertical_level, level_end) in
+         enumerate(cf.var_bounds_and_values(info['level_axis_var'].name))
+         ]
+    )
     sesh.commit()
 
     return level_set
@@ -785,16 +824,19 @@ def insert_timeset(sesh, cf):
     # TODO: Factor out inserts for Time and ClimatologicalTime as separate functions
 
     times = [Time(
+        timeset=time_set,
         time_idx=time_idx,
         timestep=timestep,
-        timeset=time_set,
     ) for time_idx, timestep in enumerate(to_datetime(cf.time_steps['datetime']))]
     sesh.add_all(times)
 
     if cf.is_multi_year_mean:
-        climatology_bounds = cf.variables[cf.climatology_bounds_var_name][:]
+        climatology_bounds = to_datetime(
+            num2date(cf.variables[cf.climatology_bounds_var_name][:],
+                     cf.time_var.units, cf.time_var.calendar)
+        )
         climatological_times = [ClimatologicalTime(
-            time_set_id=time_set.id,
+            timeset=time_set,
             time_idx=time_idx,
             time_start=time_start,
             time_end=time_end,
@@ -820,6 +862,28 @@ def find_or_insert_timeset(sesh, cf):
     return insert_timeset(sesh, cf)
 
 
+# Decorators
+
+def memoize(obj):
+    """Memoize a callable object with only positional args, and where those args are hashable.
+    This is simple and sufficient for its application in this code. It works in all versions of Python >= 2.7,
+    which is not true for many of the more featureful modules (e.g., `functools.lru_cache`).
+    Adapted from http://book.pythontips.com/en/latest/function_caching.html
+    """
+    memo = {}
+
+    @functools.wraps(obj)
+    def memoized(*args):
+        if args in memo:
+            return memo[args]
+        else:
+            value = obj(*args)
+            memo[args] = value
+            return value
+
+    return memoized
+
+
 # Helper functions
 
 def is_regular_series(values, relative_tolerance=1e-6):
@@ -836,9 +900,10 @@ def mean_step_size(values):
 
 def seconds_since_epoch(t):
     """Convert a datetime to the number of seconds since the Unix epoch."""
-    return (t-datetime.datetime(1970,1,1)).total_seconds()
+    return (t-datetime.datetime(1970, 1, 1)).total_seconds()
 
 
+@memoize
 def get_level_set_info(cf, var_name):
     """Return a dict containing information characterizing the level set (Z axis values) associated with a
     specified dependent variable, or None if there is no associated Z axis we can identify.
@@ -866,6 +931,7 @@ def get_level_set_info(cf, var_name):
     }
 
 
+@memoize
 def get_grid_info(cf, var_name):
     """Get information defining the Grid record corresponding to the spatial dimensions of a variable in a NetCDF file.
 
@@ -900,7 +966,9 @@ def get_grid_info(cf, var_name):
     }
 
 
-if sys.version_info[0:2] >= (3, 2):
-    import functools
-    get_level_set_info = functools.lru_cache(maxsize=4)(get_level_set_info)
-    get_grid_info = functools.lru_cache(maxsize=4)(get_grid_info)
+if __name__ == '__main__':
+    parser = ArgumentParser(description='Index PCIC metadata standard compliant NetCDF files into modelmeta database')
+    parser.add_argument("-d", "--dsn", help="DSN for metadata database")
+    parser.add_argument('filenames', nargs='+', help='Files to process')
+    args = parser.parse_args()
+    index_netcdf_files(args.filenames, args.dsn)

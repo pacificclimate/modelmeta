@@ -22,6 +22,7 @@ See fixture definition for more details.
 
 import os
 import datetime
+from pkg_resources import resource_filename
 
 import pytest
 
@@ -29,8 +30,9 @@ from modelmeta import Level
 from nchelpers.date_utils import to_datetime
 
 from mm_cataloguer.index_netcdf import \
-    find_update_or_insert_cf_file, \
-    find_data_file_by_unique_id_and_hash, insert_data_file, delete_data_file, \
+    index_netcdf_files, \
+    find_update_or_insert_cf_file, index_cf_file, \
+    find_data_file_by_id_hash_filename, insert_data_file, delete_data_file, \
     insert_run, find_run, find_or_insert_run, \
     insert_model, find_model, find_or_insert_model, \
     insert_emission, find_emission, find_or_insert_emission, \
@@ -40,7 +42,7 @@ from mm_cataloguer.index_netcdf import \
     insert_grid, find_grid, find_or_insert_grid, \
     insert_timeset, find_timeset, find_or_insert_timeset, \
     get_grid_info, get_level_set_info, \
-    seconds_since_epoch
+    seconds_since_epoch, usable_name
 
 from mock_helper import Mock
 
@@ -98,12 +100,11 @@ def check_find_or_insert(*args, **kwargs):
     """
     find_or_insert_thing, cond_insert_thing = args[0:2]
     args = args[2:]
-    expect_insert = kwargs.get('expect_insert', True)
     thing_inserted = cond_insert_thing(*args, **kwargs)
     thing_found_or_inserted = find_or_insert_thing(*args)
-    if kwargs['invoke']:
+    if kwargs.get('invoke', True):
         assert thing_found_or_inserted == thing_inserted
-    elif expect_insert:
+    elif kwargs.get('expect_insert', True):
         assert thing_found_or_inserted
     else:
         assert not thing_found_or_inserted
@@ -125,45 +126,178 @@ def freeze_now(*args):
     return fake_now
 
 
-# Indexing functions
+# Root functions
 
-def test_find_update_or_insert_cf_file__new(blank_test_session, tiny_dataset):
-    """Test inserting a new (not already indexed) NetCDF file into the database."""
-    data_file = find_update_or_insert_cf_file(blank_test_session, tiny_dataset)
-    check_properties(data_file,
-                     filename=tiny_dataset.filepath(),
-                     first_1mib_md5sum=tiny_dataset.first_MiB_md5sum,
-                     unique_id=tiny_dataset.unique_id,
-                     )
-
-
-def test_find_update_or_insert_cf_file__duplicate(blank_test_session, tiny_dataset):
-    """Test inserting a duplicate (already indexed, unchanged) NetCDF file into the database."""
-    data_file1 = find_update_or_insert_cf_file(blank_test_session, tiny_dataset)
-    data_file2 = find_update_or_insert_cf_file(blank_test_session, tiny_dataset)
-    assert data_file1 == data_file2
+def test_index_netcdf_files():
+    f = resource_filename('modelmeta', 'data/mddb-v2.sqlite')
+    dsn = 'sqlite:///{0}'.format(f)
+    test_files = [
+        'data/tiny_gcm.nc',
+        'data/tiny_downscaled.nc',
+        'data/tiny_hydromodel_gcm.nc',
+        'data/tiny_climo_gcm.nc',
+    ]
+    filenames = [resource_filename('modelmeta', f) for f in test_files]
+    results = index_netcdf_files(filenames, dsn)
+    assert all(r and r.filename == f for (r, f) in zip(results, filenames))
 
 
-def test_find_update_or_insert_cf_file__dup_different_unique_id(blank_test_session, tiny_dataset):
-    """Test inserting a duplicate (already indexed) NetCDF file with a different unique id into the database."""
-    data_file1 = find_update_or_insert_cf_file(blank_test_session, tiny_dataset)
-    # mock a different unique id for the second indexing
-    other_tiny_dataset = Mock(tiny_dataset, unique_id='different')
-    data_file2 = find_update_or_insert_cf_file(blank_test_session, other_tiny_dataset)
-    assert data_file1 == data_file2
+# TODO: Test for multiple entries for same file
 
+@pytest.mark.parametrize('dataset_mocks, os_path_mocks, same_data_file', [
+    # new file: no match on id, hash, or filename
+    ({
+         'unique_id': 'foo',
+         'first_MiB_md5sum': 'foo',
+         'filepath': lambda: 'foo'
+     },
+     {},
+     False),
 
-def test_find_update_or_insert_cf_file__dup_same_name_diff_content(monkeypatch, blank_test_session, tiny_dataset):
-    """Test indexing a duplicate (already indexed) NetCDF file whose filename and unique id are the same,
-    but whose content and modification time have changed.
-    Should result in re-indexing file, i.e. delete and re-insert.
+    # same file
+    ({}, {}, True),
+
+    # symlinked and unmodified file
+    ({
+         'filepath': lambda: 'foo',  # different filepath
+     },
+     {
+         'isfile': lambda fp: True,  # old file still exists
+         'realpath': lambda fp: 'bar',  # links to another file
+         'getmtime': lambda fp: 0,  # don't care (prevent exception)
+     },
+     True),
+
+    # symlinked and modified file (hash changed)
+    ({
+         'first_MiB_md5sum': 'foo',  # different hash
+         'filepath': lambda: 'foo',  # different filepath
+     },
+     {
+         'isfile': lambda fp: True,  # old file still exists
+         'realpath': lambda fp: 'bar',  # links to another file
+         'getmtime': lambda fp: 0,  # don't care (prevent exception)
+     },
+     True),
+
+    # symlinked and modified file (mod time changed)
+    ({
+         'filepath': lambda: 'foo',  # different filepath
+     },
+     {
+         'isfile': lambda fp: True,  # old file still exists
+         'realpath': lambda fp: 'bar',  # links to another file
+         'getmtime': lambda fp: seconds_since_epoch(datetime.datetime(2100, 1, 1))  # much later
+     },
+     True),
+
+    # copy of file
+    ({
+         'filepath': lambda: 'foo',  # different filepath
+     },
+     {
+         'isfile': lambda fp: True,  # old file still exists
+         'realpath': lambda fp: fp,  # is the same file
+         'getmtime': lambda fp: 0,  # don't care (prevent exception)
+     },
+     True),
+
+    # moved file
+    ({
+         'filepath': lambda: 'foo',  # different filepath
+     },
+     {
+         'isfile': lambda fp: False,  # old file gone
+         'realpath': lambda fp: 'foo',  # resolve to same file name
+         'getmtime': lambda fp: 0,  # don't care (prevent exception)
+     },
+     True),
+
+    # indexed under different id
+    ({
+        'unique_id': 'foo'  # different unique id
+     },
+     {},
+     True),
+
+    # modified file (hash changed)
+    ({
+         'first_MiB_md5sum': 'foo'  # different hash
+     },
+     {},
+     False),
+
+    # modified file (modification time changed)
+    ({},
+     {
+         'getmtime': lambda fp: seconds_since_epoch(datetime.datetime(2100, 1, 1))  # much later
+     },
+     False),
+
+    # moved and modified file (hash changed)
+    ({
+         'first_MiB_md5sum': 'foo',  # different hash
+         'filepath': lambda: 'foo',  # different filepath
+     },
+     {
+         'isfile': lambda fp: False,  # old file gone
+         'getmtime': lambda fp: 0,  # don't care (prevent exception)
+     },
+     False),
+
+    # moved and modified file (modification time changed)
+    ({
+         'filepath': lambda: 'foo',  # different filepath
+     },
+     {
+         'isfile': lambda fp: False,  # old file gone
+         'getmtime': lambda fp: seconds_since_epoch(datetime.datetime(2100, 1, 1))  # much later
+     },
+     False),
+])
+def test_find_update_or_insert_cf_file__dup(
+        monkeypatch, blank_test_session, tiny_dataset,
+        dataset_mocks, os_path_mocks, same_data_file
+):
+    """Test cases where the data file to be inserted is a variant of an existing data file.
+    Variations are specified by the arguments `dataset_mocks` and `os_path_mocks`.
+    `dataset_mocks` specifies how attributes of the dataset (CFDataset) should be mocked for the test.
+    `os_path_mocks` specifies how attributes of `os.path` (which is called on the dataset filename)
+    should be changed for the test.
     """
-    data_file1 = find_update_or_insert_cf_file(blank_test_session, tiny_dataset)
-    # mock a different hash and different content and different mod time for the second indexing
-    other_tiny_dataset = Mock(tiny_dataset, first_MiB_md5sum='different', md5='different')
-    monkeypatch.setattr(os.path, 'getmtime', lambda fp: seconds_since_epoch(datetime.datetime.now()))
+    # Index original file
+    data_file1 = index_cf_file(blank_test_session, tiny_dataset)
+    assert data_file1
+
+    # Mock specified differences into tiny_dataset
+    other_tiny_dataset = Mock(tiny_dataset, **dataset_mocks)
+
+    # Mock specified differences into os.path
+    for attr, value in os_path_mocks.items():
+        monkeypatch.setattr(os.path, attr, value)
+            
+    # Index mocked duplicate file
     data_file2 = find_update_or_insert_cf_file(blank_test_session, other_tiny_dataset)
-    check_properties(data_file2, first_1mib_md5sum='different', )
+    
+    # Set up checks for second indexing
+    def mock_value(key):
+        thing = dataset_mocks.get(key, None)
+        if callable(thing):
+            return thing()
+        else:
+            return thing
+
+    dataset_to_data_file_attr = {
+        'filepath': 'filename',
+        'unique_id': 'unique_id',
+        'first_MiB_md5sum': 'first_1mib_md5sum',
+    }
+    properties = {dataset_to_data_file_attr[key]: mock_value(key) for key in dataset_mocks}
+    
+    # Check second indexing
+    assert (data_file1 == data_file2) == same_data_file
+    if not same_data_file and properties:
+        check_properties(data_file2, **properties)
 
 
 # DataFile
@@ -193,19 +327,21 @@ def test_insert_data_file(monkeypatch, blank_test_session, tiny_dataset):
 @pytest.mark.parametrize('insert', [False, True])
 def test_find_data_file(blank_test_session, tiny_dataset, insert):
     data_file = cond_insert_data_file(blank_test_session, tiny_dataset, invoke=insert)
-    id_match, hash_match = find_data_file_by_unique_id_and_hash(blank_test_session, tiny_dataset)
+    id_match, hash_match, filename_match = find_data_file_by_id_hash_filename(blank_test_session, tiny_dataset)
     if insert:
         assert id_match == data_file
         assert hash_match == data_file
+        assert filename_match == data_file
     else:
         assert not id_match
         assert not hash_match
+        assert not filename_match
 
 
 def test_delete_data_file(blank_test_session, tiny_dataset):
     data_file = insert_data_file(blank_test_session, tiny_dataset)
     delete_data_file(blank_test_session, data_file)
-    assert find_data_file_by_unique_id_and_hash(blank_test_session, tiny_dataset) == (None, None)
+    assert find_data_file_by_id_hash_filename(blank_test_session, tiny_dataset) == (None, None, None)
 
 
 # Run
@@ -231,7 +367,8 @@ cond_insert_run_plus_prime = conditional(insert_run_plus_prime)
 
 def test_insert_run(blank_test_session, tiny_dataset):
     run, model, emission = insert_run_plus(blank_test_session, tiny_dataset)
-    check_properties(run,
+    check_properties(
+        run,
         name=tiny_dataset.metadata.run,
         project=tiny_dataset.metadata.project,
         model=model,
@@ -358,7 +495,7 @@ def test_insert_variable_alias(blank_test_session, tiny_dataset):
     check_insert(
         insert_variable_alias, blank_test_session, tiny_dataset, var_name,
         long_name=variable.long_name,
-        standard_name=variable.standard_name,
+        standard_name=usable_name(variable),
         units=variable.units,
     )
 
@@ -379,11 +516,17 @@ def test_find_or_insert_variable_alias(blank_test_session, tiny_dataset, insert)
 
 cond_insert_level_set = conditional(insert_level_set)
 
+# Note: Overriding default parametrization of tiny_dataset in these tests.
 
-@pytest.mark.parametrize('tiny_dataset, var_name, level_axis_var_name', [
+level_set_parametrization = ('tiny_dataset, var_name, level_axis_var_name', [
     ('gcm', 'tasmax', None),
+    ('downscaled', 'tasmax', None),
     ('hydromodel_gcm', 'SWE_BAND', 'depth'),
-], indirect=['tiny_dataset'])
+    ('climo_gcm', 'tasmax', None),
+])
+
+
+@pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
 def test_insert_level_set(blank_test_session, tiny_dataset, var_name, level_axis_var_name):
     variable = tiny_dataset.variables[var_name]
     if level_axis_var_name:
@@ -402,15 +545,17 @@ def test_insert_level_set(blank_test_session, tiny_dataset, var_name, level_axis
 
 
 @pytest.mark.parametrize('insert', [False, True])
-def test_find_level_set(blank_test_session, tiny_dataset, insert):
+@pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
+def test_find_level_set(blank_test_session, tiny_dataset, var_name, level_axis_var_name, insert):
     check_find(find_level_set, cond_insert_level_set, blank_test_session, tiny_dataset,
-               tiny_dataset.dependent_varnames[0], invoke=insert)
+               var_name, invoke=insert)
 
 
 @pytest.mark.parametrize('insert', [False, True])
-def test_find_or_insert_level_set(blank_test_session, tiny_dataset, insert):
+@pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
+def test_find_or_insert_level_set(blank_test_session, tiny_dataset, var_name, level_axis_var_name, insert):
     check_find_or_insert(find_or_insert_level_set, cond_insert_level_set, blank_test_session, tiny_dataset,
-                         tiny_dataset.dependent_varnames[0], invoke=insert, expect_insert=False)
+                         var_name, invoke=insert, expect_insert=bool(level_axis_var_name))
 
 
 # Grid, YCellBound
@@ -494,10 +639,8 @@ def test_get_grid_info(tiny_dataset):
     assert info['yc_var'] == tiny_dataset.variables['lat']
 
 
-@pytest.mark.parametrize('tiny_dataset, var_name, level_axis_var_name', [
-    ('gcm', 'tasmax', None),
-    ('hydromodel_gcm', 'SWE_BAND', 'depth'),
-], indirect=['tiny_dataset'])
+# Note: Overriding default parametrization of tiny_dataset in these tests.
+@pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
 def test_get_level_set_info(tiny_dataset, var_name, level_axis_var_name):
     info = get_level_set_info(tiny_dataset, var_name)
     if level_axis_var_name:
