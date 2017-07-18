@@ -15,6 +15,7 @@ setup(
     zip_safe=False,
     install_requires = '''
         sqlalchemy
+        alembic
         psycopg2
         numpy
         netCDF4
