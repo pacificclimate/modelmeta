@@ -25,6 +25,7 @@ import datetime
 from pkg_resources import resource_filename
 
 import pytest
+from netCDF4 import date2num
 
 from modelmeta import Level
 from nchelpers.date_utils import to_datetime
@@ -135,7 +136,9 @@ def test_index_netcdf_files():
         'data/tiny_gcm.nc',
         'data/tiny_downscaled.nc',
         'data/tiny_hydromodel_gcm.nc',
-        'data/tiny_climo_gcm.nc',
+        'data/tiny_gcm_climo_monthly.nc',
+        'data/tiny_gcm_climo_seasonal.nc',
+        'data/tiny_gcm_climo_yearly.nc',
     ]
     filenames = [resource_filename('modelmeta', f) for f in test_files]
     results = index_netcdf_files(filenames, dsn)
@@ -602,20 +605,39 @@ cond_insert_timeset = conditional(insert_timeset)
 
 
 def test_insert_timeset(blank_test_session, tiny_dataset):
-    start_date, end_date = to_datetime(tiny_dataset.time_range_as_dates)
     timeset = check_insert(
         insert_timeset, blank_test_session, tiny_dataset,
         calendar=tiny_dataset.time_var.calendar,
-        start_date=start_date,
-        end_date=end_date,
         multi_year_mean=tiny_dataset.is_multi_year_mean,
         num_times=tiny_dataset.time_var.size,
         time_resolution=tiny_dataset.time_resolution,
     )
     assert len(timeset.times) == len(tiny_dataset.time_var[:])
     if tiny_dataset.is_multi_year_mean:
-        climatology_bounds = tiny_dataset.variables[tiny_dataset.climatology_bounds_var_name][:]
-        assert len(timeset.climatological_times) == len(climatology_bounds)
+        climatology_bounds = (
+            tiny_dataset.variables[tiny_dataset.climatology_bounds_var_name]
+            [:, :]
+        )
+        units = tiny_dataset.time_var.units
+        calendar = tiny_dataset.time_var.calendar
+        time_starts = [date2num(ct.time_start, units, calendar)
+                       for ct in timeset.climatological_times]
+        time_ends = [date2num(ct.time_end, units, calendar)
+                     for ct in timeset.climatological_times]
+        assert time_starts == [cb[0] for cb in climatology_bounds]
+        assert time_ends == [cb[1] for cb in climatology_bounds]
+        if tiny_dataset.time_resolution == 'seasonal':
+            def wrap(month):
+                return (month - 1) % 12 + 1
+            assert timeset.start_date.month == wrap(timeset.climatological_times[0].time_start.month + 1)
+            assert timeset.end_date.month == wrap(timeset.climatological_times[-1].time_end.month + 1)
+        else:
+            assert timeset.start_date.month == timeset.climatological_times[0].time_start.month
+            assert timeset.end_date.month == timeset.climatological_times[-1].time_end.month
+    else:
+        assert len(timeset.climatological_times) == 0
+        assert timeset.start_date, timeset.end_date == \
+            to_datetime(tiny_dataset.time_range_as_dates)
 
 
 @pytest.mark.parametrize('insert', [False, True])
