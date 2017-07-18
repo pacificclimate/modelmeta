@@ -36,11 +36,15 @@ def upgrade():
             type_=sa.Enum(
                 '1-minute', '2-minute', '5-minute', '15-minute', '30-minute',
                 '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily',
-                'monthly', 'seasonal', 'yearly', 'other', 'irregular'),
+                'monthly', 'seasonal', 'yearly', 'other', 'irregular',
+                name='timescale'
+            ),
             existing_type=sa.Enum(
                 '1-minute', '2-minute', '5-minute', '15-minute', '30-minute',
                 '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily',
-                'monthly', 'yearly', 'other', 'irregular')
+                'monthly', 'yearly', 'other', 'irregular',
+                name='timescale'
+            )
         )
 
 
@@ -51,9 +55,13 @@ def downgrade():
             type_=sa.Enum(
                 '1-minute', '2-minute', '5-minute', '15-minute', '30-minute',
                 '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily',
-                'monthly', 'yearly', 'other', 'irregular'),
+                'monthly', 'yearly', 'other', 'irregular',
+                name='timescale'
+            ),
             existing_type=sa.Enum(
                 '1-minute', '2-minute', '5-minute', '15-minute', '30-minute',
                 '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily',
-                'monthly', 'seasonal', 'yearly', 'other', 'irregular')
+                'monthly', 'seasonal', 'yearly', 'other', 'irregular',
+                name='timescale'
+            )
         )
