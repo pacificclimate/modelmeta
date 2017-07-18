@@ -29,39 +29,27 @@ depends_on = None
 # Therefore, this code, while created to accommodate SQLite, should also work
 # for our production Postgres databases.
 
+old_options = (
+    '1-minute', '2-minute', '5-minute', '15-minute', '30-minute',
+    '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily',
+    'monthly', 'yearly', 'other', 'irregular',
+)
+new_options = (
+    '1-minute', '2-minute', '5-minute', '15-minute', '30-minute',
+    '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily',
+    'monthly', 'seasonal', 'yearly', 'other', 'irregular',
+)
+old_type = sa.Enum(*old_options, name='timescale')
+new_type = sa.Enum(*new_options, name='timescale')
+tmp_type = sa.Enum(*new_options, name='_timescale')
+
 def upgrade():
     with op.batch_alter_table('time_sets') as batch_op:
         batch_op.alter_column(
-            'time_resolution',
-            type_=sa.Enum(
-                '1-minute', '2-minute', '5-minute', '15-minute', '30-minute',
-                '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily',
-                'monthly', 'seasonal', 'yearly', 'other', 'irregular',
-                name='timescale'
-            ),
-            existing_type=sa.Enum(
-                '1-minute', '2-minute', '5-minute', '15-minute', '30-minute',
-                '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily',
-                'monthly', 'yearly', 'other', 'irregular',
-                name='timescale'
-            )
-        )
+            'time_resolution', type_=new_type, existing_type=old_type)
 
 
 def downgrade():
     with op.batch_alter_table('time_sets') as batch_op:
         batch_op.alter_column(
-            'time_resolution',
-            type_=sa.Enum(
-                '1-minute', '2-minute', '5-minute', '15-minute', '30-minute',
-                '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily',
-                'monthly', 'yearly', 'other', 'irregular',
-                name='timescale'
-            ),
-            existing_type=sa.Enum(
-                '1-minute', '2-minute', '5-minute', '15-minute', '30-minute',
-                '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily',
-                'monthly', 'seasonal', 'yearly', 'other', 'irregular',
-                name='timescale'
-            )
-        )
+            'time_resolution', type_=old_type, existing_type=new_type)
