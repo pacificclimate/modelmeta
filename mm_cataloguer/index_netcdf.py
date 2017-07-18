@@ -230,7 +230,7 @@ def reindex_cf_file(sesh, existing_data_file, cf):
 def update_data_file_index_time(sesh, data_file):
     """Update the index time recorded for data_file"""
     logger.info('Updating index time (only)')
-    data_file.index_time = datetime.datetime.now()
+    data_file.index_time = datetime.datetime.utcnow()
     sesh.commit()
     return data_file
 
@@ -280,7 +280,7 @@ def insert_data_file(sesh, cf):  # create.data.file.id
         filename=cf.filepath(),
         first_1mib_md5sum=cf.first_MiB_md5sum,
         unique_id=cf.unique_id,
-        index_time=datetime.datetime.now(),
+        index_time=datetime.datetime.utcnow(),
         run=run,
         timeset=timeset,
         x_dim_name=dim_names.get('X', None),
