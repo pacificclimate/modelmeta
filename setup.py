@@ -28,7 +28,9 @@ setup(
             'data/tiny_gcm.nc',
             'data/tiny_downscaled.nc',
             'data/tiny_hydromodel_gcm.nc',
-            'data/tiny_climo_gcm.nc',
+            'data/tiny_gcm_climo_yearly.nc',
+            'data/tiny_gcm_climo_seasonal.nc',
+            'data/tiny_gcm_climo_monthly.nc',
         ]
     },
     include_package_data = True,
