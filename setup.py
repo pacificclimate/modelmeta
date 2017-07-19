@@ -15,10 +15,11 @@ setup(
     zip_safe=False,
     install_requires = '''
         sqlalchemy
+        alembic
         psycopg2
         numpy
         netCDF4
-        nchelpers>=1.0.5
+        nchelpers==1.0.5
     '''.split(),
     package_data = {
         'modelmeta': [

@@ -110,8 +110,8 @@ def check_find_or_insert(*args, **kwargs):
         assert not thing_found_or_inserted
 
 
-def freeze_now(*args):
-    """Freeze datetime.datetime.now()
+def freeze_utcnow(*args):
+    """Freeze datetime.datetime.utcnow()
     This would be more elegant as a fixture or decorator, but it would be a lot more work.
     """
     monkeypatch = args[0]
@@ -119,7 +119,7 @@ def freeze_now(*args):
 
     class fake_datetime(datetime.datetime):
         @classmethod
-        def now(cls):
+        def utcnow(cls):
             return fake_now
 
     monkeypatch.setattr(datetime, 'datetime', fake_datetime)
@@ -307,7 +307,7 @@ cond_insert_data_file = conditional(insert_data_file)
 
 def test_insert_data_file(monkeypatch, blank_test_session, tiny_dataset):
     # Have to use a datetime with no hours, min, sec because apparently SQLite loses precision
-    fake_now = freeze_now(monkeypatch, 2000, 1, 2)
+    fake_now = freeze_utcnow(monkeypatch, 2000, 1, 2)
     dim_names = tiny_dataset.axes_dim()
     data_file = check_insert(
         insert_data_file, blank_test_session, tiny_dataset,
