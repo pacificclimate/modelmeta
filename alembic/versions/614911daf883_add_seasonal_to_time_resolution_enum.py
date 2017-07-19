@@ -5,6 +5,8 @@ Revises:
 Create Date: 2017-07-17 17:00:43.066818
 
 """
+from warnings import warn
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -116,11 +118,11 @@ def swap_and_drop(curr_options, dest_options):
 def upgrade():
     if dialect == 'sqlite':
         alter_column(old_options, new_options)
-    elif dialect == 'postgresql':
-        swap_and_drop(old_options, new_options)
     else:
-        raise RuntimeError('This migration is not implemented for dialect {}'
-                           .format(dialect))
+        if dialect != 'postgresql':
+            warn('This migration is not tested for dialect {}'
+                 .format(dialect))
+        swap_and_drop(old_options, new_options)
 
 
 def downgrade():
@@ -138,8 +140,8 @@ def downgrade():
     # Migrate the schema (enum type)
     if dialect == 'sqlite':
         alter_column(new_options, old_options)
-    elif dialect == 'postgresql':
-        swap_and_drop(new_options, old_options)
     else:
-        raise RuntimeError('This migration is not implemented for dialect {}'
-                           .format(dialect))
+        if dialect != 'postgresql':
+            warn('This migration is not tested for dialect {}'
+                 .format(dialect))
+        swap_and_drop(new_options, old_options)
