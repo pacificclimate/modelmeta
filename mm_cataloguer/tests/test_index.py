@@ -525,7 +525,7 @@ level_set_parametrization = ('tiny_dataset, var_name, level_axis_var_name', [
     ('gcm', 'tasmax', None),
     ('downscaled', 'tasmax', None),
     ('hydromodel_gcm', 'SWE_BAND', 'depth'),
-    ('climo_gcm', 'tasmax', None),
+    ('gcm_climo_monthly', 'tasmax', None),
 ])
 
 
