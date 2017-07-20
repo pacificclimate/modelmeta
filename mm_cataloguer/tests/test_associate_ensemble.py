@@ -50,7 +50,7 @@ def test_associate_ensemble_to_files(ensemble1):
         'data/tiny_gcm.nc',
         'data/tiny_downscaled.nc',
         'data/tiny_hydromodel_gcm.nc',
-        'data/tiny_climo_gcm.nc',
+        'data/tiny_gcm_climo_monthly.nc',
     ]
     filenames = [resource_filename('modelmeta', f) for f in test_files]
 
