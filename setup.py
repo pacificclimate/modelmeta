@@ -20,6 +20,7 @@ setup(
         numpy
         netCDF4
         nchelpers>=1.1.0
+        python-dateutil
     '''.split(),
     package_data = {
         'modelmeta': [
