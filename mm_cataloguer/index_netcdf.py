@@ -992,8 +992,10 @@ def get_extended_time_range(cf):
             start_date = climatology_bounds[0][0] + relativedelta(months=1)
             end_date = climatology_bounds[-1][1] + relativedelta(months=1)
         else:
-            raise ValueError("Unexpected value '{}' for time_resolution in "
-                             "multi-year mean file".format(cf.time_resolution))
+            raise ValueError(
+                "Unexpected value '{}' for time_resolution in multi-year "
+                "mean file. Expected 'monthly', 'yearly' or 'seasonal'"
+                .format(cf.time_resolution))
     else:
         start_date, end_date = to_datetime(cf.time_range_as_dates)
     return start_date, end_date
