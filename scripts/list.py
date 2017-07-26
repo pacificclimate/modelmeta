@@ -50,8 +50,11 @@ def list_contents(
         query = (
             query.join(DataFile.timeset)
                 .filter(TimeSet.multi_year_mean == True)
-                .filter(TimeSet.num_times.in_((5, 13, 16, 17)))
         )
+        if mym_concatenated:
+            query = query.filter(TimeSet.num_times.in_((5, 13, 16, 17)))
+        else:
+            query = query.filter(TimeSet.num_times.in_((1, 4, 12)))
 
     if count:
         print(query.count())
