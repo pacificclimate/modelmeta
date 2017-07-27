@@ -1,3 +1,32 @@
+"""
+List contents of a modelmeta database (by default db3/pcic_meta).
+
+Output types are:
+
+Either:
+
+- filepaths: (default, no option) list filepaths from matching records
+  - with or without names of associated ensembles
+- dir_paths: list unique directory paths (to depth
+  specified by value of option)
+
+Either:
+
+- results: (default, no option) list results
+- count: print count only of results that would be listed
+
+Outputs can be filtered by one or more of the following criteria:
+
+- multi-variable (t/f/none)
+- multi-year mean (t/f/none)
+- multi-year mean, with concatenated time axes (t/f/none)
+
+WARNING: The combination of filepaths with associated ensembles and
+multi-variable (t or f) fails, with 0 records selected. It's not a case that
+will be used, so I haven't fixed it.
+"""
+
+
 from argparse import ArgumentParser
 
 from sqlalchemy import create_engine
