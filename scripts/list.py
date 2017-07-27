@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import func
 
-from modelmeta import DataFile, DataFileVariable, TimeSet
+from modelmeta import DataFile, DataFileVariable, Ensemble, TimeSet
 
 
 # argument parser helpers
@@ -16,6 +16,7 @@ def strtobool(string):
 arg_names = '''
     count
     dir_path
+    ensembles
     multi_variable
     multi_year_mean
     mym_concatenated
@@ -26,6 +27,7 @@ def list_contents(
         session,
         count=False,
         dir_path=False,
+        ensembles=False,
         multi_variable=None,
         multi_year_mean=None,
         mym_concatenated=None,
@@ -34,19 +36,33 @@ def list_contents(
         query = (
             session.query(
                 func.regexp_replace(DataFile.filename, r'^((/.[^/]+){{1,{}}}/).+$'.format(dir_path), r'\1')
-                    .label('dir_path')
+                    .label('dir_path'),
+                func.count().label('number')
             )
                 .group_by('dir_path')
                 .order_by('dir_path')
         )
     else:
-        query = session.query(DataFile)
+        if not ensembles:
+            query = session.query(DataFile.id, DataFile.filename)
+        else:
+            query = (
+                session.query(
+                    DataFile.id,
+                    DataFile.filename,
+                    func.string_agg(Ensemble.name, ',').label('ensemble_names')
+                )
+                    .join(DataFile.data_file_variables)
+                    .join(DataFileVariable.ensembles)
+                    .group_by(DataFile.id)
+            )
 
     if multi_variable is not None:
-        query = (
-            query.join(DataFile.data_file_variables)
-                .group_by(DataFile)
-        )
+        if not ensembles:
+            query = (
+                query.join(DataFile.data_file_variables)
+                    .group_by(DataFile.id)
+            )
         if multi_variable:
             query = query.having(func.count(DataFileVariable.id) > 1)
         else:
@@ -68,18 +84,20 @@ def list_contents(
         else:
             query = query.filter(TimeSet.num_times.in_((1, 4, 12)))
 
-    # print(query)
+    print(query)
 
     if count:
         print(query.count())
     else:
-        data_files = query.all()
+        results = query.all()
         if dir_path:
-            for data_file in data_files:
-                print(data_file.dir_path)
+            template = '{row.dir_path} ({row.number})'
+        elif ensembles:
+            template = '{row.filename}\t{row.ensemble_names}'
         else:
-            for data_file in data_files:
-                print(data_file.filename)
+            template = '{row.filename}'
+        for row in results:
+            print(template.format(row=row))
 
 
 def main(args):
@@ -98,6 +116,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '-c', '--count', action='store_true',
         help='Display count only of records'
+    )
+    parser.add_argument(
+        '-e', '--ensembles', action='store_true',
+        help='Display associated ensembles for each file'
     )
     parser.add_argument(
         '--dirp', '--dir-path', dest='dir_path',
