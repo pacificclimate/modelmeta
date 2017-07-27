@@ -15,6 +15,7 @@ def strtobool(string):
 
 arg_names = '''
     count
+    dir_path
     multi_variable
     multi_year_mean
     mym_concatenated
@@ -24,11 +25,22 @@ arg_names = '''
 def list_contents(
         session,
         count=False,
+        dir_path=False,
         multi_variable=None,
         multi_year_mean=None,
         mym_concatenated=None,
 ):
-    query = session.query(DataFile)
+    if dir_path:
+        query = (
+            session.query(
+                func.regexp_replace(DataFile.filename, r'^((/.[^/]+){{1,{}}}/).+$'.format(dir_path), r'\1')
+                    .label('dir_path')
+            )
+                .group_by('dir_path')
+                .order_by('dir_path')
+        )
+    else:
+        query = session.query(DataFile)
 
     if multi_variable is not None:
         query = (
@@ -56,12 +68,18 @@ def list_contents(
         else:
             query = query.filter(TimeSet.num_times.in_((1, 4, 12)))
 
+    # print(query)
+
     if count:
         print(query.count())
     else:
         data_files = query.all()
-        for data_file in data_files:
-            print(data_file.filename)
+        if dir_path:
+            for data_file in data_files:
+                print(data_file.dir_path)
+        else:
+            for data_file in data_files:
+                print(data_file.filename)
 
 
 def main(args):
@@ -80,6 +98,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '-c', '--count', action='store_true',
         help='Display count only of records'
+    )
+    parser.add_argument(
+        '--dirp', '--dir-path', dest='dir_path',
+        help='Display (unique) directory paths of files, not full filepaths'
     )
     parser.add_argument(
         '--mv', '--multi-variable', dest='multi_variable', type=strtobool,
