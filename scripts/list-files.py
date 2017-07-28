@@ -20,10 +20,6 @@ Outputs can be filtered by one or more of the following criteria:
 - multi-variable (t/f/none)
 - multi-year mean (t/f/none)
 - multi-year mean, with concatenated time axes (t/f/none)
-
-WARNING: The combination of filepaths with associated ensembles and
-multi-variable (t or f) fails, with 0 records selected. It's not a case that
-will be used, so I haven't fixed it.
 """
 
 
@@ -32,6 +28,8 @@ from argparse import ArgumentParser
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import func
+
+import sqlparse
 
 from modelmeta import DataFile, DataFileVariable, Ensemble, TimeSet
 
@@ -43,6 +41,7 @@ def strtobool(string):
 
 
 arg_names = '''
+    print_queries
     count
     ensemble
     dir_path
@@ -53,8 +52,20 @@ arg_names = '''
 '''.split()
 
 
+def print_query(title, query):
+    print('--', title)
+    compiled_query = str(
+        query.statement.compile(compile_kwargs={'literal_binds': True})
+    )
+    formatted_query = sqlparse.format(
+        compiled_query, reindent=True, keyword_case='upper')
+    print(formatted_query)
+    print()
+
+
 def list_contents(
         session,
+        print_queries=False,
         count=False,
         dir_path=False,
         list_ensembles=False,
@@ -65,7 +76,7 @@ def list_contents(
 ):
     # Select DataFiles matching selection criteria
 
-    df_query = session.query(DataFile)
+    df_query = session.query(DataFile.id)
 
     if ensemble:
         df_query = (
@@ -86,13 +97,13 @@ def list_contents(
 
     if multi_year_mean is not None:
         df_query = (
-            df_query.join(DataFile.timeset)
+            df_query.join(TimeSet)
                 .filter(TimeSet.multi_year_mean == multi_year_mean)
         )
 
     if mym_concatenated is not None:
         df_query = (
-            df_query.join(DataFile.timeset)
+            df_query.join(TimeSet)
                 .filter(TimeSet.multi_year_mean == True)
         )
         if mym_concatenated:
@@ -100,10 +111,12 @@ def list_contents(
         else:
             df_query = df_query.filter(TimeSet.num_times.in_((1, 4, 12)))
 
+    if print_queries:
+        print_query('Data file query', df_query)
+
     # Select information to be displayed
 
     if dir_path:
-        df_ids = df_query.from_self(DataFile.id)
         info_query = (
             session.query(
                 func.regexp_replace(
@@ -113,20 +126,19 @@ def list_contents(
                 ).label('dir_path'),
                 func.count().label('number')
             )
-                .filter(DataFile.id.in_(df_ids))
+                .filter(DataFile.id.in_(df_query))
                 .group_by('dir_path')
                 .order_by('dir_path')
         )
     else:
         if list_ensembles:
-            df_ids = df_query.from_self(DataFile.id)
             if count:
                 info_query = (
                     session.query(
                         Ensemble.name.label('ensemble_name'),
                         func.count(DataFile.id).label('number')
                     )
-                        .filter(DataFile.id.in_(df_ids))
+                        .filter(DataFile.id.in_(df_query))
                         .join(DataFile.data_file_variables)
                         .join(DataFileVariable.ensembles)
                         .group_by(Ensemble.name)
@@ -137,13 +149,16 @@ def list_contents(
                         DataFile.filename,
                         func.string_agg(Ensemble.name, ',').label('ensemble_names')
                     )
-                        .filter(DataFile.id.in_(df_ids))
+                        .filter(DataFile.id.in_(df_query))
                         .join(DataFile.data_file_variables)
                         .join(DataFileVariable.ensembles)
                         .group_by(DataFile.id)
                 )
         else:
-            info_query = df_query
+            info_query = df_query.add_columns(DataFile.filename)
+
+    if print_queries:
+        print_query('Info query', info_query)
 
     # Display information
 
@@ -164,7 +179,6 @@ def list_contents(
             print(template.format(row=row))
 
 
-
 def main(args):
     engine = create_engine(args.dsn)
     session = sessionmaker(bind=engine)()
@@ -177,6 +191,10 @@ if __name__ == '__main__':
         '-d', '--dsn',
         default='postgresql://httpd_meta@db3.pcic.uvic.ca/pcic_meta',
         help="Source database DSN from which to read"
+    )
+    parser.add_argument(
+        '-q', '--print-queries', action='store_true',
+        help='Print SQL of queries generated'
     )
     # Selection criteria
     parser.add_argument(

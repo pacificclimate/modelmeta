@@ -21,6 +21,7 @@ setup(
         netCDF4
         nchelpers>=1.1.0
         python-dateutil
+        sqlparse
     '''.split(),
     package_data = {
         'modelmeta': [
