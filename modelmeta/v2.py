@@ -1,4 +1,7 @@
-__all__ = ['ClimatologicalTime', 'DataFile', 'DataFileVariable', 
+"""
+Define v2 modelmeta database in SQLAlchemy using declarative base.
+"""
+__all__ = ['ClimatologicalTime', 'DataFile', 'DataFileVariable',
            'DataFileVariablesQcFlag', 'Emission', 'Ensemble', 'EnsembleDataFileVariables',
            'Grid', 'Level', 'LevelSet', 'Model', 'QcFlag', 'Run',
            'Time', 'TimeSet', 'Variable', 'VariableAlias', 'YCellBound',
@@ -6,7 +9,8 @@ __all__ = ['ClimatologicalTime', 'DataFile', 'DataFileVariable',
 
 from pkg_resources import resource_filename
 
-from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean, Enum, ForeignKey
+from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean, \
+    Enum, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.orderinglist import ordering_list
 from sqlalchemy.orm import relationship, backref, sessionmaker
@@ -30,6 +34,10 @@ class ClimatologicalTime(Base):
         return '{}({}, {}, {}, {})'.format(self.__class__.__name__,
                 self.time_idx, self.time_end, self.time_start, self.time_set_id)
 
+Index('climatological_times_time_set_id_key', ClimatologicalTime.time_set_id,
+      unique=False)
+
+
 class DataFile(Base):
     __tablename__ = 'data_files'
 
@@ -39,7 +47,6 @@ class DataFile(Base):
     # FIXME: If this db is to be properly normalized, there should probably
     # be a unique constraint on this hash
     first_1mib_md5sum = Column('first_1mib_md5sum', String(length=32), nullable=False)
-    # FIXME: Why is there no unique constraint on a "unique" id?!
     unique_id = Column(String(length=255), nullable=False)
     x_dim_name = Column(String(length=32), nullable=False)
     y_dim_name = Column(String(length=32), nullable=False)
@@ -56,6 +63,10 @@ class DataFile(Base):
     def __str__(self):
         return '<DataFile %s>' % self.filename
 
+UniqueConstraint(DataFile.unique_id, name='data_files_unique_id_key')
+Index('data_files_run_id_key', DataFile.run_id, unique=False)
+
+
 class DataFileVariable(Base):
     __tablename__ = 'data_file_variables'
 
@@ -69,7 +80,7 @@ class DataFileVariable(Base):
     range_max = Column(Float, nullable=False)
 
     #relation definitions
-    data_file_id = Column(Integer, ForeignKey('data_files.data_file_id'), nullable=False)
+    data_file_id = Column(Integer, ForeignKey('data_files.data_file_id', name='data_file_variables_data_file_id_fkey', ondelete='CASCADE'), nullable=False)
     variable_alias_id = Column(Integer, ForeignKey('variable_aliases.variable_alias_id'), nullable=False)
     level_set_id = Column(Integer, ForeignKey('level_sets.level_set_id'))
     grid_id = Column(Integer, ForeignKey('grids.grid_id'), nullable=False)
@@ -79,7 +90,7 @@ class DataFileVariablesQcFlag(Base):
     __tablename__ = 'data_file_variables_qc_flags'
 
     #column definitions
-    data_file_variable_id = Column(Integer, ForeignKey('data_file_variables.data_file_variable_id'), primary_key=True, nullable=False)
+    data_file_variable_id = Column(Integer, ForeignKey('data_file_variables.data_file_variable_id', name='data_file_variables_qc_flags_data_file_variable_id_fkey', ondelete='CASCADE'), primary_key=True, nullable=False)
     qc_flag_id = Column(Integer, ForeignKey('qc_flags.qc_flag_id'), primary_key=True, nullable=False)
 
 
@@ -115,12 +126,16 @@ class Ensemble(Base):
         secondaryjoin='ensemble_data_file_variables.c.data_file_variable_id==DataFileVariable.id', 
         backref=backref('ensembles'), lazy='joined')
 
+UniqueConstraint(Ensemble.name, Ensemble.version,
+                 name='ensemble_name_version_key')
+
+
 class EnsembleDataFileVariables(Base):
     __tablename__ = 'ensemble_data_file_variables'
 
     #column definitions
-    ensemble_id = Column(Integer, ForeignKey('ensembles.ensemble_id'), primary_key=True, nullable=False)
-    data_file_variable_id = Column(Integer, ForeignKey('data_file_variables.data_file_variable_id'), primary_key=True, nullable=False)
+    ensemble_id = Column(Integer, ForeignKey('ensembles.ensemble_id', name='ensemble_data_file_variables_ensemble_id_fkey', ondelete='CASCADE'), primary_key=True, nullable=False)
+    data_file_variable_id = Column(Integer, ForeignKey('data_file_variables.data_file_variable_id', name='ensemble_data_file_variables_data_file_variable_id_fkey', ondelete='CASCADE'), primary_key=True, nullable=False)
 
 
 class Grid(Base):
@@ -139,6 +154,51 @@ class Grid(Base):
     yc_grid_step = Column(Float, nullable=False)
     yc_origin = Column(Float, nullable=False)
     yc_units = Column(String(length=64), nullable=False)
+
+    # Brace yourself.
+    # We'd like to do this:
+    #
+    # srid = Column(Integer, ForeignKey('public.spatial_ref_sys.srid'))
+    #
+    # but SQLAlchemy (possibly in the context of Alembic) seems incapable of
+    # handling cross-schema foreign keys. We get the following error when
+    # running
+    # `alembic -x db=<empty db> revision --autogenerate -m "initial create"`::
+    #
+    #   sqlalchemy.exc.NoReferencedTableError: Foreign key associated with
+    #   column 'grids.srid' could not find table 'spatial_ref_sys' with which
+    #   to generate a foreign key to target column 'srid'
+    #
+    # (Table `public.spatial_ref_sys` was defined in that empty db.
+    # And the search_path was OK. And etc.)
+    # This despite Michael Bayer's (no less) statement in
+    # https://bitbucket.org/zzzeek/alembic/issues/344/cross-database-foreign-key-autogeneration#comment-23989280
+    # which suggests there should be no problem so long as we qualify the table
+    # name with the schema, as above.
+    #
+    # Experimenting with declaring metadata for schema 'public' and
+    # reflecting or declaring table 'spatial_ref_sys', and setting
+    # options of `alembic.EnvironmentContext.configure`
+    # resulted in no joy.
+    #
+    # So instead we do this:
+
+    srid = Column(Integer)
+
+    # Now we can run
+    # `alembic -x db=<empty db> revision --autogenerate -m "initial create"`
+    # without errors.
+    # THEN we hand code the following line into the autogenerated migration
+    # `upgrade()` code for `create_table('grids', ...)`:
+    #
+    # sa.ForeignKeyConstraint(['srid'], ['public.spatial_ref_sys.srid'], )
+    #
+    # ... which works (i.e., the migration can be run on an empty database
+    # to create the desired tables).
+    #
+    # A thoroughly ungodly proceeding, but it seems to be the only way to make
+    # SQLAlchemy cooperate here. And at least it only has to happen nominally
+    # once, when autogenerating the initial-create migration.
 
     #relation definitions
     y_cell_bounds = relationship("YCellBound", backref=backref('grid'))
@@ -187,10 +247,10 @@ class Model(Base):
     runs = relationship("Run", backref=backref('model', lazy='joined'))
 
     def __repr__(self):
-        return '{}(id={}, long_name={}, short_name={}, organization={}, '
-        'type={})'.format(self.__class__.__name__, self.id,
-                          self.long_name, self.short_name,
-                          self.organization, self.type)
+        return '{}(id={}, long_name={}, short_name={}, organization={}, ' \
+               'type={})'.format(self.__class__.__name__, self.id,
+                                  self.long_name, self.short_name,
+                                  self.organization, self.type)
 
 class QcFlag(Base):
     __tablename__ = 'qc_flags'
@@ -206,6 +266,7 @@ class QcFlag(Base):
         secondary='data_file_variables_qc_flags', 
         secondaryjoin='data_file_variables_qc_flags.c.data_file_variable_id==DataFileVariable.id', 
         backref=backref('qc_flags'))
+
 
 class Run(Base):
     __tablename__ = 'runs'
@@ -230,6 +291,13 @@ class Run(Base):
         secondaryjoin='DataFile.time_set_id==TimeSet.id')
     files = relationship("DataFile", backref=backref('run', lazy='joined'), lazy='joined')
 
+UniqueConstraint(Run.name, Run.model_id, Run.emission_id,
+                 name='unique_run_model_emissions_constraint')
+Index('runs_model_id_key', Run.model_id, unique=False)
+Index('runs_emission_id_key', Run.emission_id, unique=False)
+
+
+
 class Time(Base):
     __tablename__ = 'times'
 
@@ -244,6 +312,9 @@ class Time(Base):
         return '{}({}, {}, {})'.format(self.__class__.__name__, self.time_idx,
                                       repr(self.timestep), self.time_set_id)
 
+Index('time_set_id_key', Time.time_set_id, unique=False)
+
+
 class TimeSet(Base):
     __tablename__ = 'time_sets'
 
@@ -254,6 +325,7 @@ class TimeSet(Base):
     end_date = Column(DateTime, nullable=False)
     multi_year_mean = Column(Boolean, nullable=False)
     num_times = Column(Integer, nullable=False)
+    # time_resolution = Column(Enum('1-minute', '2-minute', '5-minute', '15-minute', '30-minute', '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily', 'monthly', 'yearly', 'other', 'irregular', name='timescale'), nullable=False)
     time_resolution = Column(Enum('1-minute', '2-minute', '5-minute', '15-minute', '30-minute', '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily', 'monthly', 'seasonal', 'yearly', 'other', 'irregular', name='timescale'), nullable=False)
 
     #relation definitions
@@ -308,14 +380,17 @@ class VariableAlias(Base):
         return '{}({}, {}, {}, {})'.format(self.__class__.__name__, self.id,
                 self.long_name, self.standard_name, self.units)
 
+
 class YCellBound(Base):
     __tablename__ = 'y_cell_bounds'
 
     #column definitions
     bottom_bnd = Column(Float)
-    grid_id = Column(Integer, ForeignKey('grids.grid_id'), primary_key=True, nullable=False)
+    grid_id = Column(Integer, ForeignKey('grids.grid_id', name='y_cell_bounds_grid_id_fkey', ondelete='CASCADE'), primary_key=True, nullable=False)
     top_bnd = Column(Float)
     y_center = Column(Float, primary_key=True, nullable=False)
+
+Index('y_c_b_grid_id_key', YCellBound.grid_id, unique=False)
 
 
 test_dsn = 'sqlite+pysqlite:///{0}'.format(resource_filename('modelmeta', 'data/mddb-v2.sqlite'))

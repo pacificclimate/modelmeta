@@ -9,30 +9,198 @@ modelmeta
    :target: https://codeclimate.com/github/pacificclimate/modelmeta
    :alt: Code Climate			  
 
-The `modelmeta` package is a Python package that provides an `Object Relational Mapping (ORM) <http://en.wikipedia.org/wiki/Object-relational_mapping>`_ layer for accessing the `Pacific Climate Impacts Consortium (PCIC) <http://www.pacificclimate.org/>`_ (PCIC)'s database of `coverage data <http://en.wikipedia.org/wiki/Coverage_data>`_ metadata. The pacakge provides model classes for each of the tables in the database in order to provide a ... querying 
+Overview
+========
 
-With this package, one can recreate the database schema in `PostgreSQL <http://www.postgresql.org>`_ or `SQLite <http://www.sqlite.org>`_ and/or use the package as an object mapper for programmatic database access. `modelmeta` uses `SQLAlchemy <http://www.sqlalchemy.org>`_ to provide the ORM layer.
+``modelmeta`` is a Python package that provides an
+`Object Relational Mapping (ORM) <http://en.wikipedia.org/wiki/Object-relational_mapping>`_ layer 
+for accessing the `Pacific Climate Impacts Consortium (PCIC) <http://www.pacificclimate.org/>`_'s
+database of `coverage data <http://en.wikipedia.org/wiki/Coverage_data>`_ metadata. 
+The package provides model classes for each of the tables in the database.
 
-The intent of the database itself is to separate the small, inexpensive, structured metadata and attribute information (stored in the database) from the expensive-to-access bulk spatiotemporal data (stored on disk in multidimensional files).
+With this package, one can recreate the database schema in `PostgreSQL <http://www.postgresql.org>`_ 
+or `SQLite <http://www.sqlite.org>`_ and/or use the package as an object mapper for programmatic database access.
 
---------------
-How to Install
---------------
+``modelmeta`` uses `SQLAlchemy <http://www.sqlalchemy.org>`_ to provide the ORM layer, and
+`Alembic <http://alembic.zzzcomputing.com/en/latest/>`_ to manage database creation and migration (see section
+below).
 
-One can install `modelmeta` using the standard methods of any other Python package.
+The intent of the database itself is to separate the small, inexpensive, structured metadata and attribute information 
+(stored in the database) from the expensive-to-access bulk spatiotemporal data (stored on disk in multidimensional 
+files). It provides an efficiently searchable index of the bulk data files, and separates storage from indexing.
 
-1. clone our repository and run the setup script
+Installation
+============
+
+Install ``modelmeta`` using the standard methods for any other Python package.
+
+#. Clone the repository::
 
     $ git clone https://github.com/pacificclimate/modelmeta
-    $ cd modelmeta
-    $ python setup.py install
 
-2. or just point `pip` to our `GitHub repo <https://github.com/pacificclimate/modelmeta>`_:
+#. Create a virtual environment::
+
+    $ cd modelmeta
+    $ python3 -m venv venv
+    $ . venv/bin/activate
+    (venv) $
+
+#. Install::
+
+    $ pip install -i https://pypi.pacificclimate.org/simple -r requirements.txt
+    $ pip install .  # or for development: pip install -e .
+
+#. Or just point ``pip`` to our `GitHub repo <https://github.com/pacificclimate/modelmeta>`_::
 
     $ pip install git+https://github.com/pacificclimate/modelmeta
 
-------------------------------
-What is Climate Coverage Data?
-------------------------------
+What is climate coverage data?
+==============================
 
-Climate coverage data (or "raster data" or "spatiotemporal data") consist of large data fields, typically over two or three dimensions in space plus a time dimension. Depending on the resolution in each axis, the data can typically be quite large in size. Typically there are several-to-many output quantities (e.g. temperature, precipiation, wind speed/direction) and often there can be multiple scenarios, multiple model implementations, and multiple runs of each model further exacerbating the size of the data.
+Climate coverage data (or "raster data" or "spatiotemporal data") consist of large data fields, typically over
+two or three dimensions in space plus a time dimension. Depending on the resolution in each axis, the data can
+typically be quite large in size. Typically there are several-to-many output quantities (e.g. temperature,
+precipiation, wind speed/direction) and often there can be multiple scenarios, multiple model implementations,
+and multiple runs of each model further exacerbating the size of the data.
+
+Managing database migrations
+============================
+
+Introduction
+------------
+
+Modifications to ``modelmeta``'s schema definition are now managed using
+`Alembic`_, a database migration tool based on SQLAlchemy.
+
+In short, Alembic supports and disciplines two processes of database schema change:
+
+- Creation of database migration scripts (Python programs) that modify the schema of a database.
+
+- Application of migrations to specific database instances.
+
+  - In particular, Alembic can be used to *create* a new instance of a ``modelmeta`` database by migrating an
+    empty database to the current state. This is described in detail below.
+
+For more information, see the `Alembic tutorial <http://alembic.zzzcomputing.com/en/latest/tutorial.html>`_.
+
+History
+-------
+
+The existing instance of a ``modelmeta`` database (``monsoon/pcic_meta``) was created prior to the adoption of
+Alembic, and therefore the timeline for Alembic database migrations is slightly confusing.
+
+Timeline:
+
+- *the distant past*: ``pcic_meta`` is created by mysterious primeval processes.
+
+- *somewhat later*: ``modelmeta`` is defined using SQLAlchemy, mapping most (but not all) features of the existing
+  ``pcic_meta`` database into an ORM.
+
+- 2017-07-18:
+
+    - Alembic is introduced.
+    - Alembic is used to create migration ``614911daf883`` that adds item ``seasonal`` to ``timescale`` Enum.
+
+- 2017-08-01:
+
+    - The SQLAlchemy ORM is updated to reflect all features of the ``pcic_meta`` database.
+      This mainly involves adding some missing indexes and constraints.
+
+    - Alembic is used to create a logically-previous migration ``7847aa3c1b39`` that creates the initial
+      database schema from an empty database.
+
+    - The add-seasonal migration is modified to logically follow the initial-create migration.
+
+Creating a new database
+~~~~~~~~~~~~~~~~~~~~~~~
+
+For a Postgres database
++++++++++++++++++++++++
+
+A Postgres database is somewhat more elaborate to set up, but it is also the foundation of a production
+database, not least because we use PostGIS.
+
+These instructions follow the pattern of database name and schema name established in ``pcic_meta``:
+
+- The name of the database and of the schema which houses the ``modelmeta`` tables proper are the same,
+  e.g., ``pcic_meta``.
+
+This is not by any means mandatory.
+
+Instructions:
+
+#. Choose a name for your new database/schema, e.g., ``ce_meta``.
+
+#. On the server of your choice (e.g., ``monsoon``):
+
+    a. Create a new user, with either of the following properties:
+
+        - the username is the same as the schema, e.g., ``ce_meta``,
+          with the default search path (``"$user",public``), OR
+        - it has a default search path of the form ``<name>,public``, e.g., ``ce_meta,public``
+
+    #. Create a new database with the chosen name, e.g., ``ce_meta``.
+
+    #. Within that database, create a new schema with the chosen name, e.g., ``ce_meta``.
+
+    #. `Enable PostGIS in the new database <http://postgis.net/install/>`_.
+
+        - ``CREATE EXTENSION postgis;``
+        - This creates the table ``spatial_ref_sys`` in schema ``public``. Check that.
+
+#. Add a DSN for your new database, including the appropriate user name, to ``alembic.ini``. For example::
+
+    [prod_ce_meta]
+    sqlalchemy.url = postgresql://ce_meta@monsoon.pcic.uvic.ca/ce_meta
+
+#. Create your new database with Alembic by ugrading the empty database to ``head``::
+
+    alembic -x db=prod_ce_meta upgrade head
+
+#. Have a beer.
+
+For a SQLite database
++++++++++++++++++++++
+
+A SQLite database is very simple to set up, but is normally used only for testing.
+
+#. Add a DSN for your new database to ``alembic.ini``. This database need not exist yet (although the path does).
+   For example::
+
+    [my_test_database]
+    sqlalchemy.url = sqlite:///path/to/test.sqlite
+
+#. Create your new database with Alembic by ugrading the non-existent database to ``head``::
+
+    alembic -x db=my_test_database upgrade head
+
+#. Have a beer. Or at least a soda.
+
+Updating the existing ``pcic_meta`` database
+--------------------------------------------
+
+This section is only of interest to PCIC.
+
+Initialization
+~~~~~~~~~~~~~~
+
+Status: NOT DONE
+
+The following things need to be done ONCE in order to bring ``pcic_meta`` under management by Alembic.
+
+#. The table ``pcic_meta.alembic_version`` has already been created in ``pcic_meta`` by earlier operations.
+   Its content is currently ``null``.
+
+#. Place the value ``7847aa3c1b39`` in the single row and column of table ``pcic_meta.alembic_version`` in ``pcic_meta``.
+
+   - This fakes the migration from an empty database to its nominal initial state (before add-seasonal migration).
+
+Ongoing migrations
+~~~~~~~~~~~~~~~~~~
+
+Once the initialization steps have been completed, ongoing migrations are simple and standard:
+
+#. Apply later migrations: ``alembic -x db=prod_pcic_meta upgrade head``
+
+   - At the time of this writing (2017-08-01), that would be migration ``614911daf883``.
+

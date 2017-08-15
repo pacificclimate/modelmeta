@@ -37,7 +37,7 @@ setup(
     },
     include_package_data = True,
     scripts = '''
-        scripts/mkblankdb.py 
+        scripts/copyproddb.py
         scripts/mktestdb.py
         scripts/list.py
     '''.split(),

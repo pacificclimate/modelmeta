@@ -1,7 +1,7 @@
 """add 'seasonal' to time_resolution enum
 
 Revision ID: 614911daf883
-Revises: 
+Revises: 7847aa3c1b39
 Create Date: 2017-07-17 17:00:43.066818
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '614911daf883'
-down_revision = None
+down_revision = '7847aa3c1b39'
 branch_labels = None
 depends_on = None
 
@@ -56,6 +56,10 @@ dialect = connection.dialect.name
 # a full copy of the production database. Both upgrade and downgrade work
 # on both databases.
 
+table_name = 'time_sets'
+column_name = 'time_resolution'
+type_name = 'timescale'
+
 old_options = (
     '1-minute', '2-minute', '5-minute', '15-minute', '30-minute',
     '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily',
@@ -77,9 +81,9 @@ def alter_column(curr_options, dest_options):
     :param dest_options: tuple of options (members) in the destination enum type
     :return: None
     """
-    old_type = sa.Enum(*curr_options, name='timescale')
-    new_type = sa.Enum(*dest_options, name='timescale')
-    with op.batch_alter_table('time_sets') as batch_op:
+    old_type = sa.Enum(*curr_options, name=type_name)
+    new_type = sa.Enum(*dest_options, name=type_name)
+    with op.batch_alter_table(table_name) as batch_op:
         batch_op.alter_column(
             'time_resolution', type_=new_type, existing_type=old_type)
 
@@ -97,20 +101,36 @@ def swap_and_drop(curr_options, dest_options):
     :param dest_options: tuple of options (members) in the destination enum type
     :return: None
     """
-    old_type = sa.Enum(*curr_options, name='timescale')
-    new_type = sa.Enum(*dest_options, name='timescale')
-    tmp_type = sa.Enum(*dest_options, name='_timescale')
+    tmp_type_name = '_{}'.format(type_name)
+    alter_args = dict(
+        table_name=table_name,
+        column_name=column_name,
+        type_name=type_name,
+        tmp_type_name=tmp_type_name,
+    )
+    old_type = sa.Enum(*curr_options, name=type_name)
+    new_type = sa.Enum(*dest_options, name=type_name)
+    tmp_type = sa.Enum(*dest_options, name=tmp_type_name)
+
     # Create a temporary enum type, convert to it and drop the old enum type
     tmp_type.create(connection, checkfirst=False)
-    op.execute('ALTER TABLE time_sets '
-               'ALTER COLUMN time_resolution TYPE _timescale '
-               'USING time_resolution::text::_timescale')
+    op.execute('''
+        ALTER TABLE {table_name}
+        ALTER COLUMN {column_name}
+        TYPE {tmp_type_name}
+        USING {column_name}::text::{tmp_type_name}
+    '''.format(**alter_args))
     old_type.drop(connection, checkfirst=False)
+
     # Create and convert to the new enum type
     new_type.create(connection, checkfirst=False)
-    op.execute('ALTER TABLE time_sets '
-               'ALTER COLUMN time_resolution TYPE timescale '
-               'USING time_resolution::text::timescale')
+    op.execute('''
+        ALTER TABLE {table_name}
+        ALTER COLUMN {column_name}
+        TYPE {type_name}
+        USING {column_name}::text::{type_name}
+    '''.format(**alter_args))
+
     # Drop the temporary enum type
     tmp_type.drop(connection, checkfirst=False)
 
@@ -127,14 +147,16 @@ def upgrade():
 
 def downgrade():
     # Migrate the data. This is dialect-independent.
-    time_sets = sa.sql.table(
-        'time_sets',
-        sa.Column('time_resolution', sa.Enum(*new_options, name='timescale'))
+    metadata = sa.MetaData()
+    time_sets = sa.Table(
+        table_name,
+        metadata,
+        sa.Column(column_name, sa.Enum(*new_options, name=type_name)),
     )
     op.execute(
         time_sets.update()
-        .where(time_sets.c.time_resolution == 'seasonal')
-        .values(time_resolution='other')
+            .where(time_sets.c.time_resolution == 'seasonal')
+            .values(time_resolution='other')
     )
 
     # Migrate the schema (enum type)
