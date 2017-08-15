@@ -21,23 +21,25 @@ setup(
         netCDF4
         nchelpers>=1.1.0
         python-dateutil
+        sqlparse
     '''.split(),
     package_data = {
-        'modelmeta': [
-            'data/mddb-v1.sqlite',
-            'data/mddb-v2.sqlite',
-            'data/tiny_gcm.nc',
-            'data/tiny_downscaled.nc',
-            'data/tiny_hydromodel_gcm.nc',
-            'data/tiny_gcm_climo_yearly.nc',
-            'data/tiny_gcm_climo_seasonal.nc',
-            'data/tiny_gcm_climo_monthly.nc',
-        ]
+        'modelmeta': '''
+            data/mddb-v1.sqlite
+            data/mddb-v2.sqlite
+            data/tiny_gcm.nc
+            data/tiny_downscaled.nc
+            data/tiny_hydromodel_gcm.nc
+            data/tiny_gcm_climo_yearly.nc
+            data/tiny_gcm_climo_seasonal.nc
+            data/tiny_gcm_climo_monthly.nc
+        '''.split()
     },
     include_package_data = True,
     scripts = '''
         scripts/copyproddb.py
         scripts/mktestdb.py
+        scripts/list.py
     '''.split(),
     classifiers=['Development Status :: 5 - Production/Stable',
                  'Environment :: Console',
