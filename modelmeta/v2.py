@@ -169,14 +169,14 @@ class Grid(Base):
     #   column 'grids.srid' could not find table 'spatial_ref_sys' with which
     #   to generate a foreign key to target column 'srid'
     #
-    # (And yes, table `public.spatial_ref_sys` is defined in that empty db.
-    # And the search_path is OK. And etc.)
+    # (Table `public.spatial_ref_sys` was defined in that empty db.
+    # And the search_path was OK. And etc.)
     # This despite Michael Bayer's (no less) statement in
     # https://bitbucket.org/zzzeek/alembic/issues/344/cross-database-foreign-key-autogeneration#comment-23989280
     # which suggests there should be no problem so long as we qualify the table
     # name with the schema, as above.
     #
-    # A lot of messing around with declaring metadata for schema 'public' and
+    # Experimenting with declaring metadata for schema 'public' and
     # reflecting or declaring table 'spatial_ref_sys', and setting
     # options of `alembic.EnvironmentContext.configure`
     # resulted in no joy.
@@ -247,10 +247,10 @@ class Model(Base):
     runs = relationship("Run", backref=backref('model', lazy='joined'))
 
     def __repr__(self):
-        return '{}(id={}, long_name={}, short_name={}, organization={}, '
-        'type={})'.format(self.__class__.__name__, self.id,
-                          self.long_name, self.short_name,
-                          self.organization, self.type)
+        return '{}(id={}, long_name={}, short_name={}, organization={}, ' \
+               'type={})'.format(self.__class__.__name__, self.id,
+                                  self.long_name, self.short_name,
+                                  self.organization, self.type)
 
 class QcFlag(Base):
     __tablename__ = 'qc_flags'
