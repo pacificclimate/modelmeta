@@ -34,13 +34,23 @@ Installation
 
 Install ``modelmeta`` using the standard methods for any other Python package.
 
-1. Clone the repository and run the setup script::
+#. Clone the repository::
 
     $ git clone https://github.com/pacificclimate/modelmeta
-    $ cd modelmeta
-    $ python setup.py install
 
-2. Or just point ``pip`` to our `GitHub repo <https://github.com/pacificclimate/modelmeta>`_::
+#. Create a virtual environment::
+
+    $ cd modelmeta
+    $ python3 -m venv venv
+    $ . venv/bin/activate
+    (venv) $
+
+#. Install::
+
+    $ pip install -i https://pypi.pacificclimate.org/simple -r requirements.txt
+    $ pip install .  # or for development: pip install -e .
+
+#. Or just point ``pip`` to our `GitHub repo <https://github.com/pacificclimate/modelmeta>`_::
 
     $ pip install git+https://github.com/pacificclimate/modelmeta
 
@@ -101,17 +111,8 @@ Timeline:
 
     - The add-seasonal migration is modified to logically follow the initial-create migration.
 
-Creating a new ``modelmeta`` database
--------------------------------------
-
-There are in fact two tools in this package to create a new ``modelmeta`` database.
-
-- (DEPRECATED) Use the script ``scripts/mkblankdb.py``.
-  The resulting database will not be under Alembic migration management.
-- (RECOMMENDED) Use Alembic, as described below.
-
-Creating a new database with Alembic
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Creating a new database
+~~~~~~~~~~~~~~~~~~~~~~~
 
 For a Postgres database
 +++++++++++++++++++++++
@@ -142,9 +143,10 @@ Instructions:
 
     #. Within that database, create a new schema with the chosen name, e.g., ``ce_meta``.
 
-    #. Somehow install PostGIS in there. How??
+    #. `Enable PostGIS in the new database <http://postgis.net/install/>`_.
 
-        - It creates the table ``spatial_ref_sys`` in schema ``public``. Check that.
+        - ``CREATE EXTENSION postgis;``
+        - This creates the table ``spatial_ref_sys`` in schema ``public``. Check that.
 
 #. Add a DSN for your new database, including the appropriate user name, to ``alembic.ini``. For example::
 
@@ -162,7 +164,8 @@ For a SQLite database
 
 A SQLite database is very simple to set up, but is normally used only for testing.
 
-#. Add a DSN for your new database to ``alembic.ini``. This database need not exist yet. For example::
+#. Add a DSN for your new database to ``alembic.ini``. This database need not exist yet (although the path does).
+   For example::
 
     [my_test_database]
     sqlalchemy.url = sqlite:///path/to/test.sqlite
@@ -171,7 +174,7 @@ A SQLite database is very simple to set up, but is normally used only for testin
 
     alembic -x db=my_test_database upgrade head
 
-#. Have a beer.
+#. Have a beer. Or at least a soda.
 
 Updating the existing ``pcic_meta`` database
 --------------------------------------------
