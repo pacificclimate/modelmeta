@@ -35,7 +35,10 @@ setup(
         ]
     },
     include_package_data = True,
-    scripts = ['scripts/mkblankdb.py', 'scripts/mktestdb.py'],
+    scripts = '''
+        scripts/copyproddb.py
+        scripts/mktestdb.py
+    '''.split(),
     classifiers=['Development Status :: 5 - Production/Stable',
                  'Environment :: Console',
                  'Intended Audience :: Developers',
