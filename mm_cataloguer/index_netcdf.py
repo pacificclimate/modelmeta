@@ -151,6 +151,8 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     # valid and consistent for all cases.
     data_file = id_match or hash_match or filename_match
     old_filename_exists = os.path.isfile(data_file.filename)
+    # To make testing easier, we call ``os.path.realpath`` explicitly here
+    # rather than delegating it to ``cf.filepath()`` as everywhere else.
     normalized_filenames_match = \
         os.path.realpath(data_file.filename) == os.path.realpath(cf.filepath())
     cf_modification_time = os.path.getmtime(cf.filepath())
