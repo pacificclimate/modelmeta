@@ -133,15 +133,26 @@ Instructions:
 
 #. On the server of your choice (e.g., ``monsoon``):
 
-   a. Create a new user, with either of the following properties:
+   Note: These operations must be performed with high-level permissions.
+   See the System Administrator to have these done or obtain permissions.
 
-      - the username is the same as the schema, e.g., ``ce_meta``,
-        with the default search path (``"$user",public``), OR
-      - it has a default search path of the form ``<name>,public``, e.g., ``ce_meta,public``
+   For a record of such a creation, see `Redmine Issue 696 <https://redmine.pacificclimate.org/issues/696>`_.
+   Permission setup was more complicated than anticipated.
 
-   #. Create a new database with the chosen name, e.g., ``ce_meta``.
+   a. Create a new database with the chosen name, e.g., ``ce_meta``.
 
    #. Within that database, create a new schema with the chosen name, e.g., ``ce_meta``.
+
+   #. Create new users, with the following permissions:
+
+      - ``ce_meta`` (database owner): full permissions for table creation and read-write permissions
+        in schemas ``ce_meta`` and ``public``
+      - ``ce_meta_rw`` (database writer): read-write permissions in schemas ``ce_meta`` and ``public``
+      - ``ce_meta_ro`` (database reader): read-only permissions in schemas ``ce_meta`` and ``public``
+
+      and for each of them
+
+      - ``search_path = ce_meta,public``
 
    #. `Enable PostGIS in the new database <http://postgis.net/install/>`_.
 
