@@ -98,18 +98,18 @@ Timeline:
 
 - 2017-07-18:
 
-    - Alembic is introduced.
-    - Alembic is used to create migration ``614911daf883`` that adds item ``seasonal`` to ``timescale`` Enum.
+  - Alembic is introduced.
+  - Alembic is used to create migration ``614911daf883`` that adds item ``seasonal`` to ``timescale`` Enum.
 
 - 2017-08-01:
 
-    - The SQLAlchemy ORM is updated to reflect all features of the ``pcic_meta`` database.
-      This mainly involves adding some missing indexes and constraints.
+  - The SQLAlchemy ORM is updated to reflect all features of the ``pcic_meta`` database.
+    This mainly involves adding some missing indexes and constraints.
 
-    - Alembic is used to create a logically-previous migration ``7847aa3c1b39`` that creates the initial
-      database schema from an empty database.
+  - Alembic is used to create a logically-previous migration ``7847aa3c1b39`` that creates the initial
+    database schema from an empty database.
 
-    - The add-seasonal migration is modified to logically follow the initial-create migration.
+  - The add-seasonal migration is modified to logically follow the initial-create migration.
 
 Creating a new database
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -120,20 +120,13 @@ For a Postgres database
 A Postgres database is somewhat more elaborate to set up, but it is also the foundation of a production
 database, not least because we use PostGIS.
 
-These instructions follow the pattern of database name and schema name established in ``pcic_meta``:
-
-- The name of the database and of the schema which houses the ``modelmeta`` tables proper are the same,
-  e.g., ``pcic_meta``.
-
-This is not by any means mandatory.
-
 Instructions:
 
 #. Choose a name for your new database/schema, e.g., ``ce_meta``.
 
 #. On the server of your choice (e.g., ``monsoon``):
 
-   Note: These operations must be performed with high-level permissions.
+   **Note**: These operations must be performed with high-level permissions.
    See the System Administrator to have these done or obtain permissions.
 
    For a record of such a creation, see `Redmine Issue 696 <https://redmine.pacificclimate.org/issues/696>`_.
@@ -189,6 +182,9 @@ A SQLite database is very simple to set up, but is normally used only for testin
 
 Updating the existing ``pcic_meta`` database
 --------------------------------------------
+
+**DEPRECATED**: `Decision taken not to modify pcic_meta <https://pcic.uvic.ca/confluence/display/CSG/pcic_meta%3A+Current+contents+and+update+plan+2017-Jul>`_
+This content is retained in case that decision is revised in future.
 
 This section is only of interest to PCIC.
 
