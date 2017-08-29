@@ -152,7 +152,7 @@ def test_index_netcdf_files():
     ({
          'unique_id': 'foo',
          'first_MiB_md5sum': 'foo',
-         'filepath': lambda: 'foo'
+         'filepath': lambda **kwargs: 'foo'
      },
      {},
      False),
@@ -162,7 +162,7 @@ def test_index_netcdf_files():
 
     # symlinked and unmodified file
     ({
-         'filepath': lambda: 'foo',  # different filepath
+         'filepath': lambda **kwargs: 'foo',  # different filepath
      },
      {
          'isfile': lambda fp: True,  # old file still exists
@@ -174,7 +174,7 @@ def test_index_netcdf_files():
     # symlinked and modified file (hash changed)
     ({
          'first_MiB_md5sum': 'foo',  # different hash
-         'filepath': lambda: 'foo',  # different filepath
+         'filepath': lambda **kwargs: 'foo',  # different filepath
      },
      {
          'isfile': lambda fp: True,  # old file still exists
@@ -185,7 +185,7 @@ def test_index_netcdf_files():
 
     # symlinked and modified file (mod time changed)
     ({
-         'filepath': lambda: 'foo',  # different filepath
+         'filepath': lambda **kwargs: 'foo',  # different filepath
      },
      {
          'isfile': lambda fp: True,  # old file still exists
@@ -196,7 +196,7 @@ def test_index_netcdf_files():
 
     # copy of file
     ({
-         'filepath': lambda: 'foo',  # different filepath
+         'filepath': lambda **kwargs: 'foo',  # different filepath
      },
      {
          'isfile': lambda fp: True,  # old file still exists
@@ -207,7 +207,7 @@ def test_index_netcdf_files():
 
     # moved file
     ({
-         'filepath': lambda: 'foo',  # different filepath
+         'filepath': lambda **kwargs: 'foo',  # different filepath
      },
      {
          'isfile': lambda fp: False,  # old file gone
@@ -240,7 +240,7 @@ def test_index_netcdf_files():
     # moved and modified file (hash changed)
     ({
          'first_MiB_md5sum': 'foo',  # different hash
-         'filepath': lambda: 'foo',  # different filepath
+         'filepath': lambda **kwargs: 'foo',  # different filepath
      },
      {
          'isfile': lambda fp: False,  # old file gone
@@ -250,7 +250,7 @@ def test_index_netcdf_files():
 
     # moved and modified file (modification time changed)
     ({
-         'filepath': lambda: 'foo',  # different filepath
+         'filepath': lambda **kwargs: 'foo',  # different filepath
      },
      {
          'isfile': lambda fp: False,  # old file gone

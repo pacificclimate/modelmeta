@@ -81,6 +81,9 @@ logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
 
+filepath_converter = 'realpath'
+
+
 # Root functions
 
 def index_netcdf_files(filenames, dsn):
@@ -122,7 +125,7 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     The flip side of this choice is that we may not have exhausted all possible cases. This situation is signalled
     by the final statements after all the if statements.
     """
-    logger.info('Processing file: {}'.format(cf.filepath()))
+    logger.info('Processing file: {}'.format(cf.filepath(converter=filepath_converter)))
     id_match, hash_match, filename_match = find_data_file_by_id_hash_filename(sesh, cf)
 
     def log_data_files(log):
@@ -148,7 +151,10 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     # valid and consistent for all cases.
     data_file = id_match or hash_match or filename_match
     old_filename_exists = os.path.isfile(data_file.filename)
-    normalized_filenames_match = os.path.realpath(data_file.filename) == os.path.realpath(cf.filepath())
+    # To make testing easier, we call ``os.path.realpath`` explicitly here
+    # rather than delegating it to ``cf.filepath()`` as everywhere else.
+    normalized_filenames_match = \
+        os.path.realpath(data_file.filename) == os.path.realpath(cf.filepath())
     cf_modification_time = os.path.getmtime(cf.filepath())
     data_file_index_time = seconds_since_epoch(data_file.index_time)
     index_up_to_date = data_file_index_time > cf_modification_time
@@ -240,7 +246,7 @@ def update_data_file_index_time(sesh, data_file):
 def update_data_file_filename(sesh, data_file, cf):
     """Update the filename recorded for data_file with the cf filename."""
     logger.info('Updating filename (only)')
-    data_file.filename = cf.filepath()
+    data_file.filename = cf.filepath(converter=filepath_converter)
     sesh.commit()
     return data_file
 
@@ -258,7 +264,10 @@ def find_data_file_by_id_hash_filename(sesh, cf):
     id_match = q.first()
     q = sesh.query(DataFile).filter(DataFile.first_1mib_md5sum == cf.first_MiB_md5sum)
     hash_match = q.first()
-    q = sesh.query(DataFile).filter(DataFile.filename == cf.filepath())
+    q = (
+        sesh.query(DataFile)
+        .filter(DataFile.filename == cf.filepath(converter=filepath_converter))
+    )
     filename_match = q.first()
     return id_match, hash_match, filename_match
 
@@ -279,7 +288,7 @@ def insert_data_file(sesh, cf):  # create.data.file.id
     dim_names = cf.axes_dim()
 
     df = DataFile(
-        filename=cf.filepath(),
+        filename=cf.filepath(converter=filepath_converter),
         first_1mib_md5sum=cf.first_MiB_md5sum,
         unique_id=cf.unique_id,
         index_time=datetime.datetime.utcnow(),
