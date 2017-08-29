@@ -98,18 +98,18 @@ Timeline:
 
 - 2017-07-18:
 
-    - Alembic is introduced.
-    - Alembic is used to create migration ``614911daf883`` that adds item ``seasonal`` to ``timescale`` Enum.
+  - Alembic is introduced.
+  - Alembic is used to create migration ``614911daf883`` that adds item ``seasonal`` to ``timescale`` Enum.
 
 - 2017-08-01:
 
-    - The SQLAlchemy ORM is updated to reflect all features of the ``pcic_meta`` database.
-      This mainly involves adding some missing indexes and constraints.
+  - The SQLAlchemy ORM is updated to reflect all features of the ``pcic_meta`` database.
+    This mainly involves adding some missing indexes and constraints.
 
-    - Alembic is used to create a logically-previous migration ``7847aa3c1b39`` that creates the initial
-      database schema from an empty database.
+  - Alembic is used to create a logically-previous migration ``7847aa3c1b39`` that creates the initial
+    database schema from an empty database.
 
-    - The add-seasonal migration is modified to logically follow the initial-create migration.
+  - The add-seasonal migration is modified to logically follow the initial-create migration.
 
 Creating a new database
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -120,33 +120,37 @@ For a Postgres database
 A Postgres database is somewhat more elaborate to set up, but it is also the foundation of a production
 database, not least because we use PostGIS.
 
-These instructions follow the pattern of database name and schema name established in ``pcic_meta``:
-
-- The name of the database and of the schema which houses the ``modelmeta`` tables proper are the same,
-  e.g., ``pcic_meta``.
-
-This is not by any means mandatory.
-
 Instructions:
 
 #. Choose a name for your new database/schema, e.g., ``ce_meta``.
 
 #. On the server of your choice (e.g., ``monsoon``):
 
-    a. Create a new user, with either of the following properties:
+   **Note**: These operations must be performed with high-level permissions.
+   See the System Administrator to have these done or obtain permissions.
 
-        - the username is the same as the schema, e.g., ``ce_meta``,
-          with the default search path (``"$user",public``), OR
-        - it has a default search path of the form ``<name>,public``, e.g., ``ce_meta,public``
+   For a record of such a creation, see `Redmine Issue 696 <https://redmine.pacificclimate.org/issues/696>`_.
+   Permission setup was more complicated than anticipated.
 
-    #. Create a new database with the chosen name, e.g., ``ce_meta``.
+   a. Create a new database with the chosen name, e.g., ``ce_meta``.
 
-    #. Within that database, create a new schema with the chosen name, e.g., ``ce_meta``.
+   #. Within that database, create a new schema with the chosen name, e.g., ``ce_meta``.
 
-    #. `Enable PostGIS in the new database <http://postgis.net/install/>`_.
+   #. Create new users, with the following permissions:
 
-        - ``CREATE EXTENSION postgis;``
-        - This creates the table ``spatial_ref_sys`` in schema ``public``. Check that.
+      - ``ce_meta`` (database owner): full permissions for table creation and read-write permissions
+        in schemas ``ce_meta`` and ``public``
+      - ``ce_meta_rw`` (database writer): read-write permissions in schemas ``ce_meta`` and ``public``
+      - ``ce_meta_ro`` (database reader): read-only permissions in schemas ``ce_meta`` and ``public``
+
+      and for each of them
+
+      - ``search_path = ce_meta,public``
+
+   #. `Enable PostGIS in the new database <http://postgis.net/install/>`_.
+
+      - ``CREATE EXTENSION postgis;``
+      - This creates the table ``spatial_ref_sys`` in schema ``public``. Check that.
 
 #. Add a DSN for your new database, including the appropriate user name, to ``alembic.ini``. For example::
 
@@ -178,6 +182,9 @@ A SQLite database is very simple to set up, but is normally used only for testin
 
 Updating the existing ``pcic_meta`` database
 --------------------------------------------
+
+**DEPRECATED**: `Decision taken not to modify pcic_meta <https://pcic.uvic.ca/confluence/display/CSG/pcic_meta%3A+Current+contents+and+update+plan+2017-Jul>`_
+This content is retained in case that decision is revised in future.
 
 This section is only of interest to PCIC.
 
