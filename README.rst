@@ -133,20 +133,20 @@ Instructions:
 
 #. On the server of your choice (e.g., ``monsoon``):
 
-    a. Create a new user, with either of the following properties:
+   a. Create a new user, with either of the following properties:
 
-        - the username is the same as the schema, e.g., ``ce_meta``,
-          with the default search path (``"$user",public``), OR
-        - it has a default search path of the form ``<name>,public``, e.g., ``ce_meta,public``
+      - the username is the same as the schema, e.g., ``ce_meta``,
+        with the default search path (``"$user",public``), OR
+      - it has a default search path of the form ``<name>,public``, e.g., ``ce_meta,public``
 
-    #. Create a new database with the chosen name, e.g., ``ce_meta``.
+   #. Create a new database with the chosen name, e.g., ``ce_meta``.
 
-    #. Within that database, create a new schema with the chosen name, e.g., ``ce_meta``.
+   #. Within that database, create a new schema with the chosen name, e.g., ``ce_meta``.
 
-    #. `Enable PostGIS in the new database <http://postgis.net/install/>`_.
+   #. `Enable PostGIS in the new database <http://postgis.net/install/>`_.
 
-        - ``CREATE EXTENSION postgis;``
-        - This creates the table ``spatial_ref_sys`` in schema ``public``. Check that.
+      - ``CREATE EXTENSION postgis;``
+      - This creates the table ``spatial_ref_sys`` in schema ``public``. Check that.
 
 #. Add a DSN for your new database, including the appropriate user name, to ``alembic.ini``. For example::
 
