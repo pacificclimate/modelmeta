@@ -25,7 +25,9 @@ import datetime
 from pkg_resources import resource_filename
 
 import pytest
-from netCDF4 import date2num
+from netCDF4 import date2num, num2date
+
+from dateutil.relativedelta import relativedelta
 
 from modelmeta import Level
 from nchelpers.date_utils import to_datetime
@@ -453,7 +455,7 @@ cond_insert_data_file_variable_plus = conditional(insert_data_file_variable_plus
 
 
 def test_insert_data_file_variable(blank_test_session, tiny_dataset):
-    var_name = tiny_dataset.dependent_varnames[0]
+    var_name = tiny_dataset.dependent_varnames()[0]
     variable = tiny_dataset.variables[var_name]
     range_min, range_max = tiny_dataset.var_range(var_name)
     data_file = insert_data_file(blank_test_session, tiny_dataset)
@@ -473,7 +475,7 @@ def test_insert_data_file_variable(blank_test_session, tiny_dataset):
 
 @pytest.mark.parametrize('insert', [False, True])
 def test_find_data_file_variable(blank_test_session, tiny_dataset, insert):
-    var_name = tiny_dataset.dependent_varnames[0]
+    var_name = tiny_dataset.dependent_varnames()[0]
     data_file = insert_data_file(blank_test_session, tiny_dataset)
     check_find(find_data_file_variable, cond_insert_data_file_variable_plus, blank_test_session, tiny_dataset, var_name,
                data_file, invoke=insert)
@@ -481,7 +483,7 @@ def test_find_data_file_variable(blank_test_session, tiny_dataset, insert):
 
 @pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_data_file_variable(blank_test_session, tiny_dataset, insert):
-    var_name = tiny_dataset.dependent_varnames[0]
+    var_name = tiny_dataset.dependent_varnames()[0]
     data_file = insert_data_file(blank_test_session, tiny_dataset)
     check_find_or_insert(find_or_insert_data_file_variable, cond_insert_data_file_variable_plus, blank_test_session,
                          tiny_dataset, var_name, data_file, invoke=insert)
@@ -493,7 +495,7 @@ cond_insert_variable_alias = conditional(insert_variable_alias)
 
 
 def test_insert_variable_alias(blank_test_session, tiny_dataset):
-    var_name = tiny_dataset.dependent_varnames[0]
+    var_name = tiny_dataset.dependent_varnames()[0]
     variable = tiny_dataset.variables[var_name]
     check_insert(
         insert_variable_alias, blank_test_session, tiny_dataset, var_name,
@@ -506,13 +508,13 @@ def test_insert_variable_alias(blank_test_session, tiny_dataset):
 @pytest.mark.parametrize('insert', [False, True])
 def test_find_variable_alias(blank_test_session, tiny_dataset, insert):
     check_find(find_variable_alias, cond_insert_variable_alias, blank_test_session, tiny_dataset,
-               tiny_dataset.dependent_varnames[0], invoke=insert)
+               tiny_dataset.dependent_varnames()[0], invoke=insert)
 
 
 @pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_variable_alias(blank_test_session, tiny_dataset, insert):
     check_find_or_insert(find_or_insert_variable_alias, cond_insert_variable_alias, blank_test_session, tiny_dataset,
-                         tiny_dataset.dependent_varnames[0], invoke=insert)
+                         tiny_dataset.dependent_varnames()[0], invoke=insert)
 
 
 # LevelSet, Level
@@ -567,7 +569,7 @@ cond_insert_grid = conditional(insert_grid)
 
 
 def test_insert_grid(blank_test_session, tiny_dataset):
-    var_name = tiny_dataset.dependent_varnames[0]
+    var_name = tiny_dataset.dependent_varnames()[0]
     info = get_grid_info(tiny_dataset, var_name)
     grid = check_insert(
         insert_grid, blank_test_session, tiny_dataset, var_name,
@@ -589,14 +591,14 @@ def test_insert_grid(blank_test_session, tiny_dataset):
 
 @pytest.mark.parametrize('insert', [False, True])
 def test_find_grid(blank_test_session, tiny_dataset, insert):
-    check_find(find_grid, cond_insert_grid, blank_test_session, tiny_dataset, tiny_dataset.dependent_varnames[0],
+    check_find(find_grid, cond_insert_grid, blank_test_session, tiny_dataset, tiny_dataset.dependent_varnames()[0],
                invoke=insert)
 
 
 @pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_grid(blank_test_session, tiny_dataset, insert):
     check_find_or_insert(find_or_insert_grid, cond_insert_grid, blank_test_session, tiny_dataset,
-                         tiny_dataset.dependent_varnames[0], invoke=insert)
+                         tiny_dataset.dependent_varnames()[0], invoke=insert)
 
 
 # Timeset
@@ -626,14 +628,22 @@ def test_insert_timeset(blank_test_session, tiny_dataset):
                      for ct in timeset.climatological_times]
         assert time_starts == [cb[0] for cb in climatology_bounds]
         assert time_ends == [cb[1] for cb in climatology_bounds]
+        assert timeset.start_date, timeset.end_date == \
+           to_datetime(num2date(tiny_dataset.nominal_time_span))
         if tiny_dataset.time_resolution == 'seasonal':
             def wrap(month):
                 return (month - 1) % 12 + 1
-            assert timeset.start_date.month == wrap(timeset.climatological_times[0].time_start.month + 1)
-            assert timeset.end_date.month == wrap(timeset.climatological_times[-1].time_end.month + 1)
+            assert timeset.start_date.month == \
+                   wrap(timeset.climatological_times[0].time_start.month + 1)
+            assert timeset.end_date.month == \
+                   wrap((timeset.climatological_times[-1].time_end -
+                         relativedelta(seconds=1)).month + 1)
         else:
-            assert timeset.start_date.month == timeset.climatological_times[0].time_start.month
-            assert timeset.end_date.month == timeset.climatological_times[-1].time_end.month
+            assert timeset.start_date.month == \
+                   timeset.climatological_times[0].time_start.month
+            assert timeset.end_date.month == \
+                   (timeset.climatological_times[-1].time_end -
+                    relativedelta(seconds=1)).month
     else:
         assert len(timeset.climatological_times) == 0
         assert timeset.start_date, timeset.end_date == \
@@ -654,7 +664,7 @@ def test_find_or_insert_timeset(blank_test_session, tiny_dataset, insert):
 # Helper functions
 
 def test_get_grid_info(tiny_dataset):
-    info = get_grid_info(tiny_dataset, tiny_dataset.dependent_varnames[0])
+    info = get_grid_info(tiny_dataset, tiny_dataset.dependent_varnames()[0])
     assert set(info.keys()) == \
            set('xc_var yc_var xc_values yc_values xc_grid_step yc_grid_step evenly_spaced_y'.split())
     assert info['xc_var'] == tiny_dataset.variables['lon']

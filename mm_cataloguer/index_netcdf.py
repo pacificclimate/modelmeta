@@ -53,19 +53,16 @@ from methods/properties of CFDataset, adhering to the principle that all our Net
 """
 
 import os
-import sys
 import logging
 import datetime
 import functools
 from argparse import ArgumentParser
 
-from dateutil.relativedelta import relativedelta
-
+from netCDF4 import num2date
 import numpy as np
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
 
-from netCDF4 import num2date
 from nchelpers import CFDataset
 from nchelpers.date_utils import to_datetime
 from modelmeta import Model, Run, Emission, DataFile, TimeSet, Time, ClimatologicalTime, DataFileVariable, \
@@ -550,7 +547,7 @@ def find_or_insert_data_file_variables(sesh, cf, data_file):  # create.data.file
     :param data_file: (DataFile) data file to associate this dfv to
     :return: list of found or inserted DataFileVariable records
     """
-    return [find_or_insert_data_file_variable(sesh, cf, var_name, data_file) for var_name in cf.dependent_varnames]
+    return [find_or_insert_data_file_variable(sesh, cf, var_name, data_file) for var_name in cf.dependent_varnames()]
 
 
 # VariableAlias
@@ -797,7 +794,9 @@ def find_timeset(sesh, cf):
     :param cf: CFDatafile object representing NetCDF file
     :return: existing TimeSet record or None
     """
-    start_date, end_date = get_extended_time_range(cf)
+    start_date, end_date = to_datetime(
+        num2date(cf.nominal_time_span, cf.time_var.units, cf.time_var.calendar)
+    )
 
     # Check for existing TimeSet matching this file's set of time values
     # TODO: Verify encoding for TimeSet.calendar the same as for cf.time_var.calendar
@@ -820,7 +819,9 @@ def insert_timeset(sesh, cf):
     :param cf: CFDatafile object representing NetCDF file
     :return: new TimeSet record
     """
-    start_date, end_date = get_extended_time_range(cf)
+    start_date, end_date = to_datetime(
+        num2date(cf.nominal_time_span, cf.time_var.units, cf.time_var.calendar)
+    )
 
     time_set = TimeSet(
         calendar=cf.time_var.calendar,
@@ -842,7 +843,9 @@ def insert_timeset(sesh, cf):
     sesh.add_all(times)
 
     if cf.is_multi_year_mean:
-        climatology_bounds = get_climatology_bounds(cf)
+        climatology_bounds = to_datetime(
+            num2date(cf.climatology_bounds_values, cf.time_var.units, cf.time_var.calendar)
+        )
         climatological_times = [ClimatologicalTime(
             timeset=time_set,
             time_idx=time_idx,
@@ -972,42 +975,6 @@ def get_grid_info(cf, var_name):
         'yc_grid_step': mean_step_size(yc_values),
         'evenly_spaced_y': is_regular_series(yc_values),
     }
-
-
-# TODO: Make this a property/method of nchelpers
-def get_climatology_bounds(cf):
-    if not cf.is_multi_year_mean:
-        raise ValueError('climatology bounds are defined only for files'
-                         'containing multi-year means')
-    climatology_bounds_var = cf.variables[cf.climatology_bounds_var_name]
-    climatology_bounds = [
-        list(to_datetime(num2date(num, cf.time_var.units, cf.time_var.calendar)))
-        for num in climatology_bounds_var[:,:]
-    ]
-    return climatology_bounds
-
-
-# TODO: Make this a property/method of nchelpers. Maybe.
-def get_extended_time_range(cf):
-    if cf.is_multi_year_mean:
-        climatology_bounds = get_climatology_bounds(cf)
-        if cf.time_resolution in {'monthly', 'yearly'}:
-            # use start bound of first time and end bound of last time
-            # (same time in case of yearly)
-            start_date = climatology_bounds[0][0]
-            end_date = climatology_bounds[-1][1]
-        elif cf.time_resolution == 'seasonal':
-            # seasonal time bounds are a month back of the averaging period
-            start_date = climatology_bounds[0][0] + relativedelta(months=1)
-            end_date = climatology_bounds[-1][1] + relativedelta(months=1)
-        else:
-            raise ValueError(
-                "Unexpected value '{}' for time_resolution in multi-year "
-                "mean file. Expected 'monthly', 'yearly' or 'seasonal'"
-                .format(cf.time_resolution))
-    else:
-        start_date, end_date = to_datetime(cf.time_range_as_dates)
-    return start_date, end_date
 
 
 if __name__ == '__main__':
