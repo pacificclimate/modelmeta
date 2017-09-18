@@ -53,19 +53,16 @@ from methods/properties of CFDataset, adhering to the principle that all our Net
 """
 
 import os
-import sys
 import logging
 import datetime
 import functools
 from argparse import ArgumentParser
 
-from dateutil.relativedelta import relativedelta
-
+from netCDF4 import num2date
 import numpy as np
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
 
-from netCDF4 import num2date
 from nchelpers import CFDataset
 from nchelpers.date_utils import to_datetime
 from modelmeta import Model, Run, Emission, DataFile, TimeSet, Time, ClimatologicalTime, DataFileVariable, \
@@ -550,7 +547,7 @@ def find_or_insert_data_file_variables(sesh, cf, data_file):  # create.data.file
     :param data_file: (DataFile) data file to associate this dfv to
     :return: list of found or inserted DataFileVariable records
     """
-    return [find_or_insert_data_file_variable(sesh, cf, var_name, data_file) for var_name in cf.dependent_varnames]
+    return [find_or_insert_data_file_variable(sesh, cf, var_name, data_file) for var_name in cf.dependent_varnames()]
 
 
 # VariableAlias
@@ -797,7 +794,9 @@ def find_timeset(sesh, cf):
     :param cf: CFDatafile object representing NetCDF file
     :return: existing TimeSet record or None
     """
-    start_date, end_date = get_extended_time_range(cf)
+    start_date, end_date = to_datetime(
+        num2date(cf.nominal_time_span, cf.time_var.units, cf.time_var.calendar)
+    )
 
     # Check for existing TimeSet matching this file's set of time values
     # TODO: Verify encoding for TimeSet.calendar the same as for cf.time_var.calendar
@@ -820,7 +819,9 @@ def insert_timeset(sesh, cf):
     :param cf: CFDatafile object representing NetCDF file
     :return: new TimeSet record
     """
-    start_date, end_date = get_extended_time_range(cf)
+    start_date, end_date = to_datetime(
+        num2date(cf.nominal_time_span, cf.time_var.units, cf.time_var.calendar)
+    )
 
     time_set = TimeSet(
         calendar=cf.time_var.calendar,
@@ -842,7 +843,9 @@ def insert_timeset(sesh, cf):
     sesh.add_all(times)
 
     if cf.is_multi_year_mean:
-        climatology_bounds = get_climatology_bounds(cf)
+        climatology_bounds = to_datetime(
+            num2date(cf.climatology_bounds_values, cf.time_var.units, cf.time_var.calendar)
+        )
         climatological_times = [ClimatologicalTime(
             timeset=time_set,
             time_idx=time_idx,
