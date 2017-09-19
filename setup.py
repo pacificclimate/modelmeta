@@ -40,6 +40,8 @@ setup(
         scripts/copyproddb.py
         scripts/mktestdb.py
         scripts/list.py
+        mm_cataloguer/index_netcdf.py
+        mm_cataloguer/associate_ensemble.py
     '''.split(),
     classifiers=['Development Status :: 5 - Production/Stable',
                  'Environment :: Console',
