@@ -698,7 +698,7 @@ def find_grid(sesh, cf, var_name):
         if value == 0.0:
             return attribute == 0.0
         else:
-            return func.abs((attribute - value) / attribute < relative_tolerance)
+            return func.abs((attribute - value) / attribute) < relative_tolerance
 
     info = get_grid_info(cf, var_name)
     
