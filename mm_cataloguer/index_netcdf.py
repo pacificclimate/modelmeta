@@ -901,7 +901,7 @@ def is_regular_series(values, relative_tolerance=1e-6):
     """Return True iff the given series of values is regular, i.e., has equal steps between values,
     within a relative tolerance."""
     diffs = np.diff(values)
-    return abs(np.max(diffs) / np.min(diffs) - 1) < relative_tolerance
+    return bool(abs(np.max(diffs) / np.min(diffs) - 1) < relative_tolerance)
 
 
 def mean_step_size(values):
