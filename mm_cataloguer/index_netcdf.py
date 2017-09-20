@@ -67,7 +67,10 @@ from nchelpers import CFDataset
 from nchelpers.date_utils import to_datetime
 from modelmeta import Model, Run, Emission, DataFile, TimeSet, Time, ClimatologicalTime, DataFileVariable, \
     VariableAlias, LevelSet, Level, Grid, YCellBound, EnsembleDataFileVariables
+from mm_cataloguer import psycopg2_adapters
 
+
+# Set up logging
 
 formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', "%Y-%m-%d %H:%M:%S")
 handler = logging.StreamHandler()
@@ -77,6 +80,10 @@ logger = logging.getLogger(__name__)
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
+# Register psycopg adapters for numpy types
+psycopg2_adapters.register()
+
+# Miscellaneous constants
 
 filepath_converter = 'realpath'
 
@@ -901,7 +908,7 @@ def is_regular_series(values, relative_tolerance=1e-6):
     """Return True iff the given series of values is regular, i.e., has equal steps between values,
     within a relative tolerance."""
     diffs = np.diff(values)
-    return bool(abs(np.max(diffs) / np.min(diffs) - 1) < relative_tolerance)
+    return abs(np.max(diffs) / np.min(diffs) - 1) < relative_tolerance
 
 
 def mean_step_size(values):
