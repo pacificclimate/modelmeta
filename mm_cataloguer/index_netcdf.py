@@ -2,54 +2,67 @@
 
 """Functions for adding NetCDF files to the modelmeta database.
 
-The root function is `index_netcdf_file`, which causes a NetCDF file to be added or updated in the modelmeta database.
+The root function is `index_netcdf_file`, which causes a NetCDF file to be
+added or updated in the modelmeta database.
 
-`index_netcdf_file` uses a set of database manipulation functions to handle finding or inserting the objects
-(records) in the database necessary to represent the NetCDF file.
+`index_netcdf_file` uses a set of database manipulation functions to handle
+finding or inserting the objects (records) in the database necessary to
+represent the NetCDF file.
 
-Objects in modelmeta database are related to each other as follows. Indentation can be read "has"; the cardinality of
-this association is indicated after the object name. (E.g., Model (1) means a Run has 1 Model associated to it.)
+Objects in modelmeta database are related to each other as follows. Indentation
+can be read "has"; the cardinality of this association is indicated after
+the object name. (E.g., Model (1) means a Run has 1 Model associated to it.)
 
-DataFile
-    Run (1)
-        Model (1)
-        Emission (1)
-    DataFileVariable (*)
-        VariableAlias (1)
-            Variable (*)
-        LevelSet (1)
-            Level
-        Grid (1)
-            YCellBound (1)
-        DataFileVar_QCFlag (*)
-            QCFlag (1)
-        DataFileVar_Ensemble (*)
-            Ensemble (1)
-    Timeset (1)
-        Time (*)
-        ClimatologicalTime (*)
+::
 
-Database manipulation functions are organized (ordered) according to the list above.
+    DataFile
+        Run (1)
+            Model (1)
+            Emission (1)
+        DataFileVariable (*)
+            VariableAlias (1)
+                Variable (*)
+            LevelSet (1)
+                Level
+            Grid (1)
+                YCellBound (1)
+            DataFileVar_QCFlag (*)
+                QCFlag (1)
+            DataFileVar_Ensemble (*)
+                Ensemble (1)
+        Timeset (1)
+            Time (*)
+            ClimatologicalTime (*)
 
-Database manipulation functions have the following typical names and signatures:
+Database manipulation functions are organized (ordered) according to the list
+above.
 
-    find_<item>(Session, CFDataset, ...): Item
-        -- Find and return an Item representing the Item part of the NetCDF file. If none exists return None.
-    insert_<item>(Session, CFDataset, ...) -> Item
-        -- Insert and return an Item representing the Item part of the NetCDF file.
-    find_or_insert_<item>(Session, CFDataset, ...) -> Item
-        -- Find or insert and return an Item representing the Item part of the NetCDF file.
+Database manipulation functions have the following typical names and
+signatures::
+
+    find_<item>(session, cf_dataset, ...): Item
+        -- Find and return an Item representing the Item part of the NetCDF
+           file. If none exists return None.
+    insert_<item>(session, cf_dataset, ...) -> Item
+        -- Insert and return an Item representing the Item part of the NetCDF
+           file.
+    find_or_insert_<item>(session, cf_dataset, ...) -> Item
+        -- Find or insert and return an Item representing the Item part of the
+           NetCDF file.
 
 where
 
-    Item is one of the object types above (e.g., DataFile)
-    <item> is a snake-case representation of the object type (data_file)
-    Session is a SQLAlchemy database session used to access the database
-    CFDataset is an nchelpers.CFDataset object representing the file to be indexed
+    ``Item`` is one of the object types above (e.g., ``DataFile``)
+    ``<item>`` is a snake-case representation of the object type (``data_file``)
+    ``session`` is a SQLAlchemy database session used to access the database
+    ``cf_dataset`` is an ``nchelpers.CFDataset`` object representing the file
+        to be indexed
 
-Ideally, all such functions are dependent only on the Session and CFDataset parameters. In particular, no additional
-parameters should have to be passed in that characterize the CFDataset. All necessary information should be derived
-from methods/properties of CFDataset, adhering to the principle that all our NetCDF files are fully self-describing.
+Ideally, all such functions are dependent only on the Session and CFDataset
+parameters. In particular, no additional parameters should have to be passed
+in that characterize the CFDataset. All necessary information should be
+derived from methods/properties of CFDataset, adhering to the principle that
+all our NetCDF files are fully self-describing.
 """
 
 import os
@@ -65,14 +78,16 @@ from sqlalchemy.orm import sessionmaker
 
 from nchelpers import CFDataset
 from nchelpers.date_utils import to_datetime
-from modelmeta import Model, Run, Emission, DataFile, TimeSet, Time, ClimatologicalTime, DataFileVariable, \
-    VariableAlias, LevelSet, Level, Grid, YCellBound, EnsembleDataFileVariables
+from modelmeta import Model, Run, Emission, DataFile, TimeSet, Time, \
+    ClimatologicalTime, DataFileVariable, VariableAlias, \
+    LevelSet, Level, Grid, YCellBound, EnsembleDataFileVariables
 from mm_cataloguer import psycopg2_adapters
 
 
 # Set up logging
 
-formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', "%Y-%m-%d %H:%M:%S")
+formatter = logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s', "%Y-%m-%d %H:%M:%S")
 handler = logging.StreamHandler()
 handler.setFormatter(formatter)
 
@@ -104,7 +119,8 @@ def index_netcdf_files(filenames, dsn):
 
 
 def index_netcdf_file(filename, session):  # index.netcdf
-    """Index a NetCDF file: insert or update records in the modelmeta database that identify it.
+    """Index a NetCDF file: insert or update records in the modelmeta database
+    that identify it.
 
     :param filename: file name of NetCDF file
     :param session: database session for access to modelmeta database
@@ -116,21 +132,25 @@ def index_netcdf_file(filename, session):  # index.netcdf
 
 
 def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
-    """Find, update, or insert a NetCDF file in the modelmeta database, according to whether it is
-    already present and up to date.
+    """Find, update, or insert a NetCDF file in the modelmeta database,
+    according to whether it is already present and up to date.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :return: DataFile entry for file
 
-    The algorithm is a sequence of tests for conditions corresponding to what relation the input NetCDF file
-    may bear to the existing database: e.g., a new file, an already-known file, a modified file, etc.
-    This sequence deliberately avoids nesting if statements, which has proven confusing and hard to maintain.
-    The flip side of this choice is that we may not have exhausted all possible cases. This situation is signalled
-    by the final statements after all the if statements.
+    The algorithm is a sequence of tests for conditions corresponding to what
+    relation the input NetCDF file may bear to the existing database: e.g.,
+    a new file, an already-known file, a modified file, etc. This sequence
+    deliberately avoids nesting if statements, which has proven confusing and
+    hard to maintain. The flip side of this choice is that we may not have
+    exhausted all possible cases. This situation is signalled by the final
+    statements after all the if statements.
     """
-    logger.info('Processing file: {}'.format(cf.filepath(converter=filepath_converter)))
-    id_match, hash_match, filename_match = find_data_file_by_id_hash_filename(sesh, cf)
+    logger.info('Processing file: {}'
+                .format(cf.filepath(converter=filepath_converter)))
+    id_match, hash_match, filename_match = \
+        find_data_file_by_id_hash_filename(sesh, cf)
 
     def log_data_files(log):
         def log_data_file(label, df):
@@ -145,14 +165,16 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     if len(matches) == 0:
         return index_cf_file(sesh, cf)
 
-    # multiple entries for same file: more than one match, but they are not all the same
+    # multiple entries for same file: more than one match, but they are 
+    # not all the same
     if len(set(matches)) != 1:
         logger.error('Multiple entries for same file, not all the same:')
         log_data_files(logger.error)
-        raise ValueError('Multiple entries for same file, not all the same. See log for details.')
+        raise ValueError('Multiple entries for same file, not all the same. '
+                         'See log for details.')
 
-    # At this point, we know that all matches are the same DataFile object, so the following values are
-    # valid and consistent for all cases.
+    # At this point, we know that all matches are the same DataFile object, 
+    # so the following values are valid and consistent for all cases.
     data_file = id_match or hash_match or filename_match
     old_filename_exists = os.path.isfile(data_file.filename)
     # To make testing easier, we call ``os.path.realpath`` explicitly here
@@ -174,20 +196,24 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
         return update_data_file_index_time(sesh, data_file)
 
     # symlinked file (modified or not)
-    if id_match and not filename_match and old_filename_exists and normalized_filenames_match:
+    if (id_match and not filename_match and old_filename_exists and 
+            normalized_filenames_match):
         return skip_file('file is symlink to an indexed file')
 
     # copy of file
-    if id_match and hash_match and not filename_match and old_filename_exists and not normalized_filenames_match:
+    if (id_match and hash_match and not filename_match and 
+            old_filename_exists and not normalized_filenames_match):
         return skip_file('file is a copy of an indexed file')
 
     # moved file
-    if id_match and hash_match and not filename_match and not old_filename_exists and index_up_to_date:
+    if (id_match and hash_match and not filename_match and 
+            not old_filename_exists and index_up_to_date):
         return update_data_file_filename(sesh, data_file, cf)
 
     # indexed under different unique id
     if not id_match and hash_match and filename_match:
-        return skip_file('file already already indexed under different unique id')
+        return skip_file(
+            'file already already indexed under different unique id')
 
     # modified file (hash changed)
     if id_match and not hash_match and filename_match:
@@ -198,18 +224,26 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
         return reindex_cf_file(sesh, data_file, cf)
 
     # moved and modified file (hash changed)
-    if id_match and not hash_match and not filename_match and not old_filename_exists:
+    if (id_match and not hash_match and not filename_match and 
+            not old_filename_exists):
         return reindex_cf_file(sesh, data_file, cf)
 
     # moved and modified file (modification time changed)
-    if id_match and not filename_match and not old_filename_exists and not index_up_to_date:
+    if (id_match and not filename_match and not old_filename_exists and 
+            not index_up_to_date):
         return reindex_cf_file(sesh, data_file, cf)
 
     # Oops, missed something. We think this won't happen, but ...
     logger.error('Encountered an unanticipated case:')
     log_data_files(logger.error)
-    logger.error('old_filename_exists = {}; normalized_filenames_match = {}; index_up_to_date = {}'
-                 .format(old_filename_exists, normalized_filenames_match, index_up_to_date))
+    logger.error(
+        'old_filename_exists = {}; '
+        'normalized_filenames_match = {}; '
+        'index_up_to_date = {}'
+        .format(old_filename_exists, 
+                normalized_filenames_match, 
+                index_up_to_date)
+    )
     raise ValueError('Unanticipated case. See log for details.')
 
 
@@ -226,11 +260,13 @@ def index_cf_file(sesh, cf):
 
 
 def reindex_cf_file(sesh, existing_data_file, cf):
-    """Delete the existing modelmeta content for a data file and insert it again de novo.
+    """Delete the existing modelmeta content for a data file and insert it 
+    again de novo.
     Return the new DataFile object.
 
     :param sesh: modelmeta database session
-    :param existing_data_file: DataFile object representing data file to be deleted and re-inserted
+    :param existing_data_file: DataFile object representing data file to be 
+        deleted and re-inserted
     :param cf: CFDatafile object representing NetCDF file
     :return: DataFile entry for file
     """
@@ -258,15 +294,19 @@ def update_data_file_filename(sesh, data_file, cf):
 # DataFile
 
 def find_data_file_by_id_hash_filename(sesh, cf):
-    """Find and return DataFile records matching file unique id, file hash, and filename.
+    """Find and return DataFile records matching file unique id, file hash, 
+    and filename.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: tuple of DataFiles matching unique id, hash, filename (None in a component if no match)
+    :return: tuple of DataFiles matching unique id, hash, filename 
+        (None in a component if no match)
     """
     q = sesh.query(DataFile).filter(DataFile.unique_id == cf.unique_id)
     id_match = q.first()
-    q = sesh.query(DataFile).filter(DataFile.first_1mib_md5sum == cf.first_MiB_md5sum)
+    q = (
+        sesh.query(DataFile)
+        .filter(DataFile.first_1mib_md5sum == cf.first_MiB_md5sum))
     hash_match = q.first()
     q = (
         sesh.query(DataFile)
@@ -309,15 +349,19 @@ def insert_data_file(sesh, cf):  # create.data.file.id
 
 
 def delete_data_file(sesh, existing_data_file):
-    """Delete existing `DataFile` object, associated `DataFileVariable`s,
-    and the associations of those `DataFileVariable`s to `Ensembles` (via object `EnsembleDataFileVariables`).
-    (Existing `Ensemble`s are preserved).
+    """Delete existing ``DataFile`` object, associated ``DataFileVariable``s,
+    and the associations of those ``DataFileVariable``s to ``Ensemble``s 
+    (via object ``EnsembleDataFileVariables``). 
+    Existing ``Ensemble``s are preserved.
 
     :param sesh: modelmeta database session
-    :param existing_data_file: DataFile object representing data file to be deleted and re-inserted
+    :param existing_data_file: DataFile object representing data file to be 
+        deleted and re-inserted
     """
-    logger.info("Deleting DataFile for unique_id {}".format(existing_data_file.unique_id))
-    # TODO: Also delete associations with `QCFlag`s? (via `DataFileVariablesQcFlag`)
+    logger.info("Deleting DataFile for unique_id '{}'"
+                .format(existing_data_file.unique_id))
+    # TODO: Also delete associations with `QCFlag`s? 
+    # (via `DataFileVariablesQcFlag`)
     existing_data_file_variables = existing_data_file.data_file_variables
     existing_ensemble_data_file_variables = (
         sesh.query(EnsembleDataFileVariables)
@@ -336,11 +380,11 @@ def delete_data_file(sesh, existing_data_file):
 # Run
 
 def find_run(sesh, cf):
-    """Find existing Run record corresponding to a NetCDF file.
+    """Find existing ``Run`` record corresponding to a NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: existing Run record or None
+    :return: existing ``Run`` record or None
     """
     q = sesh.query(Run).join(Model).join(Emission) \
         .filter(Model.short_name == cf.metadata.model) \
@@ -350,33 +394,40 @@ def find_run(sesh, cf):
 
 
 def insert_run(sesh, cf, model, emission):
-    """Insert new Run record corresponding to a NetCDF file.
+    """Insert new ``Run`` record corresponding to a NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :param model: (Model) Model record corresponding to NetCDF file
     :param emission: (Emission) Emission record corresponding to NetCDF file
-    :return: new Run record
+    :return: new ``Run`` record
     """
-    run = Run(name=cf.metadata.ensemble_member, project=cf.metadata.project, model=model, emission=emission)
+    run = Run(
+        name=cf.metadata.ensemble_member, 
+        project=cf.metadata.project, 
+        model=model, 
+        emission=emission
+    )
     sesh.add(run)
     sesh.commit()
     return run
 
 
 def find_or_insert_run(sesh, cf):
-    """Find existing or insert new Run record corresponding to a NetCDF file.
-    Find or insert required Model and Emission records as necessary.
+    """Find existing or insert new ``Run`` record corresponding to a NetCDF 
+    file. 
+    Find or insert required ``Model`` and ``Emission`` records as necessary.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: existing or new Run record
+    :return: existing or new ``Run`` record
     """
     run = find_run(sesh, cf)
     if run:
         return run
 
-    # No matching Run: Insert new Run and find or insert accompanying Model and Emission records
+    # No matching ``Run``: Insert new ``Run`` and find or insert accompanying 
+    # ``Model`` and ``Emission`` records.
     model = find_or_insert_model(sesh, cf)
     assert model
     emission = find_or_insert_emission(sesh, cf)
@@ -387,35 +438,40 @@ def find_or_insert_run(sesh, cf):
 # Model
 
 def find_model(sesh, cf):
-    """Find existing Model record corresponding to a NetCDF file.
+    """Find existing ``Model`` record corresponding to a NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: existing Model record or None
+    :return: existing ``Model`` record or None
     """
     query = sesh.query(Model).filter(Model.short_name == cf.metadata.model)
     return query.first()
 
 
 def insert_model(sesh, cf):
-    """Insert new Model record corresponding to a NetCDF file.
+    """Insert new ``Model`` record corresponding to a NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: new Model record
+    :return: new ``Model`` record
     """
-    model = Model(short_name=cf.metadata.model, type=cf.model_type, organization=cf.metadata.institution)
+    model = Model(
+        short_name=cf.metadata.model, 
+        type=cf.model_type, 
+        organization=cf.metadata.institution
+    )
     sesh.add(model)
     sesh.commit()
     return model
 
 
 def find_or_insert_model(sesh, cf):
-    """Find existing or insert new Model record corresponding to a NetCDF file.
+    """Find existing or insert new ``Model`` record corresponding to a 
+    NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: existing or new Model record
+    :return: existing or new ``Model`` record
     """
     model = find_model(sesh, cf)
     if model:
@@ -426,22 +482,25 @@ def find_or_insert_model(sesh, cf):
 # Emission
 
 def find_emission(sesh, cf):
-    """Find existing Emission record corresponding to a NetCDF file.
+    """Find existing ``Emission`` record corresponding to a NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: existing Emission record or None
+    :return: existing ``Emission`` record or None
     """
-    q = sesh.query(Emission).filter(Emission.short_name == cf.metadata.emissions)
+    q = (
+        sesh.query(Emission)
+            .filter(Emission.short_name == cf.metadata.emissions)
+    )
     return q.first()
 
 
 def insert_emission(sesh, cf):
-    """Insert new Emission record corresponding to a NetCDF file.
+    """Insert new ``Emission`` record corresponding to a NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: new Emission record
+    :return: new ``Emission`` record
     """
     emission = Emission(short_name=cf.metadata.emissions)
     sesh.add(emission)
@@ -449,11 +508,12 @@ def insert_emission(sesh, cf):
 
 
 def find_or_insert_emission(sesh, cf):
-    """Find existing or insert new Emission record corresponding to a NetCDF file.
+    """Find existing or insert new ``Emission`` record corresponding to a 
+    NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: existing or new Emission record
+    :return: existing or new ``Emission`` record
     """
     emission = find_emission(sesh, cf)
     if emission:
@@ -464,18 +524,19 @@ def find_or_insert_emission(sesh, cf):
 # DataFileVariable
 
 def find_data_file_variable(sesh, cf, var_name, data_file):
-    """Find existing DataFileVariable record corresponding to a named variable in a NetCDF file and associated
-    to a specified DataFile record.
+    """Find existing ``DataFileVariable`` record corresponding to a named 
+    variable in a NetCDF file and associated to a specified ``DataFile`` record.
 
-    NOTE: Parameter `cf` is not used in this function, but it is retained to maintain a consistent signature
-    amongst all `find_` functions. This is useful in testing, although its absence could be accommodated with more
+    NOTE: Parameter ``cf`` is not used in this function, but it is retained to 
+    maintain a consistent signature amongst all ``find_`` functions. This is 
+    useful in testing, although its absence could be accommodated with more 
     complex testing code.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :param var_name: (str) name of variable
     :param data_file: (DataFile) data file to associate this dfv to
-    :return: existing DataFileVariable record or None
+    :return: existing ``DataFileVariable`` record or None
     """
     q = (sesh.query(DataFileVariable)
          .filter(DataFileVariable.file == data_file)
@@ -484,19 +545,22 @@ def find_data_file_variable(sesh, cf, var_name, data_file):
     return q.first()
 
 
-def insert_data_file_variable(sesh, cf, var_name, data_file, variable_alias, level_set, grid):
-    """Insert a new DataFileVariable record corresponding to a named variable in a NetCDF file and associated
-    to a specified DataFile record.
+def insert_data_file_variable(
+        sesh, cf, var_name, data_file, variable_alias, level_set, grid):
+    """Insert a new ``DataFileVariable`` record corresponding to a named 
+    variable in a NetCDF file and associated to a specified ``DataFile`` record.
 
-    NOTE: Parameter `cf` is not used in this function, but it is retained to maintain a consistent signature
-    amongst all `find_` functions. This is useful in testing, although its absence could be accommodated with more
+    NOTE: Parameter `cf` is not used in this function, but it is retained to 
+    maintain a consistent signature amongst all `find_` functions. This is 
+    useful in testing, although its absence could be accommodated with more 
     complex testing code.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :param var_name: (str) name of variable
     :param data_file: (DataFile) data file to associate this dfv to
-    :param variable_alias: (VariableAlias) variable alias to associate to this dfv
+    :param variable_alias: (VariableAlias) variable alias to associate to 
+        this dfv
     :param level_set: (LevelSet) level set to associate to this dfv
     :param grid: (Grid) grid to associate to this dfv
     :return: inserted DataFileVariable record
@@ -506,7 +570,8 @@ def insert_data_file_variable(sesh, cf, var_name, data_file, variable_alias, lev
     dfv = DataFileVariable(
         file=data_file,
         variable_alias=variable_alias,
-        # derivation_method=,  # TODO: verify no value for this and other unspecified attributes
+        # TODO: verify no value for this and other unspecified attributes
+        # derivation_method=,  
         variable_cell_methods=variable.cell_methods,
         level_set=level_set,
         grid=grid,
@@ -521,11 +586,13 @@ def insert_data_file_variable(sesh, cf, var_name, data_file, variable_alias, lev
 
 
 def find_or_insert_data_file_variable(sesh, cf, var_name, data_file):
-    """Find or insert a DataFileVariable record corresponding to a named variable in a NetCDF file and associated
-    to a specified DataFile record. If none exists, return None.
+    """Find or insert a DataFileVariable record corresponding to a named 
+    variable in a NetCDF file and associated to a specified DataFile record. 
+    If none exists, return None.
 
-    NOTE: Parameter `cf` is not used in this function, but it is retained to maintain a consistent signature
-    amongst all `find_` functions. This is useful in testing, although its absence could be accommodated with more
+    NOTE: Parameter `cf` is not used in this function, but it is retained to 
+    maintain a consistent signature amongst all `find_` functions. This is 
+    useful in testing, although its absence could be accommodated with more 
     complex testing code.
 
     :param sesh: modelmeta database session
@@ -542,25 +609,28 @@ def find_or_insert_data_file_variable(sesh, cf, var_name, data_file):
     level_set = find_or_insert_level_set(sesh, cf, var_name)
     grid = find_or_insert_grid(sesh, cf, var_name)
     assert grid
-    return insert_data_file_variable(sesh, cf, var_name, data_file, variable_alias, level_set, grid)
+    return insert_data_file_variable(
+        sesh, cf, var_name, data_file, variable_alias, level_set, grid)
 
 
-def find_or_insert_data_file_variables(sesh, cf, data_file):  # create.data.file.variables
-    """Find or insert DataFileVariables for all dependent variables in a NetCDF file, associated to a specified
-    DataFile record.
+def find_or_insert_data_file_variables(sesh, cf, data_file):
+    """Find or insert DataFileVariables for all dependent variables in a 
+    NetCDF file, associated to a specified DataFile record.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :param data_file: (DataFile) data file to associate this dfv to
     :return: list of found or inserted DataFileVariable records
     """
-    return [find_or_insert_data_file_variable(sesh, cf, var_name, data_file) for var_name in cf.dependent_varnames()]
+    return [find_or_insert_data_file_variable(sesh, cf, var_name, data_file) 
+            for var_name in cf.dependent_varnames()]
 
 
 # VariableAlias
 
 def usable_name(variable):
-    """Returns a usable name for a variable. Tries, in order: `variable.standard_name`, `variable.name`"""
+    """Returns a usable name for a variable. 
+    Tries, in order: ``variable.standard_name``, ``variable.name``"""
     try:
         return variable.standard_name
     except AttributeError:
@@ -568,7 +638,8 @@ def usable_name(variable):
 
 
 def find_variable_alias(sesh, cf, var_name):
-    """Find a VariableAlias for the named NetCDF variable. If none exists, return None.
+    """Find a VariableAlias for the named NetCDF variable. 
+    If none exists, return None.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
@@ -576,10 +647,12 @@ def find_variable_alias(sesh, cf, var_name):
     :return found VariableAlias object or None
     """
     variable = cf.variables[var_name]
-    q = sesh.query(VariableAlias) \
-        .filter(VariableAlias.long_name == variable.long_name) \
-        .filter(VariableAlias.standard_name == usable_name(variable)) \
-        .filter(VariableAlias.units == variable.units)
+    q = (
+        sesh.query(VariableAlias) 
+            .filter(VariableAlias.long_name == variable.long_name) 
+            .filter(VariableAlias.standard_name == usable_name(variable)) 
+            .filter(VariableAlias.units == variable.units)
+    )
     return q.first()
 
 
@@ -602,7 +675,7 @@ def insert_variable_alias(sesh, cf, var_name):
     return variable_alias
 
 
-def find_or_insert_variable_alias(sesh, cf, var_name):  # get.variable.alias.id
+def find_or_insert_variable_alias(sesh, cf, var_name):
     """Find or insert a VariableAlias for the named NetCDF variable.
 
     :param sesh: modelmeta database session
@@ -619,13 +692,14 @@ def find_or_insert_variable_alias(sesh, cf, var_name):  # get.variable.alias.id
 # LevelSet, Level
 
 def find_level_set(sesh, cf, var_name):
-    """Find a LevelSet for a named NetCDF variable. If the variable has no Z (level) axis, return None.
+    """Find a LevelSet for a named NetCDF variable. 
+    If the variable has no Z (level) axis, return None.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :param var_name: name of NetCDF variable
-    :return LevelSet object corresponding to the level set for the provided varible,
-        None if no level set (variable has no Z axis)
+    :return LevelSet object corresponding to the level set for the provided 
+        variable, None if no level set (variable has no Z axis)
     """
     info = get_level_set_info(cf, var_name)
     if not info:
@@ -641,13 +715,14 @@ def find_level_set(sesh, cf, var_name):
 
 
 def insert_level_set(sesh, cf, var_name):
-    """Insert a LevelSet for a named NetCDF variable. If the variable has no Z (level) axis, return None.
+    """Insert a LevelSet for a named NetCDF variable. 
+    If the variable has no Z (level) axis, return None.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :param var_name: name of NetCDF variable
-    :return LevelSet object corresponding to the level set for the provided varible,
-        None if no level set (variable has no Z axis)
+    :return LevelSet object corresponding to the level set for the provided 
+        variable, None if no level set (variable has no Z axis)
     """
     info = get_level_set_info(cf, var_name)
     if not info:
@@ -671,13 +746,14 @@ def insert_level_set(sesh, cf, var_name):
 
 
 def find_or_insert_level_set(sesh, cf, var_name):  # get.level.set.id
-    """Find or insert a LevelSet for a named NetCDF variable. If the variable has no Z (level) axis, return None.
+    """Find or insert a LevelSet for a named NetCDF variable. 
+    If the variable has no Z (level) axis, return None.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :param var_name: name of NetCDF variable
-    :return LevelSet object corresponding to the level set for the provided varible,
-        None if no level set (variable has no Z axis)
+    :return LevelSet object corresponding to the level set for the provided 
+        variable, None if no level set (variable has no Z axis)
     """
     level_set = find_level_set(sesh, cf, var_name)
     if level_set:
@@ -688,24 +764,27 @@ def find_or_insert_level_set(sesh, cf, var_name):  # get.level.set.id
 # Grid, YCellBound
 
 def find_grid(sesh, cf, var_name):
-    """Find existing Grid record corresponding to spatial dimensions of a variable in a NetCDF file.
+    """Find existing ``Grid`` record corresponding to spatial dimensions of a 
+    variable in a NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :param var_name: (str) name of variable for which to find or insert grid
     :return: (tuple) (grid, info)
-        grid: existing Grid record or else None
-        info: dict containing costly information to compute for finding/inserting Grid record
+        grid: existing ``Grid`` record or else None
+        info: dict containing costly information to compute for 
+            finding/inserting ``Grid`` record
     """
     def approx_equal(attribute, value, relative_tolerance=1e-6):
-        """Return a column expression specifying that `attribute` and `value` are equal within a specified
-        relative tolerance.
+        """Return a column expression specifying that ``attribute`` and 
+        ``value`` are equal within a specified relative tolerance.
         Treat the case when value == 0 specially: require exact equality.
         """
         if value == 0.0:
             return attribute == 0.0
         else:
-            return func.abs((attribute - value) / attribute) < relative_tolerance
+            return (func.abs((attribute - value) / attribute) < 
+                    relative_tolerance)
 
     info = get_grid_info(cf, var_name)
     
@@ -722,32 +801,37 @@ def find_grid(sesh, cf, var_name):
 
 
 def insert_grid(sesh, cf, var_name):
-    """Insert new Grid record and associated YCellBound records corresponding to spatial dimensions of
-    a variable in a NetCDF file.
+    """Insert new ``Grid`` record and associated ``YCellBound`` records
+    corresponding to spatial dimensions of a variable in a NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :param var_name: (str) name of variable for which to find or insert grid
-    :return: existing or new Grid record
+    :return: existing or new ``Grid`` record
     """
     info = get_grid_info(cf, var_name)
 
     def cell_avg_area_sq_km():
         """Compute the average area of a grid cell, in sq km."""
         # TODO: Move into nchelpers?
-        if all(units == 'm' for units in [info['xc_var'].units, info['yc_var'].units]):
+        if all(units == 'm'
+               for units in [info['xc_var'].units, info['yc_var'].units]):
             # Assume that grid is regular if specified in meters
             return abs(info['xc_grid_step'] * info['yc_grid_step']) / 1e6
         else:
             # Assume lat-lon coordinates in degrees.
-            # Assume that coordinate values are in increasing order (i.e., coord[i} < coord[j] for i < j).
+            # Assume that coordinate values are in increasing order, 
+            # i.e., coord[i} < coord[j] for i < j.
             earth_radius = 6371
             y_vals = np.deg2rad(info['yc_values'])
-            # TODO: Improve this computation? See https://github.com/pacificclimate/modelmeta/issues/4
+            # TODO: Improve this computation? 
+            # See https://github.com/pacificclimate/modelmeta/issues/4
             return (
-                np.deg2rad(np.abs(info['xc_values'][1] - info['xc_values'][0])) *
+                np.deg2rad(np.abs(info['xc_values'][1] - 
+                                  info['xc_values'][0])) *
                 np.mean(np.diff(y_vals) * np.cos(y_vals[:-1])) *
-                earth_radius ** 2)
+                earth_radius ** 2
+            )
 
     grid = Grid(
         xc_origin=info['xc_values'][0],
@@ -769,7 +853,8 @@ def insert_grid(sesh, cf, var_name):
             bottom_bnd=bottom_bnd,
             y_center=y_center,
             top_bnd=top_bnd,
-        ) for bottom_bnd, y_center, top_bnd in cf.var_bounds_and_values(info['yc_var'].name)]
+        ) for bottom_bnd, y_center, top_bnd in 
+                         cf.var_bounds_and_values(info['yc_var'].name)]
         sesh.add_all(y_cell_bounds)
 
     sesh.commit()
@@ -777,14 +862,14 @@ def insert_grid(sesh, cf, var_name):
     return grid
 
 
-def find_or_insert_grid(sesh, cf, var_name):  # get.grid.id
-    """Find existing or insert new Grid record (and associated YCellBound records) corresponding to
-    a variable in a NetCDF file.
+def find_or_insert_grid(sesh, cf, var_name):
+    """Find existing or insert new ``Grid`` record (and associated ``YCellBound`` 
+    records) corresponding to a variable in a NetCDF file.
     
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :param var_name: (str) name of variable for which to find or insert grid
-    :return: existing or new Grid record
+    :return: existing or new ``Grid`` record
     """
     grid = find_grid(sesh, cf, var_name)
     if grid:
@@ -795,18 +880,19 @@ def find_or_insert_grid(sesh, cf, var_name):  # get.grid.id
 # Timeset, Time, ClimatologicalTime
 
 def find_timeset(sesh, cf):
-    """Find existing TimeSet record corresponding a NetCDF file.
+    """Find existing ``TimeSet`` record corresponding to a NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: existing TimeSet record or None
+    :return: existing ``TimeSet`` record or None
     """
     start_date, end_date = to_datetime(
         num2date(cf.nominal_time_span, cf.time_var.units, cf.time_var.calendar)
     )
 
     # Check for existing TimeSet matching this file's set of time values
-    # TODO: Verify encoding for TimeSet.calendar the same as for cf.time_var.calendar
+    # TODO: Verify encoding for TimeSet.calendar the same as for
+    # cf.time_var.calendar
     return (
         sesh.query(TimeSet)
             .filter(TimeSet.start_date == start_date)
@@ -820,11 +906,12 @@ def find_timeset(sesh, cf):
 
 
 def insert_timeset(sesh, cf):
-    """Insert new TimeSet record and associated Time and ClimagologicalTime records corresponding a NetCDF file.
+    """Insert new ``TimeSet`` record and associated ``Time`` and 
+    ``ClimatologicalTime`` records corresponding to a NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: new TimeSet record
+    :return: new ``TimeSet`` record
     """
     start_date, end_date = to_datetime(
         num2date(cf.nominal_time_span, cf.time_var.units, cf.time_var.calendar)
@@ -840,18 +927,21 @@ def insert_timeset(sesh, cf):
     )
     sesh.add(time_set)
 
-    # TODO: Factor out inserts for Time and ClimatologicalTime as separate functions
+    # TODO: Factor out inserts for Time and ClimatologicalTime as separate
+    # functions
 
     times = [Time(
         timeset=time_set,
         time_idx=time_idx,
         timestep=timestep,
-    ) for time_idx, timestep in enumerate(to_datetime(cf.time_steps['datetime']))]
+    ) for time_idx, timestep
+             in enumerate(to_datetime(cf.time_steps['datetime']))]
     sesh.add_all(times)
 
     if cf.is_multi_year_mean:
         climatology_bounds = to_datetime(
-            num2date(cf.climatology_bounds_values, cf.time_var.units, cf.time_var.calendar)
+            num2date(cf.climatology_bounds_values,
+                     cf.time_var.units, cf.time_var.calendar)
         )
         climatological_times = [ClimatologicalTime(
             timeset=time_set,
@@ -867,12 +957,12 @@ def insert_timeset(sesh, cf):
 
 
 def find_or_insert_timeset(sesh, cf):
-    """Find existing or insert new TimeSet record (and associated Time and ClimagologicalTime records)
-    corresponding a NetCDF file.
+    """Find existing or insert new ``TimeSet`` record (and associated `
+    `Time`` and ``ClimatologicalTime`` records) corresponding to a NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: existing or new TimeSet record
+    :return: existing or new ``TimeSet`` record
     """
     time_set = find_timeset(sesh, cf)
     if time_set:
@@ -883,9 +973,11 @@ def find_or_insert_timeset(sesh, cf):
 # Decorators
 
 def memoize(obj):
-    """Memoize a callable object with only positional args, and where those args are hashable.
-    This is simple and sufficient for its application in this code. It works in all versions of Python >= 2.7,
-    which is not true for many of the more featureful modules (e.g., `functools.lru_cache`).
+    """Memoize a callable object with only positional args, and where those
+    args are hashable. This is simple and sufficient for its application in
+    this code. It works in all versions of Python >= 2.7, which is not true
+    for many of the more featureful modules (e.g., `functools.lru_cache`).
+
     Adapted from http://book.pythontips.com/en/latest/function_caching.html
     """
     memo = {}
@@ -905,8 +997,8 @@ def memoize(obj):
 # Helper functions
 
 def is_regular_series(values, relative_tolerance=1e-6):
-    """Return True iff the given series of values is regular, i.e., has equal steps between values,
-    within a relative tolerance."""
+    """Return True iff the given series of values is regular, i.e., has equal
+    steps between values, within a relative tolerance."""
     diffs = np.diff(values)
     return abs(np.max(diffs) / np.min(diffs) - 1) < relative_tolerance
 
@@ -923,14 +1015,16 @@ def seconds_since_epoch(t):
 
 @memoize
 def get_level_set_info(cf, var_name):
-    """Return a dict containing information characterizing the level set (Z axis values) associated with a
-    specified dependent variable, or None if there is no associated Z axis we can identify.
+    """Return a dict containing information characterizing the level set
+    (Z axis values) associated with a specified dependent variable, or
+    None if there is no associated Z axis we can identify.
 
-    This information is expensive to compute, and typically requested 2 or more times in quick succession,
-    so it is cached.
+    This information is expensive to compute, and typically requested 2 or
+    more times in quick succession, so it is cached.
 
     :param cf: CFDatafile object representing NetCDF file
-    :param var_name: (str) name of NetCDF dependent variable (variable with associated level set)
+    :param var_name: (str) name of NetCDF dependent variable
+        (variable with associated level set)
     :return (dict)
     """
     variable = cf.variables[var_name]
@@ -951,10 +1045,11 @@ def get_level_set_info(cf, var_name):
 
 @memoize
 def get_grid_info(cf, var_name):
-    """Get information defining the Grid record corresponding to the spatial dimensions of a variable in a NetCDF file.
+    """Get information defining the Grid record corresponding to the spatial
+    dimensions of a variable in a NetCDF file.
 
-    This information is expensive to compute, and typically requested 2 or more times in quick succession,
-    so it is cached.
+    This information is expensive to compute, and typically requested 2 or
+    more times in quick succession, so it is cached.
 
     :param cf: CFDatafile object representing NetCDF file
     :param var_name: (str) name of variable
@@ -985,7 +1080,9 @@ def get_grid_info(cf, var_name):
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser(description='Index PCIC metadata standard compliant NetCDF files into modelmeta database')
+    parser = ArgumentParser(
+        description='Index PCIC metadata standard compliant NetCDF files '
+                    'into modelmeta database')
     parser.add_argument("-d", "--dsn", help="DSN for metadata database")
     parser.add_argument('filenames', nargs='+', help='Files to process')
     args = parser.parse_args()

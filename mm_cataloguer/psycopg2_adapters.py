@@ -1,10 +1,11 @@
 import numpy
 from psycopg2.extensions import register_adapter, AsIs
 
+
 def register():
     """Register adapters for numpy types."""
 
-    # Simple umeric types need only be converted by ``AsIs``
+    # Simple numeric types need only be converted by ``AsIs``
     for numpy_type in (
         numpy.int_,
         numpy.intc,
