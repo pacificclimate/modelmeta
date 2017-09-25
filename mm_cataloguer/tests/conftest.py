@@ -61,8 +61,9 @@ def tiny_gcm():
     return CFDataset(resource_filename('modelmeta', 'data/tiny_gcm.nc'))
 
 
-# We parametrize this fixture so that every test that uses it is run for all params.
-# This can be overridden on specific tests by using `@pytest.mark.parametrize` with arg `indirect=['tiny_dataset']`;
+# We parametrize this fixture so that every test that uses it is run for all
+# params. This can be overridden on specific tests by using
+# `@pytest.mark.parametrize` with arg `indirect=['tiny_dataset']`;
 # see `test_get_level_set_info` for an example.
 # TODO: Parametrize over more tiny datasets.
 @pytest.fixture(params='''
