@@ -27,6 +27,7 @@ setup(
         'modelmeta': '''
             data/mddb-v1.sqlite
             data/mddb-v2.sqlite
+            data/bad_tiny_gcm.nc
             data/tiny_gcm.nc
             data/tiny_downscaled.nc
             data/tiny_hydromodel_gcm.nc
