@@ -16,11 +16,27 @@ from mock_helper import Fake
 
 
 @pytest.fixture
-def test_session():
+def test_dsn():
     f = resource_filename('modelmeta', 'data/mddb-v2.sqlite')
-    engine = create_engine('sqlite:///{0}'.format(f))
-    session = sessionmaker(bind=engine)
-    return session()
+    dsn = 'sqlite:///{0}'.format(f)
+    return dsn
+
+
+@pytest.fixture
+def test_engine(test_dsn):
+    engine = create_engine(test_dsn)
+    return engine
+
+
+@pytest.fixture
+def test_session_factory(test_engine):
+    Session = sessionmaker(bind=test_engine)
+    return Session
+
+
+@pytest.fixture
+def test_session(test_session_factory):
+    return test_session_factory()
 
 
 @pytest.fixture

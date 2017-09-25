@@ -32,11 +32,14 @@ from netCDF4 import date2num, num2date
 
 from dateutil.relativedelta import relativedelta
 
-from modelmeta import Level
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from modelmeta import Level, DataFile
 from nchelpers.date_utils import to_datetime
 
 from mm_cataloguer.index_netcdf import \
-    index_netcdf_files, \
+    index_netcdf_file, index_netcdf_files, \
     find_update_or_insert_cf_file, index_cf_file, \
     find_data_file_by_id_hash_filename, insert_data_file, delete_data_file, \
     insert_run, find_run, find_or_insert_run, \
@@ -793,9 +796,47 @@ def test_find_update_or_insert_cf_file__dup(
         check_properties(data_file2, **properties)
 
 
-def test_index_netcdf_files():
-    f = resource_filename('modelmeta', 'data/mddb-v2.sqlite')
-    dsn = 'sqlite:///{0}'.format(f)
+@pytest.mark.parametrize('rel_filepath', [
+    'data/tiny_gcm.nc',
+    'data/tiny_downscaled.nc',
+    'data/tiny_hydromodel_gcm.nc',
+    'data/tiny_gcm_climo_monthly.nc',
+    'data/tiny_gcm_climo_seasonal.nc',
+    'data/tiny_gcm_climo_yearly.nc',
+])
+def test_index_netcdf_file(test_session_factory, rel_filepath):
+    filepath = resource_filename('modelmeta', rel_filepath)
+    data_file_id = index_netcdf_file(filepath, test_session_factory)
+    assert data_file_id is not None
+    session = test_session_factory()
+    data_file = (
+        session.query(DataFile)
+            .filter(DataFile.id == data_file_id)
+            .one()
+    )
+    assert data_file.filename == filepath
+    session.close()
+
+
+@pytest.mark.parametrize('rel_filepath', [
+    'data/bad_tiny_gcm.nc',
+])
+def test_index_netcdf_file_with_error(test_session_factory, rel_filepath):
+    filepath = resource_filename('modelmeta', rel_filepath)
+    data_file_id = index_netcdf_file(filepath, test_session_factory)
+    assert data_file_id is None
+    session = test_session_factory()
+    data_file = (
+        session.query(DataFile)
+            .filter(DataFile.filename == filepath)
+            .first()
+    )
+    assert data_file is None
+    session.close()
+
+
+
+def test_index_netcdf_files(test_dsn):
     test_files = [
         'data/tiny_gcm.nc',
         'data/tiny_downscaled.nc',
@@ -805,5 +846,5 @@ def test_index_netcdf_files():
         'data/tiny_gcm_climo_yearly.nc',
     ]
     filenames = [resource_filename('modelmeta', f) for f in test_files]
-    results = index_netcdf_files(filenames, dsn)
-    assert all(r and r.filename == f for (r, f) in zip(results, filenames))
+    results = index_netcdf_files(filenames, test_dsn)
+    assert all(r is not None for r in results)

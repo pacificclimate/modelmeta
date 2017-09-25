@@ -66,6 +66,7 @@ all our NetCDF files are fully self-describing.
 """
 
 import os
+import traceback
 import logging
 import datetime
 import functools
@@ -238,7 +239,7 @@ def insert_model(sesh, cf):
         organization=cf.metadata.institution
     )
     sesh.add(model)
-    sesh.commit()
+    # sesh.commit()
     return model
 
 
@@ -330,7 +331,7 @@ def insert_run(sesh, cf, model, emission):
         emission=emission
     )
     sesh.add(run)
-    sesh.commit()
+    # sesh.commit()
     return run
 
 
@@ -401,7 +402,7 @@ def insert_variable_alias(sesh, cf, var_name):
         units=variable.units,
     )
     sesh.add(variable_alias)
-    sesh.commit()
+    # sesh.commit()
     return variable_alias
 
 
@@ -470,7 +471,7 @@ def insert_level_set(sesh, cf, var_name):
          enumerate(cf.var_bounds_and_values(info['level_axis_var'].name))
          ]
     )
-    sesh.commit()
+    # sesh.commit()
 
     return level_set
 
@@ -587,7 +588,7 @@ def insert_grid(sesh, cf, var_name):
                          cf.var_bounds_and_values(info['yc_var'].name)]
         sesh.add_all(y_cell_bounds)
 
-    sesh.commit()
+    # sesh.commit()
 
     return grid
 
@@ -667,7 +668,7 @@ def insert_data_file_variable(
         disabled=False,
     )
     sesh.add(dfv)
-    sesh.commit()
+    # sesh.commit()
     return dfv
 
 
@@ -786,7 +787,7 @@ def insert_timeset(sesh, cf):
         ) for time_idx, (time_start, time_end) in enumerate(climatology_bounds)]
         sesh.add_all(climatological_times)
 
-    sesh.commit()
+    # sesh.commit()
 
     return time_set
 
@@ -858,7 +859,7 @@ def insert_data_file(sesh, cf):  # create.data.file.id
         t_dim_name=dim_names.get('T', None)
     )
     sesh.add(df)
-    sesh.commit()
+    # sesh.commit()
     return df
 
 
@@ -888,7 +889,7 @@ def delete_data_file(sesh, existing_data_file):
     for obj in existing_data_file_variables:
         sesh.delete(obj)
     sesh.delete(existing_data_file)
-    sesh.commit()
+    # sesh.commit()
 
 
 # Root functions
@@ -897,7 +898,7 @@ def update_data_file_index_time(sesh, data_file):
     """Update the index time recorded for data_file"""
     logger.info('Updating index time (only)')
     data_file.index_time = datetime.datetime.utcnow()
-    sesh.commit()
+    # sesh.commit()
     return data_file
 
 
@@ -905,7 +906,7 @@ def update_data_file_filename(sesh, data_file, cf):
     """Update the filename recorded for data_file with the cf filename."""
     logger.info('Updating filename (only)')
     data_file.filename = cf.filepath(converter=filepath_converter)
-    sesh.commit()
+    # sesh.commit()
     return data_file
 
 
@@ -1053,17 +1054,27 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     raise ValueError('Unanticipated case. See log for details.')
 
 
-def index_netcdf_file(filename, session):  # index.netcdf
+def index_netcdf_file(filename, Session):
     """Index a NetCDF file: insert or update records in the modelmeta database
     that identify it.
 
     :param filename: file name of NetCDF file
-    :param session: database session for access to modelmeta database
-    :return: DataFile object for file indexed
+    :param Session: database session factory for access to modelmeta database
+    :return: database id (``DataFile.id``) for file indexed
     """
-    with CFDataset(filename) as cf:
-        data_file = find_update_or_insert_cf_file(session, cf)
-    return data_file
+    session = Session()
+    data_file_id = None
+    try:
+        with CFDataset(filename) as cf:
+            data_file = find_update_or_insert_cf_file(session, cf)
+            data_file_id = data_file.id
+        session.commit()
+    except:
+        logger.error(traceback.format_exc())
+        session.rollback()
+    finally:
+        session.close()
+    return data_file_id
 
 
 def index_netcdf_files(filenames, dsn):
@@ -1074,9 +1085,9 @@ def index_netcdf_files(filenames, dsn):
     :return: list of DataFile objects for each file indexed
     """
     engine = create_engine(dsn)
-    session = sessionmaker(bind=engine)()
+    Session = sessionmaker(bind=engine)
 
-    return [index_netcdf_file(f, session) for f in filenames]
+    return [index_netcdf_file(f, Session) for f in filenames]
 
 
 if __name__ == '__main__':
