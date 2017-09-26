@@ -61,9 +61,8 @@ def test_session_factory(test_engine):
     yield Session
 
 
-# TODO: Rename to test_session_with_empty_db
 @pytest.fixture
-def blank_test_session(test_dsn):
+def test_session_with_empty_db(test_dsn):
     engine = create_engine(test_dsn)
     create_test_database(engine)
     Session = sessionmaker(bind=engine)
@@ -74,9 +73,11 @@ def blank_test_session(test_dsn):
 
 
 @pytest.fixture
-def test_session_with_ensembles(blank_test_session, ensemble1, ensemble2):
-    blank_test_session.add_all([ensemble1, ensemble2])
-    yield blank_test_session
+def test_session_with_ensembles(
+        test_session_with_empty_db, ensemble1, ensemble2
+):
+    test_session_with_empty_db.add_all([ensemble1, ensemble2])
+    yield test_session_with_empty_db
 
 
 # TODO: Necessary?
