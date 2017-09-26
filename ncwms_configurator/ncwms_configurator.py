@@ -5,7 +5,8 @@ from argparse import ArgumentParser
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from modelmeta import DataFile, DataFileVariable, Ensemble, EnsembleDataFileVariables
+from modelmeta import DataFile, DataFileVariable, Ensemble
+from modelmeta import EnsembleDataFileVariables
 
 from lxml import etree
 
@@ -26,15 +27,19 @@ DEFAULT_SERVER_CHILDREN = {
     "abstract": "",
     "keywords": "",
     "url": "",
-    "adminpassword": "ncWMS",
     "allowglobalcapabilities": "true"
 }
 
-DEFAULT_CACHE_CHILDREN = {
+DEFAULT_CACHE_CHILDREN_NCWMS1 = {
     "elementLifetimeMinutes": "1440",
     "maxNumItemsInMemory": "200",
     "enableDiskStore": "true",
     "maxNumItemsOnDisk": "2000"
+}
+
+DEFAULT_CACHE_CHILDREN_NCWMS2 = {
+    "inMemorySizeMB": "256",
+    "elementLifetimeMinutes": "1440.0"
 }
 
 DEFAULT_CACHE_ATTS = {
@@ -46,8 +51,7 @@ REQUIRED_VARIABLE_ATTS = ["id", "title", "colorScaleRange"]
 DEFAULT_VARIABLE_ATTS = {
     "palette": "rainbow",
     "scaling": "linear",
-    "numColorBands": "250",
-    "disabled": "false"
+    "numColorBands": "250"
 }
 
 REQUIRED_DATASET_ATTS = ["id", "location", "title"]
@@ -60,9 +64,14 @@ DEFAULT_DATASET_ATTS = {
     "disabled": "false",
     "updateInterval": "-1"
 }
+
+NCWMS2_HEADER = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+
+
 def get_element(element_name, atts={}, **kwargs):
     '''
-    Generates a general xml element with provided name, attributes (dictionary), and basic children with text
+    Generates a general xml element with provided name, attributes (dictionary), and basic
+    children with text
     '''
 
     children = {}
@@ -73,9 +82,14 @@ def get_element(element_name, atts={}, **kwargs):
 
     elif element_name == "server":
         children = DEFAULT_SERVER_CHILDREN
+        if(args.version == 1):
+            children["adminPassword"] = "ncWMS"
 
     elif element_name == "cache":
-        children = DEFAULT_CACHE_CHILDREN
+        if(args.version == 2):
+            children = DEFAULT_CACHE_CHILDREN_NCWMS2
+        else:
+            children = DEFAULT_CACHE_CHILDREN_NCWMS1
         default_atts = DEFAULT_CACHE_ATTS
 
     elif element_name == "variable":
@@ -104,6 +118,7 @@ def get_element(element_name, atts={}, **kwargs):
 
     return root
 
+
 class Config:
     '''
     The main class which represents a ncWMS config file
@@ -118,12 +133,13 @@ class Config:
     '''
 
     def __init__(self,
-                 datasets = None,
-                 threddsCatalog = None,
-                 contact = None,
-                 server = None,
-                 cache = None,
-                 dynamicServices = None):
+                 datasets=None,
+                 threddsCatalog=None,
+                 contact=None,
+                 server=None,
+                 cache=None,
+                 dynamicServices=None,
+                 crsCodes=None):
 
         self.root = etree.Element("config")
 
@@ -132,11 +148,18 @@ class Config:
         self.cache = cache if cache else get_element("cache")
 
         self.datasets = datasets if datasets else etree.Element("datasets")
-        self.threddsCatalog = threddsCatalog if threddsCatalog else etree.Element("threddsCatalog")
+
         self.dynamicServices = dynamicServices if dynamicServices else etree.Element("dynamicServices")
 
-        to_add = [self.datasets, self.threddsCatalog, self.contact,
-                  self.server, self.cache, self.dynamicServices]
+        to_add = [self.datasets, self.contact, self.server, self.cache, self.dynamicServices]
+
+        if(args.version == 1):
+            self.threddsCatalog = threddsCatalog if threddsCatalog else etree.Element("threddsCatalog")
+            to_add.append(self.threddsCatalog)
+        else:
+            self.crsCodes = crsCodes if crsCodes else etree.Element("crsCodes")
+            to_add.append(self.crsCodes)
+
         for element in to_add:
             self.root.append(element)
 
@@ -144,7 +167,8 @@ class Config:
         return '<Root ncWMS config object>'
 
     def xml(self, pretty=True):
-        return etree.tostring(self.root, pretty_print=pretty).decode('utf-8')
+        header = NCWMS2_HEADER if args.version == 2 else ""
+        return header + etree.tostring(self.root, pretty_print=pretty).decode('utf-8')
 
     def add_dataset(self, dataset):
         self.datasets.append(dataset)
@@ -159,6 +183,7 @@ def get_session(dsn):
 def create(args):
     log.info("Using dsn: {}".format(args.dsn))
     log.info('Writing to file: {}'.format(args.outfile))
+    log.info('Formatting for ncWMS version {}'.format(args.version))
 
     sesh = get_session(args.dsn)
     q = sesh.query(DataFileVariable)\
@@ -200,7 +225,7 @@ def create(args):
     for k, v in rv.items():
         k.replace('+', '-')
         dataset = get_element('dataset', {
-                                    "id":k,
+                                    "id": k,
                                     "location": v['filename'],
                                     "title": k})
         variables = [get_element('variable', {
@@ -208,9 +233,26 @@ def create(args):
                                     "title": var_['title'],
                                     "colorScaleRange":  var_['colorScaleRange']
                                 }) for var_ in v['variables']]
-        for var_ in variables:
-            dataset.append(var_)
-        config.add_dataset(dataset)
+
+        # NcWMS 1 and ncWMS 2 have slightly different variable formats.
+        # Worked out by trial and error; there's no documentation.
+        if(args.version == 1):
+            for var_ in variables:
+                var_.set("disabled", "false")
+                dataset.append(var_)
+            config.add_dataset(dataset)
+
+        elif(args.version == 2):
+            dataset.set("downloadable", "false")
+            variable_wrapper = etree.SubElement(dataset, "variables")
+            for var_ in variables:
+                var_.set("palette", "x-Occam")
+                var_.set("belowMinColor", "#FF000000")
+                var_.set("aboveMaxColor", "#FF000000")
+                var_.set("noDataColor", "transparent")
+                var_.set("description", var_.get("title"))
+                variable_wrapper.append(var_)
+            config.add_dataset(dataset)
 
     # If we aren't saving, print to stdout and exit
     if not args.outfile:
@@ -224,6 +266,7 @@ def create(args):
     # Write output to file
     with open(args.outfile, 'w') as f:
             f.write(config.xml())
+
 
 def update(args):
     raise NotImplemented
@@ -244,16 +287,18 @@ Examples:\n
         help='Output file path. To overwrite an existing file use the "--overwrite" option')
     parser.add_argument('-e', '--ensemble', required=True,
         help='Ensemble to use for updating/creating the output file')
+    parser.add_argument('-v', '--version', type=int, default=2, choices=[1, 2],
+        help='Version of ncWMS to target configuration to')
     subparsers = parser.add_subparsers(title='Operation type')
 
-    ## Parser for creating a new config file
+    # Parser for creating a new config file
     create_parser = subparsers.add_parser('create',
         help='Create a new ncWMS config file')
     create_parser.add_argument('--overwrite', action='store_true', default=False,
         help='Overwrites any file that may be present and output file path')
     create_parser.set_defaults(func=create)
 
-    ## Parser for updating an existing config file
+    # Parser for updating an existing config file
     update_parser = subparsers.add_parser("update",
         help="Updates an existing config by adding entries which do not exist and updating those that do")
     update_parser.set_defaults(func=update)
