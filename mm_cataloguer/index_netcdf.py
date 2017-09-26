@@ -434,11 +434,13 @@ def find_level_set(sesh, cf, var_name):
         return None
     units = info['level_axis_var'].units
     vertical_levels = info['vertical_levels']
-    q = sesh.query(LevelSet).join(Level) \
-        .filter(LevelSet.level_units == units) \
-        .filter(Level.vertical_level.in_(vertical_levels)) \
-        .group_by(Level.level_set_id) \
+    q = (
+        sesh.query(LevelSet).join(Level)
+        .filter(LevelSet.level_units == units)
+        .filter(Level.vertical_level.in_(vertical_levels))
+        .group_by(LevelSet.id)
         .having(func.count(Level.vertical_level) == len(vertical_levels))
+    )
     return q.first()
 
 
