@@ -10,11 +10,37 @@ import testing.postgresql
 
 from modelmeta import create_test_database
 from modelmeta import Ensemble
+from mm_cataloguer.index_netcdf import find_update_or_insert_cf_file
 
 # Add helpers directory to pythonpath: See https://stackoverflow.com/a/33515264
 sys.path.append(os.path.join(os.path.dirname(__file__), 'helpers'))
 from mock_helper import Fake
 
+
+# Predefined objects
+
+def make_ensemble(id):
+    return Ensemble(
+        changes='wonder what this is for',
+        description='Ensemble {}'.format(id),
+        name='ensemble{}'.format(id),
+        version=float(id)
+    )
+
+
+@pytest.fixture(scope='function')
+def ensemble1():
+    return make_ensemble(1)
+
+
+@pytest.fixture(scope='function')
+def ensemble2():
+    return make_ensemble(2)
+
+
+# Session-scoped databases, engines, session factories, and derived sessions
+# Use these databases and these sessions in preference to reduce per-test 
+# overhead. Sessions roll back any database actions on teardown.
 
 @pytest.fixture(scope='session')
 def test_dsn():
@@ -35,14 +61,7 @@ def test_session_factory(test_engine):
     yield Session
 
 
-@pytest.fixture
-def test_session(test_session_factory):
-    session = test_session_factory()
-    yield session
-    session.rollback()
-    session.close()
-
-
+# TODO: Rename to test_session_with_empty_db
 @pytest.fixture
 def blank_test_session(test_dsn):
     engine = create_engine(test_dsn)
@@ -54,30 +73,68 @@ def blank_test_session(test_dsn):
     session.close()
 
 
-def make_ensemble(id):
-    return Ensemble(
-        changes='wonder what this is for',
-        description='Ensemble {}'.format(id),
-        name='ensemble{}'.format(id),
-        version=float(id)
-    )
-
-
-@pytest.fixture(scope='session')
-def ensemble1():
-    return make_ensemble(1)
-
-
-@pytest.fixture(scope='session')
-def ensemble2():
-    return make_ensemble(2)
-
-
 @pytest.fixture
 def test_session_with_ensembles(blank_test_session, ensemble1, ensemble2):
     blank_test_session.add_all([ensemble1, ensemble2])
     yield blank_test_session
 
+
+# TODO: Necessary?
+@pytest.fixture
+def test_session_with_ensembles_and_data_files(test_session_with_ensembles):
+    session = test_session_with_ensembles
+    test_files = [
+        'data/tiny_gcm.nc',
+        'data/tiny_downscaled.nc',
+        'data/tiny_hydromodel_gcm.nc',
+        'data/tiny_gcm_climo_monthly.nc',
+    ]
+    filenames = [resource_filename('modelmeta', f) for f in test_files]
+    for filename in filenames:
+        with CFDataset(filename) as cf:
+            find_update_or_insert_cf_file(session, cf)
+    yield session
+
+
+# Function-scoped databases
+# Use these databases when testing functions that take a database or session 
+# factory argument rather than a session. Because these databases are scoped 
+# only per test, tests are isolated, but are much slower than using 
+# (automatically rolled back) sessions based on session-scoped databases.
+# Suffix ``_fs`` stands for "function scope".
+
+
+@pytest.fixture(scope='function')
+def test_dsn_fs():
+    with testing.postgresql.Postgresql() as pg:
+        yield pg.url()
+
+
+@pytest.fixture(scope='function')
+def test_engine_fs(test_dsn_fs):
+    engine = create_engine(test_dsn_fs)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture(scope='function')
+def test_session_factory_fs(test_engine_fs):
+    Session = sessionmaker(bind=test_engine_fs)
+    yield Session
+
+
+@pytest.fixture
+def test_session_with_empty_db_fs(test_dsn_fs):
+    engine = create_engine(test_dsn_fs)
+    create_test_database(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    yield session
+    session.rollback()
+    session.close()
+
+
+# Dataset fixtures
 
 # TODO: Is this in use?
 @pytest.fixture
