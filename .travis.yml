@@ -12,6 +12,8 @@ python:
   - 3.4
   - 3.5
   - 3.6
+addons:
+  postgresql: "9.3"
 install:
   - pip install -i https://pypi.pacificclimate.org/simple -r requirements.txt
   - pip install .
