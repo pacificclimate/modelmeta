@@ -80,23 +80,6 @@ def test_session_with_ensembles(
     yield test_session_with_empty_db
 
 
-# TODO: Necessary?
-@pytest.fixture
-def test_session_with_ensembles_and_data_files(test_session_with_ensembles):
-    session = test_session_with_ensembles
-    test_files = [
-        'data/tiny_gcm.nc',
-        'data/tiny_downscaled.nc',
-        'data/tiny_hydromodel_gcm.nc',
-        'data/tiny_gcm_climo_monthly.nc',
-    ]
-    filenames = [resource_filename('modelmeta', f) for f in test_files]
-    for filename in filenames:
-        with CFDataset(filename) as cf:
-            find_update_or_insert_cf_file(session, cf)
-    yield session
-
-
 # Function-scoped databases
 # Use these databases when testing functions that take a database or session 
 # factory argument rather than a session. Because these databases are scoped 
@@ -124,24 +107,7 @@ def test_session_factory_fs(test_engine_fs):
     yield Session
 
 
-@pytest.fixture
-def test_session_with_empty_db_fs(test_dsn_fs):
-    engine = create_engine(test_dsn_fs)
-    create_test_database(engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    yield session
-    session.rollback()
-    session.close()
-
-
 # Dataset fixtures
-
-# TODO: Is this in use?
-@pytest.fixture
-def tiny_gcm():
-    return CFDataset(resource_filename('modelmeta', 'data/tiny_gcm.nc'))
-
 
 # We parametrize this fixture so that every test that uses it is run for all
 # params. This can be overridden on specific tests by using
