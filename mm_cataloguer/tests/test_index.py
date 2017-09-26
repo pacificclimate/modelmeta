@@ -35,6 +35,7 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from modelmeta import create_test_database
 from modelmeta import Level, DataFile
 from nchelpers.date_utils import to_datetime
 
@@ -837,6 +838,8 @@ def test_index_netcdf_file_with_error(test_session_factory, rel_filepath):
 
 
 def test_index_netcdf_files(test_dsn):
+    engine = create_engine(test_dsn)
+    create_test_database(engine)
     test_files = [
         'data/tiny_gcm.nc',
         'data/tiny_downscaled.nc',

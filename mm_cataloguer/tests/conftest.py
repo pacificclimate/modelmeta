@@ -17,14 +17,14 @@ from mock_helper import Fake
 
 
 @pytest.fixture(scope='session')
-def postgres_test_database():
+def test_dsn():
     with testing.postgresql.Postgresql() as pg:
         yield pg.url()
 
 
 @pytest.fixture(scope='session')
-def test_engine(postgres_test_database):
-    engine = create_engine(postgres_test_database)
+def test_engine(test_dsn):
+    engine = create_engine(test_dsn)
     yield engine
     engine.dispose()
 
@@ -37,17 +37,15 @@ def test_session_factory(test_engine):
 
 @pytest.fixture
 def test_session(test_session_factory):
-    print('test_session SETUP')
     session = test_session_factory()
     yield session
-    print('test_session TEARDOWN')
     session.rollback()
     session.close()
 
 
 @pytest.fixture
-def blank_test_session(postgres_test_database):
-    engine = create_engine(postgres_test_database)
+def blank_test_session(test_dsn):
+    engine = create_engine(test_dsn)
     create_test_database(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
@@ -81,6 +79,7 @@ def test_session_with_ensembles(blank_test_session, ensemble1, ensemble2):
     yield blank_test_session
 
 
+# TODO: Is this in use?
 @pytest.fixture
 def tiny_gcm():
     return CFDataset(resource_filename('modelmeta', 'data/tiny_gcm.nc'))
