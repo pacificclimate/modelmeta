@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import pytest
 from nchelpers import CFDataset
+import testing.postgresql
 
 from modelmeta import create_test_database
 from modelmeta import Ensemble
@@ -15,36 +16,44 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'helpers'))
 from mock_helper import Fake
 
 
-@pytest.fixture
-def test_dsn():
-    f = resource_filename('modelmeta', 'data/mddb-v2.sqlite')
-    dsn = 'sqlite:///{0}'.format(f)
-    return dsn
+@pytest.fixture(scope='session')
+def postgres_test_database():
+    with testing.postgresql.Postgresql() as pg:
+        yield pg.url()
 
 
-@pytest.fixture
-def test_engine(test_dsn):
-    engine = create_engine(test_dsn)
-    return engine
+@pytest.fixture(scope='session')
+def test_engine(postgres_test_database):
+    engine = create_engine(postgres_test_database)
+    yield engine
+    engine.dispose()
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def test_session_factory(test_engine):
     Session = sessionmaker(bind=test_engine)
-    return Session
+    yield Session
 
 
 @pytest.fixture
 def test_session(test_session_factory):
-    return test_session_factory()
+    print('test_session SETUP')
+    session = test_session_factory()
+    yield session
+    print('test_session TEARDOWN')
+    session.rollback()
+    session.close()
 
 
 @pytest.fixture
-def blank_test_session():
-    engine = create_engine('sqlite:///')
+def blank_test_session(postgres_test_database):
+    engine = create_engine(postgres_test_database)
     create_test_database(engine)
-    session = sessionmaker(bind=engine)
-    return session()
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    yield session
+    session.rollback()
+    session.close()
 
 
 def make_ensemble(id):
