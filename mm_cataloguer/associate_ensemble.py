@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 import logging
+import traceback
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -85,26 +86,36 @@ def associate_ensemble_to_cf(sesh, cf, ensemble_name, ensemble_ver):
                 data_file_variable_id=data_file_variable.id
             )
             sesh.add(ensemble_dfv)
-            sesh.commit()
 
     return data_file
 
 
-def associate_ensemble_to_file(filepath, session, ensemble_name, ensemble_ver):
+def associate_ensemble_to_file(filepath, Session, ensemble_name, ensemble_ver):
     """Associate an existing NetCDF file in modelmeta database to a specified
     ensemble.
 
     :param filepath: filepath of NetCDF file
-    :param session: database session for access to modelmeta database
+    :param Session: database session for access to modelmeta database
     :param ensemble_name: (str) name of ensemble
     :param ensemble_ver: (float) version of ensemble
     :return: DataFile object for file indexed
     """
     logger.info('Processing file: {}'.format(filepath))
-    with CFDataset(filepath) as cf:
-        data_file = associate_ensemble_to_cf(
-            session, cf, ensemble_name, ensemble_ver)
-    return data_file
+    session = Session()
+    data_file_id = None
+    try:
+        with CFDataset(filepath) as cf:
+            data_file = associate_ensemble_to_cf(
+                session, cf, ensemble_name, ensemble_ver)
+        if data_file:
+            data_file_id = data_file.id
+        session.commit()
+    except:
+        logger.error(traceback.format_exc())
+        session.rollback()
+    finally:
+        session.close()
+    return data_file_id
 
 
 def associate_ensemble_to_files(filepaths, dsn, ensemble_name, ensemble_ver):
@@ -118,10 +129,10 @@ def associate_ensemble_to_files(filepaths, dsn, ensemble_name, ensemble_ver):
     :return: list of DataFile objects; one for each file associated
     """
     engine = create_engine(dsn)
-    session = sessionmaker(bind=engine)()
+    Session = sessionmaker(bind=engine)
 
     result = [
-        associate_ensemble_to_file(f, session, ensemble_name, ensemble_ver)
+        associate_ensemble_to_file(f, Session, ensemble_name, ensemble_ver)
         for f in filepaths
     ]
 
