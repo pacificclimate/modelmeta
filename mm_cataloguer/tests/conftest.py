@@ -1,5 +1,29 @@
-import sys
-import os
+"""
+Test configuration.
+
+Since the target database is a Postgresql database, we test against that.
+Testing against a SQLite database failed to catch some errors, in some cases
+quite surprisingly. And it turns out that testing against a Postgresql database
+is not appreciably slower than against SQLite.
+
+``mm_cataloguer`` functions, and thus the tests, are divided into 3 types:
+
+- functions that take an instantiated database session
+- functions that take a database session factory
+- functions that take a database dsn
+
+The first type (instantiated sessions) are best tested against a database
+with session (all tests) scope. Individual sessions that roll back changes on
+teardown make test isolation simple and efficient.
+
+The second two types (session factory, dsn) are best tested against databases
+with function (per-test) scope. This is slower, but it isolates tests.
+
+There are thus two cascades of fixtures for databases, engines, session
+factories, and sessions, one starting with databases with session scope,
+the other with databases with function scope.
+"""
+
 from pkg_resources import resource_filename
 
 from sqlalchemy import create_engine
@@ -10,11 +34,6 @@ import testing.postgresql
 
 from modelmeta import create_test_database
 from modelmeta import Ensemble
-from mm_cataloguer.index_netcdf import find_update_or_insert_cf_file
-
-# Add helpers directory to pythonpath: See https://stackoverflow.com/a/33515264
-sys.path.append(os.path.join(os.path.dirname(__file__), 'helpers'))
-from mock_helper import Fake
 
 
 # Predefined objects
@@ -111,8 +130,8 @@ def test_session_factory_fs(test_engine_fs):
 
 # We parametrize this fixture so that every test that uses it is run for all
 # params. This can be overridden on specific tests by using
-# `@pytest.mark.parametrize` with arg `indirect=['tiny_dataset']`;
-# see `test_get_level_set_info` for an example.
+# ``@pytest.mark.parametrize`` with arg ``indirect=['tiny_dataset']``;
+# see ``test_get_level_set_info`` for an example.
 # TODO: Parametrize over more tiny datasets.
 @pytest.fixture(params='''
     gcm
