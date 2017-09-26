@@ -63,12 +63,12 @@ def make_ensemble(id):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def ensemble1():
     return make_ensemble(1)
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def ensemble2():
     return make_ensemble(2)
 
