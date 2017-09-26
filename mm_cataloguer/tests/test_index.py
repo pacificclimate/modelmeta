@@ -55,7 +55,7 @@ from mm_cataloguer.index_netcdf import \
     get_grid_info, get_level_set_info, \
     seconds_since_epoch, usable_name
 
-from mm_cataloguer.tests.helpers.mock_helper import Mock
+from mock_helper import Mock
 
 
 # Helper functions for defining tests

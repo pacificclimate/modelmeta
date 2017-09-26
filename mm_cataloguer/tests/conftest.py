@@ -23,7 +23,8 @@ There are thus two cascades of fixtures for databases, engines, session
 factories, and sessions, one starting with databases with session scope,
 the other with databases with function scope.
 """
-
+import sys
+import os
 from pkg_resources import resource_filename
 
 from sqlalchemy import create_engine
@@ -34,6 +35,9 @@ import testing.postgresql
 
 from modelmeta import create_test_database
 from modelmeta import Ensemble
+
+# Add helpers directory to pythonpath: See https://stackoverflow.com/a/33515264
+sys.path.append(os.path.join(os.path.dirname(__file__), 'helpers'))
 
 
 # Predefined objects
