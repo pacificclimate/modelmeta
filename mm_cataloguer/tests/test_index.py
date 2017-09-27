@@ -857,11 +857,20 @@ def test_find_update_or_insert_cf_file__dup(
     'data/tiny_gcm_climo_seasonal.nc',
     'data/tiny_gcm_climo_yearly.nc',
 ])
-def test_index_netcdf_file(test_session_factory, rel_filepath):
+def test_index_netcdf_file(
+        test_engine_fs, test_session_factory_fs,
+        rel_filepath
+):
+    # Set up test database
+    create_test_database(test_engine_fs)
+
+    # Index file
     filepath = resource_filename('modelmeta', rel_filepath)
-    data_file_id = index_netcdf_file(filepath, test_session_factory)
+    data_file_id = index_netcdf_file(filepath, test_session_factory_fs)
+
+    # Check results
     assert data_file_id is not None
-    session = test_session_factory()
+    session = test_session_factory_fs()
     data_file = (
         session.query(DataFile)
         .filter(DataFile.id == data_file_id)
@@ -874,11 +883,20 @@ def test_index_netcdf_file(test_session_factory, rel_filepath):
 @pytest.mark.parametrize('rel_filepath', [
     'data/bad_tiny_gcm.nc',
 ])
-def test_index_netcdf_file_with_error(test_session_factory, rel_filepath):
+def test_index_netcdf_file_with_error(
+        test_engine_fs, test_session_factory_fs,
+        rel_filepath
+):
+    # Set up test database
+    create_test_database(test_engine_fs)
+
+    # Index file
     filepath = resource_filename('modelmeta', rel_filepath)
-    data_file_id = index_netcdf_file(filepath, test_session_factory)
+    data_file_id = index_netcdf_file(filepath, test_session_factory_fs)
+
+    # Check results
     assert data_file_id is None
-    session = test_session_factory()
+    session = test_session_factory_fs()
     data_file = (
         session.query(DataFile)
         .filter(DataFile.filename == filepath)
@@ -888,9 +906,11 @@ def test_index_netcdf_file_with_error(test_session_factory, rel_filepath):
     session.close()
 
 
-def test_index_netcdf_files(test_dsn):
-    engine = create_engine(test_dsn)
-    create_test_database(engine)
+def test_index_netcdf_files(test_dsn_fs, test_engine_fs):
+    # Set up test database
+    create_test_database(test_engine_fs)
+
+    # Index files
     test_files = [
         'data/tiny_gcm.nc',
         'data/tiny_downscaled.nc',
@@ -900,5 +920,7 @@ def test_index_netcdf_files(test_dsn):
         'data/tiny_gcm_climo_yearly.nc',
     ]
     filenames = [resource_filename('modelmeta', f) for f in test_files]
-    results = index_netcdf_files(filenames, test_dsn)
-    assert all(r is not None for r in results)
+    data_file_ids = index_netcdf_files(filenames, test_dsn_fs)
+
+    # Check results
+    assert all(data_file_ids)
