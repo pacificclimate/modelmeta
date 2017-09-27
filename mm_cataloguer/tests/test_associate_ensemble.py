@@ -12,7 +12,8 @@ from mm_cataloguer.index_netcdf import \
     index_cf_file, find_update_or_insert_cf_file
 
 from modelmeta import create_test_database
-from modelmeta import DataFile, Ensemble, EnsembleDataFileVariables
+from modelmeta import DataFile, DataFileVariable, \
+    Ensemble, EnsembleDataFileVariables
 
 
 # Test helper functions
@@ -46,16 +47,18 @@ def add_objects(Session, objects):
     session.commit()
 
 
-def check_ensemble_associations(session, data_file, ensemble):
+def check_ensemble_associations(session, data_file_variables, ensemble):
     """Check that the ensemble associations to a ``DataFile`` include
     a specified ensemble."""
-    for data_file_variable in data_file.data_file_variables:
+    for data_file_variable in data_file_variables:
         ensembles = (
             session.query(Ensemble).join(EnsembleDataFileVariables)
             .filter(EnsembleDataFileVariables.data_file_variable_id ==
                     data_file_variable.id)
             .all()
         )
+        # Can't just do assert ``ensemble in ensembles`` because they may not
+        # be attached to the same database session.
         assert any(
             ensemble.name == e.name and ensemble.version == e.version
             for e in ensembles
@@ -71,30 +74,65 @@ def test_find_ensemble(test_session_with_ensembles, ensemble1):
         test_session_with_ensembles, 'foo', ensemble1.version)
 
 
+@pytest.mark.parametrize('tiny_dataset, var_names, expected_var_names', [
+    ('gcm', None, {'tasmax'}),
+    ('gcm', set(), {'tasmax'}),
+    ('gcm', {'tasmax'}, {'tasmax'}),
+    ('gcm', {'tasmax', 'foo'}, {'tasmax'}),
+    ('gcm', {'foo'}, set()),
+    ('hydromodel_gcm', None, {'BASEFLOW', 'EVAP', 'RUNOFF', 'GLAC_AREA_BAND',
+                              'GLAC_MBAL_BAND', 'SWE_BAND'}),
+    ('hydromodel_gcm', {'BASEFLOW', 'EVAP'}, {'BASEFLOW', 'EVAP'}),
+    ('hydromodel_gcm', {'BASEFLOW', 'foo'}, {'BASEFLOW'}),
+], indirect=['tiny_dataset'])
 def test_associate_ensemble_to_cf(
-        test_session_with_ensembles, ensemble1, tiny_dataset):
+        test_session_with_ensembles, ensemble1, tiny_dataset,
+        var_names, expected_var_names):
     """Test association against serveral different test datasets.
     Note: ``tiny_dataset`` is pre-parametrized in conftest.py
     """
-    sesh = test_session_with_ensembles
-    data_file = index_cf_file(sesh, tiny_dataset)
-    assoc_df = associate_ensemble_to_cf(
-        sesh, tiny_dataset, ensemble1.name, ensemble1.version)
-    assert assoc_df == data_file
-    check_ensemble_associations(sesh, data_file, ensemble1)
+    session = test_session_with_ensembles
+
+    # Set up test database
+    data_file = index_cf_file(session, tiny_dataset)
+
+    # Associate ensemble to file
+    assoc_dfvs = associate_ensemble_to_cf(
+        session, ensemble1.name, ensemble1.version, tiny_dataset, var_names)
+
+    # Check associations
+    assert all(dfv.file == data_file for dfv in assoc_dfvs)
+    assert set(dfv.netcdf_variable_name for dfv in assoc_dfvs) == \
+           expected_var_names
+    check_ensemble_associations(session, assoc_dfvs, ensemble1)
+    # Since this is an isolated test, we can also test that no extraneous
+    # associations were created.
+    # TODO: Enable the following test when bug is fixed
+    # The following ought to work ...
+    # assert set(dfv.netcdf_variable_name
+    #            for dfv in ensemble1.data_file_variables) == \
+    #        expected_var_names
+    # ... but there's a bug in the definition of Ensemble.data_file_variables
+    # and the following print statements prove it
+    print('\nBug in Ensemble.data_file_variables:')
+    for dfv in assoc_dfvs:
+        print(dfv.netcdf_variable_name, 'dfv.ensembles', dfv.ensembles)
+    print('ensemble1.data_file_variables', ensemble1.data_file_variables)
 
 
-@pytest.mark.parametrize('rel_filepath, in_db', [
-    ('data/tiny_gcm.nc', True),
-    ('data/tiny_downscaled.nc', True),
-    ('data/tiny_hydromodel_gcm.nc', True),
-    ('data/tiny_gcm_climo_monthly.nc', True),
-    ('data/tiny_gcm_climo_seasonal.nc', False),
+@pytest.mark.parametrize('rel_filepath, var_names, expected_var_names', [
+    ('data/tiny_gcm.nc', None, {'tasmax'}),
+    ('data/tiny_gcm.nc', {'tasmax'}, {'tasmax'}),
+    ('data/tiny_gcm.nc', {'foo'}, set()),
+    # ('data/tiny_downscaled.nc', ),
+    # ('data/tiny_hydromodel_gcm.nc', ),
+    # ('data/tiny_gcm_climo_monthly.nc', ),
+    # ('data/tiny_gcm_climo_seasonal.nc', ),
 ])
 def test_associate_ensemble_to_file(
         test_engine_fs, test_session_factory_fs, 
         ensemble1, ensemble2, 
-        rel_filepath, in_db
+        rel_filepath, var_names, expected_var_names
 ):
     # Set up test database
     create_test_database(test_engine_fs)
@@ -103,24 +141,25 @@ def test_associate_ensemble_to_file(
     
     # Associate an ensemble to a data file
     filepath = resource_filename('modelmeta', rel_filepath)
-    data_file_id = associate_ensemble_to_file(
-        filepath, test_session_factory_fs, ensemble1.name, ensemble1.version)
+    assoc_dfv_ids = associate_ensemble_to_file(
+        test_session_factory_fs, ensemble1.name, ensemble1.version,
+        filepath, var_names
+    )
     
     # Check associations
-    if in_db:
-        session = test_session_factory_fs()
-        data_file = (
-            session.query(DataFile)
-            .filter(DataFile.id == data_file_id)
-            .one()
-        )
-        assert data_file is not None
-        assert data_file.filename == filepath
-        check_ensemble_associations(session, data_file, ensemble1)
-        session.close()
-    else:
-        assert data_file_id is None
-    
+    session = test_session_factory_fs()
+    data_file = session.query(DataFile).filter_by(filename=filepath).one()
+    assoc_dfvs = (
+        session.query(DataFileVariable)
+        .filter(DataFileVariable.id.in_(assoc_dfv_ids))
+        .all()
+    )
+    assert all(dfv.file == data_file for dfv in assoc_dfvs)
+    assert set(dfv.netcdf_variable_name for dfv in assoc_dfvs) == \
+           expected_var_names
+    check_ensemble_associations(session, assoc_dfvs, ensemble1)
+    session.close()
+
 
 def test_associate_ensemble_to_files(
         test_dsn_fs, test_engine_fs, test_session_factory_fs,
@@ -139,12 +178,18 @@ def test_associate_ensemble_to_files(
         'data/tiny_gcm_climo_monthly.nc',
     ]
     filepaths = [resource_filename('modelmeta', f) for f in files_to_associate]
-    data_file_ids = associate_ensemble_to_files(
-        filepaths, test_dsn_fs, ensemble1.name, ensemble1.version)
+    var_names = {'tasmax'}
+    result = associate_ensemble_to_files(
+        test_dsn_fs, ensemble1.name, ensemble1.version, filepaths, var_names)
 
     # Check associations
-    # Use a minimalist check, since ``test_associate_ensemble_to_file``
-    # checks associations in detail. This test is mainly to confirm that
-    # ``associate_ensemble_to_files`` correctly calls
-    # ``associate_ensemble_to_file``.
-    assert all(data_file_ids)
+    assert len(result) == len(files_to_associate)
+    session = test_session_factory_fs()
+    for dfv_ids in result:
+        assoc_dfvs = (
+            session.query(DataFileVariable)
+            .filter(DataFileVariable.id.in_(dfv_ids))
+            .all()
+        )
+        check_ensemble_associations(session, assoc_dfvs, ensemble1)
+    session.close()
