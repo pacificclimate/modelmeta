@@ -434,11 +434,13 @@ def find_level_set(sesh, cf, var_name):
         return None
     units = info['level_axis_var'].units
     vertical_levels = info['vertical_levels']
-    q = sesh.query(LevelSet).join(Level) \
-        .filter(LevelSet.level_units == units) \
-        .filter(Level.vertical_level.in_(vertical_levels)) \
-        .group_by(Level.level_set_id) \
+    q = (
+        sesh.query(LevelSet).join(Level)
+        .filter(LevelSet.level_units == units)
+        .filter(Level.vertical_level.in_(vertical_levels))
+        .group_by(LevelSet.id)
         .having(func.count(Level.vertical_level) == len(vertical_levels))
+    )
     return q.first()
 
 
@@ -816,7 +818,8 @@ def find_data_file_by_id_hash_filename(sesh, cf):
     hash_match = q.first()
     q = (
         sesh.query(DataFile)
-            .filter(DataFile.filename == cf.filepath(converter=filepath_converter))
+            .filter(DataFile.filename ==
+                    cf.filepath(converter=filepath_converter))
     )
     filename_match = q.first()
     return id_match, hash_match, filename_match
@@ -871,8 +874,8 @@ def delete_data_file(sesh, existing_data_file):
     existing_ensemble_data_file_variables = (
         sesh.query(EnsembleDataFileVariables)
             .filter(EnsembleDataFileVariables.data_file_variable_id.in_(
-            [edfv.id for edfv in existing_data_file_variables]
-        ))
+                [edfv.id for edfv in existing_data_file_variables]
+            ))
     )
     for obj in existing_ensemble_data_file_variables:
         sesh.delete(obj)
@@ -985,7 +988,7 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
 
     # same file
     if id_match and hash_match and filename_match and \
-                            id_match == hash_match == filename_match and \
+        id_match == hash_match == filename_match and \
             index_up_to_date:
         return update_data_file_index_time(sesh, data_file)
 
@@ -1034,9 +1037,9 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
         'old_filename_exists = {}; '
         'normalized_filenames_match = {}; '
         'index_up_to_date = {}'
-            .format(old_filename_exists,
-                    normalized_filenames_match,
-                    index_up_to_date)
+        .format(old_filename_exists,
+                normalized_filenames_match,
+                index_up_to_date)
     )
     raise ValueError('Unanticipated case. See log for details.')
 
