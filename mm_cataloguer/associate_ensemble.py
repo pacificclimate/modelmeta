@@ -240,7 +240,7 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    associate_ensemble_to_filepaths(
+    main(
         args.dsn, args.ensemble_name, args.ensemble_ver,
         args.regex_filepaths, args.filepaths, args.var_names.split(',')
     )
