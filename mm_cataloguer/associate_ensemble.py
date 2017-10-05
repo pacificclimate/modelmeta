@@ -240,7 +240,12 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
+    if args.var_names:
+        var_names = args.var_names.split(',')
+    else:
+        var_names = None
+
     main(
         args.dsn, args.ensemble_name, args.ensemble_ver,
-        args.regex_filepaths, args.filepaths, args.var_names.split(',')
+        args.regex_filepaths, args.filepaths, var_names
     )
