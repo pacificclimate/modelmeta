@@ -5,9 +5,9 @@ import traceback
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from nchelpers import CFDataset
 from mm_cataloguer.index_netcdf import find_data_file_by_id_hash_filename
-from modelmeta import DataFileVariable, Ensemble, EnsembleDataFileVariables
+from modelmeta import DataFile, DataFileVariable, \
+    Ensemble, EnsembleDataFileVariables
 
 
 formatter = logging.Formatter(
@@ -34,112 +34,166 @@ def find_ensemble(sesh, name, version):
     return q.first()
 
 
-def associate_ensemble_to_cf(sesh, ensemble_name, ensemble_ver, cf, var_names):
-    """Associate variables in existing NetCDF file to an existing ensemble
-    in the modelmeta database.
+def associate_ensemble_to_data_file_variable(
+        session, ensemble, data_file_variable
+):
+    """Associate an ``Ensemble`` to a ``DataFileVariable``.
 
-    Arg ``var_names`` specifies variables to associate; if falsy, associate
-    all variables in file.
-
-    Raise an error if no ensemble in the database matches the given name and
-    version.
-
-    Do nothing if any given association already exists.
-
-    :param sesh: modelmeta database session
-    :param ensemble_name: (str) name of ensemble
-    :param ensemble_ver: (float) version of ensemble
-    :param cf: CFDatafile object representing NetCDF file
-    :param var_names: list of names of variables to associate
-    :return: list of associated ``DataFileVariable``s
+    :param session: database session for access to modelmeta database
+    :param ensemble: (Ensemble) ensemble to associate
+    :param data_file_variable: (DataFileVariable) dfv to associate
+    :return: EnsembleDataFileVariables (association) record
     """
-    ensemble = find_ensemble(sesh, ensemble_name, ensemble_ver)
-    if not ensemble:
-        raise ValueError(
-            "No existing ensemble matches name = '{}' and version = '{}'"
-            .format(ensemble_name, ensemble_ver))
+    ensemble_dfv = (
+        session.query(EnsembleDataFileVariables)
+            .filter(EnsembleDataFileVariables.ensemble_id == ensemble.id)
+            .filter(EnsembleDataFileVariables.data_file_variable_id ==
+                    data_file_variable.id)
+            .first()
+    )
 
-    id_match, hash_match, filename_match = \
-        find_data_file_by_id_hash_filename(sesh, cf)
+    if ensemble_dfv:
+        logger.info(
+            'Assocation for variable id {} to ensemble already exists'
+                .format(data_file_variable.id))
+    else:
+        logger.info('Associating variable id {} to ensemble'
+                    .format(data_file_variable.id))
+        ensemble_dfv = EnsembleDataFileVariables(
+            ensemble_id=ensemble.id,
+            data_file_variable_id=data_file_variable.id
+        )
+        session.add(ensemble_dfv)
 
-    if not all((id_match, hash_match, filename_match)):
-        logger.warning(
-            'Skipping file: does not perfectly match any indexed file')
-        return None
+    return ensemble_dfv
 
-    # Any match will do; this is robust to changes to matching criteria
-    data_file = id_match or hash_match or filename_match
+
+def associate_ensemble_to_data_file(session, ensemble, data_file, var_names):
+    """Associate an ``Ensemble`` to ``DataFileVariable``s of a ``DataFile``.
+
+    :param session: database session for access to modelmeta database
+    :param ensemble: (Ensemble) ensemble to associate
+    :param data_file: (DataFile) data file to associate
+    :param var_names: (list) names of variables to associate
+    :return: list of ``DataFileVariable``s associated
+    """
+    logger.info('Associating DataFile: {}'.format(data_file.filename))
 
     associated_dfvs = []
+
     for data_file_variable in data_file.data_file_variables:
         if (not var_names
-            or data_file_variable.netcdf_variable_name in var_names):
-            ensemble_dfv = (
-                sesh.query(EnsembleDataFileVariables)
-                    .filter(EnsembleDataFileVariables.ensemble_id == ensemble.id)
-                    .filter(EnsembleDataFileVariables.data_file_variable_id ==
-                            data_file_variable.id)
-                    .first()
-            )
-            if ensemble_dfv:
-                logger.info(
-                    'Assocation for variable id {} to ensemble already exists'
-                    .format(data_file_variable.id))
-            else:
-                logger.info('Assocating variable id {} to ensemble'
-                            .format(data_file_variable.id))
-                ensemble_dfv = EnsembleDataFileVariables(
-                    ensemble_id=ensemble.id,
-                    data_file_variable_id=data_file_variable.id
-                )
-                sesh.add(ensemble_dfv)
-            assocated_dfv = (
-                sesh.query(DataFileVariable)
-                .filter_by(id=ensemble_dfv.data_file_variable_id)
-                .one()
-            )
-            associated_dfvs.append(assocated_dfv)
+                or data_file_variable.netcdf_variable_name in var_names):
+            associate_ensemble_to_data_file_variable(
+                session, ensemble, data_file_variable)
+            associated_dfvs.append(data_file_variable)
 
     return associated_dfvs
 
 
-def associate_ensemble_to_file(
-        Session, ensemble_name, ensemble_ver, filepath, var_names):
-    """Associate an existing NetCDF file in modelmeta database to a specified
-    ensemble.
+def associate_ensemble_to_filepath(
+        session, ensemble_name, ensemble_ver,
+        regex_filepath, filepath, var_names
+):
+    """Associate an ensemble (specified by name and version) to
+    data file variables of data file(s) matching a given filepath pattern.
 
-    :param Session: database session factory for access to modelmeta database
+    :param session: database session access to modelmeta database
     :param ensemble_name: (str) name of ensemble
     :param ensemble_ver: (float) version of ensemble
-    :param filepath: filepath of NetCDF file
-    :param var_names: list of names of variables to associate
-    :return: list of ids of ``DataFileVariable``s associated
+    :param regex_filepath: (bool) if True, interpret filepath as regex
+    :param filepath: filepath of file, or regex for such
+    :param var_names: (list) names of variables to associate
+    :return: (list) tuple(``DataFile``, list of ``DataFileVariable``s
+        associated); one for each matching DataFile
     """
-    logger.info('Processing file: {}'.format(filepath))
-    session = Session()
-    data_file_variable_ids = []
-    try:
-        with CFDataset(filepath) as cf:
-            data_file_variables = associate_ensemble_to_cf(
-                session, ensemble_name, ensemble_ver, cf, var_names)
-        data_file_variable_ids.extend([dfv.id for dfv in data_file_variables])
-        session.commit()
-    except:
-        logger.error(traceback.format_exc())
-        session.rollback()
-    finally:
-        session.close()
-    return data_file_variable_ids
+    if regex_filepath:
+        logger.info('Processing filepath regex: {}'.format(filepath))
+    else:
+        logger.info('Processing filepath: {}'.format(filepath))
+
+    # Find the matching ``Ensemble``
+    ensemble = find_ensemble(session, ensemble_name, ensemble_ver)
+    if not ensemble:
+        raise ValueError(
+            "No existing ensemble matches name = '{}' and version = '{}'"
+                .format(ensemble_name, ensemble_ver))
+
+    # Find all matching ``DataFile``s
+    df_query = session.query(DataFile)
+    if regex_filepath:
+        df_query = df_query.filter(DataFile.filename.op('~')(filepath))
+    else:
+        df_query = df_query.filter(DataFile.filename == filepath)
+    data_files = df_query.all()
+
+    if not data_files:
+        logger.info('No matching DataFile records')
+
+    # Associate matching ensemble to matching data files
+    return [
+        (data_file,
+         associate_ensemble_to_data_file(
+             session, ensemble, data_file, var_names)
+         )
+        for data_file in data_files
+    ]
 
 
-def associate_ensemble_to_files(
-        dsn, ensemble_name, ensemble_ver, filepaths, var_names):
+def associate_ensemble_to_filepaths(
+        Session, ensemble_name, ensemble_ver,
+        regex_filepaths, filepaths, var_names
+):
     """Associate a list of NetCDF files in modelmeta database to a specified
     ensemble.
 
     :param dsn: connection info for the modelmeta database to update
     :param ensemble_name: (str) name of ensemble
     :param ensemble_ver: (float) version of ensemble
+    :param regex_filepaths: (bool) if True, interpret filepaths as regexes
+    :param filepaths: list of files to index
+    :param var_names: list of names of variables to associate
+    :return: (list) tuple(id of ``DataFile``,
+                         list of id of ``DataFileVariable``s)
+        associated; one for each matching DataFile
+    """
+    associated_ids = []
+
+    for filepath in filepaths:
+        session = Session()
+        try:
+            associated_items = associate_ensemble_to_filepath(
+                session, ensemble_name, ensemble_ver,
+                regex_filepaths, filepath, var_names
+            )
+            associated_ids.extend([
+                (
+                    data_file.id,
+                    [dfv.id for dfv in data_file_variables]
+                )
+                for data_file, data_file_variables in associated_items
+            ])
+            session.commit()
+        except:
+            logger.error(traceback.format_exc())
+            session.rollback()
+        finally:
+            session.close()
+
+    return associated_ids
+
+
+def main(
+        dsn, ensemble_name, ensemble_ver,
+        regex_filepaths, filepaths, var_names
+):
+    """Associate a list of NetCDF files in modelmeta database to a specified
+    ensemble.
+
+    :param dsn: connection info for the modelmeta database to update
+    :param ensemble_name: (str) name of ensemble
+    :param ensemble_ver: (float) version of ensemble
+    :param regex_filepaths: (bool) if True, interpret filepaths as regexes
     :param filepaths: list of files to index
     :param var_names: list of names of variables to associate
     :return: list of list of ids of ``DataFileVariable``s associated;
@@ -148,13 +202,10 @@ def associate_ensemble_to_files(
     engine = create_engine(dsn)
     Session = sessionmaker(bind=engine)
 
-    result = [
-        associate_ensemble_to_file(
-            Session, ensemble_name, ensemble_ver, filepath, var_names)
-        for filepath in filepaths
-    ]
-
-    return result
+    return associate_ensemble_to_filepaths(
+            Session, ensemble_name, ensemble_ver,
+            regex_filepaths, filepaths, var_names
+    )
 
 
 if __name__ == '__main__':
@@ -177,11 +228,19 @@ if __name__ == '__main__':
              '(unspecified: all variables in file)'
     )
     parser.add_argument(
+        '-r', '--regex-filepaths', dest='regex_filepaths',
+        action='store_true', default=False,
+        help='Interpret filepaths as regular expressions. Associate to'
+             'variables of files matching any of those regular '
+             'expressions.'
+    )
+    parser.add_argument(
         'filepaths', nargs='+',
         help='Files to process'
     )
     args = parser.parse_args()
 
-    associate_ensemble_to_files(
+    associate_ensemble_to_filepaths(
         args.dsn, args.ensemble_name, args.ensemble_ver,
-        args.filepaths, args.var_names.split(','))
+        args.regex_filepaths, args.filepaths, args.var_names.split(',')
+    )
