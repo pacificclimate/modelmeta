@@ -1,4 +1,3 @@
-from argparse import ArgumentParser
 import csv
 
 from sqlalchemy import create_engine
@@ -33,7 +32,9 @@ def csv_data_file(data_file):
         'run': data_file.run.name,
         'model': data_file.run.model.short_name,
         'emission': data_file.run.emission.short_name,
-        'variable_names': ', '.join(dfv.netcdf_variable_name for dfv in data_file.data_file_variables),
+        'variable_names':
+            ', '.join(dfv.netcdf_variable_name
+                      for dfv in data_file.data_file_variables),
         'start_date': data_file.timeset.start_date,
         'end_date': data_file.timeset.end_date,
         'multi_year_mean': data_file.timeset.multi_year_mean,
@@ -58,13 +59,3 @@ def main(dsn):
     session = sessionmaker(bind=engine)()
     csv_contents(session)
 
-
-if __name__ == '__main__':
-    parser = ArgumentParser()
-    parser.add_argument(
-        '-d', '--dsn',
-        default='postgresql://httpd_meta@db3.pcic.uvic.ca/pcic_meta',
-        help="Source database DSN from which to read"
-    )
-    args = parser.parse_args()
-    main(args.dsn)
