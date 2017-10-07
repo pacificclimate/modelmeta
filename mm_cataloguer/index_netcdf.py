@@ -70,7 +70,6 @@ import traceback
 import logging
 import datetime
 import functools
-from argparse import ArgumentParser
 
 from netCDF4 import num2date
 import numpy as np
@@ -1078,13 +1077,3 @@ def index_netcdf_files(filenames, dsn):
     Session = sessionmaker(bind=engine)
 
     return [index_netcdf_file(f, Session) for f in filenames]
-
-
-if __name__ == '__main__':
-    parser = ArgumentParser(
-        description='Index PCIC metadata standard compliant NetCDF files '
-                    'into modelmeta database')
-    parser.add_argument("-d", "--dsn", help="DSN for metadata database")
-    parser.add_argument('filenames', nargs='+', help='Files to process')
-    args = parser.parse_args()
-    index_netcdf_files(args.filenames, args.dsn)
