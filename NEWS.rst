@@ -1,10 +1,17 @@
 News / Release Notes
 ====================
 
+0.1.1
+-----
+
+*Release Date: 2017-Oct-06*
+
+* Make ``index_netcdf``, ``associate_ensemble``, ``list``, and ``list-csv`` executable on the command line.
+
 0.1.0
 -----
 
-*Release Date: 2017-Oct-24*
+*Release Date: 2017-Oct-06*
 
 OK, so we shouldn't have waited so long to make a new release.
 
