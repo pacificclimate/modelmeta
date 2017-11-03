@@ -1,6 +1,13 @@
 News / Release Notes
 ====================
 
+0.1.2
+-----
+
+*Release Date: 2017-Nov-03*
+
+* Indexer handles files with 360-day calendars. Requires nchelpers>=5.1.2.
+
 0.1.1
 -----
 
