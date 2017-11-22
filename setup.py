@@ -19,7 +19,7 @@ setup(
         psycopg2
         numpy
         netCDF4
-        nchelpers>=5.1.2
+        nchelpers>=5.2.0
         python-dateutil
         sqlparse
     '''.split(),
