@@ -19,7 +19,7 @@ setup(
         psycopg2
         numpy
         netCDF4
-        nchelpers>=5.1.2
+        nchelpers>=5.2.0
         python-dateutil
         sqlparse
     '''.split(),
@@ -34,6 +34,7 @@ setup(
             data/tiny_gcm_climo_yearly.nc
             data/tiny_gcm_climo_seasonal.nc
             data/tiny_gcm_climo_monthly.nc
+            data/tiny_gridded_obs.nc
         '''.split()
     },
     include_package_data = True,

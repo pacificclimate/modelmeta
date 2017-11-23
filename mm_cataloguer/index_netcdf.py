@@ -323,7 +323,7 @@ def insert_run(sesh, cf, model, emission):
     :return: new ``Run`` record
     """
     run = Run(
-        name=cf.metadata.ensemble_member,
+        name=cf.metadata.run,
         project=cf.metadata.project,
         model=model,
         emission=emission

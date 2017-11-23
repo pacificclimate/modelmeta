@@ -144,6 +144,7 @@ def test_session_factory_fs(test_engine_fs):
     gcm_climo_monthly
     gcm_climo_seasonal
     gcm_climo_yearly
+    gridded_obs
 '''.split())
 def tiny_dataset(request):
     """Return a 'tiny' test dataset, based on request param.
