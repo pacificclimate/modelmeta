@@ -1,6 +1,15 @@
 News / Release Notes
 ====================
 
+0.2.0
+-----
+
+*Release Date: 2017-Nov-23*
+
+* Indexer handles non-CMIP*/climate data files. Requires nchelpers>=5.2.0.
+  This is a workaround pending a more complete solution to the problem of storing metadata
+  for non-CMIP*/climate data derived files.
+
 0.1.2
 -----
 
