@@ -524,6 +524,7 @@ def find_grid(sesh, cf, var_name):
             .filter(Grid.xc_count == len(info['xc_values']))
             .filter(Grid.yc_count == len(info['yc_values']))
             .filter(Grid.evenly_spaced_y == info['evenly_spaced_y'])
+            # TODO: filter on spatial ref sys (key srid)
             .first()
             )
 
@@ -572,6 +573,7 @@ def insert_grid(sesh, cf, var_name):
         cell_avg_area_sq_km=cell_avg_area_sq_km(),
         xc_units=info['xc_var'].units,
         yc_units=info['yc_var'].units,
+        srid=cf.proj4_string(var_name)
     )
     sesh.add(grid)
 
