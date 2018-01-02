@@ -6,4 +6,3 @@ netCDF4
 nchelpers>=5.1.2
 python-dateutil
 sqlparse
-testing.postgresql
