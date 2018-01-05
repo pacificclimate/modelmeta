@@ -27,11 +27,14 @@ import sys
 import os
 from pkg_resources import resource_filename
 
+import pytest
+import testing.postgresql
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import pytest
+from sqlalchemy.schema import CreateSchema
+
 from nchelpers import CFDataset
-import testing.postgresql
 
 from modelmeta import create_test_database
 from modelmeta import Ensemble
@@ -61,6 +64,12 @@ def ensemble2():
     return make_ensemble(2)
 
 
+def init_database(engine):
+    engine.execute("create extension postgis")
+    # engine.execute(CreateSchema('test'))
+    # engine.execute('SET search_path TO test, public')
+
+
 # Session-scoped databases, engines, session factories, and derived sessions
 # Use these databases and these sessions in preference to reduce per-test 
 # overhead. Sessions roll back any database actions on teardown.
@@ -74,6 +83,7 @@ def test_dsn():
 @pytest.fixture(scope='session')
 def test_engine(test_dsn):
     engine = create_engine(test_dsn)
+    init_database(engine)
     yield engine
     engine.dispose()
 
@@ -84,19 +94,24 @@ def test_session_factory(test_engine):
     yield Session
 
 
+# TODO: Add documentation for these fixtures
+
 @pytest.fixture
-def test_session_with_empty_db(test_dsn):
+def old_test_session_with_empty_db(test_dsn):
     engine = create_engine(test_dsn)
+    # ``init_database`` must be invoked before ``create_test_database``
+    # init_database(engine)
     create_test_database(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
+    # session.execute('SET search_path TO test, public')
     yield session
     session.rollback()
     session.close()
 
 
 @pytest.fixture
-def test_session_with_ensembles(
+def old_test_session_with_ensembles(
         test_session_with_empty_db, ensemble1, ensemble2
 ):
     test_session_with_empty_db.add_all([ensemble1, ensemble2])
@@ -110,6 +125,8 @@ def test_session_with_ensembles(
 # (automatically rolled back) sessions based on session-scoped databases.
 # Suffix ``_fs`` stands for "function scope".
 
+# TODO: What about create_test_database for these fixtures?
+
 
 @pytest.fixture(scope='function')
 def test_dsn_fs():
@@ -120,6 +137,8 @@ def test_dsn_fs():
 @pytest.fixture(scope='function')
 def test_engine_fs(test_dsn_fs):
     engine = create_engine(test_dsn_fs)
+    init_database(engine)
+    create_test_database(engine)
     yield engine
     engine.dispose()
 
@@ -128,6 +147,21 @@ def test_engine_fs(test_dsn_fs):
 def test_session_factory_fs(test_engine_fs):
     Session = sessionmaker(bind=test_engine_fs)
     yield Session
+
+
+@pytest.fixture(scope='function')
+def test_session_with_empty_db(test_session_factory_fs):
+    session = test_session_factory_fs()
+    yield session
+    session.close()
+
+
+@pytest.fixture(scope='function')
+def test_session_with_ensembles(
+        test_session_with_empty_db, ensemble1, ensemble2
+):
+    test_session_with_empty_db.add_all([ensemble1, ensemble2])
+    yield test_session_with_empty_db
 
 
 # Dataset fixtures

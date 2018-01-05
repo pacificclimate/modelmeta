@@ -32,11 +32,12 @@ from netCDF4 import date2num, num2date
 
 from dateutil.relativedelta import relativedelta
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import func
+
+import pycrs
 
 from modelmeta import create_test_database
-from modelmeta import Level, DataFile
+from modelmeta import Level, DataFile, SpatialRefSys
 from nchelpers.date_utils import to_datetime
 
 from mm_cataloguer.index_netcdf import \
@@ -50,10 +51,11 @@ from mm_cataloguer.index_netcdf import \
     find_or_insert_data_file_variable, \
     insert_variable_alias, find_variable_alias, find_or_insert_variable_alias, \
     insert_level_set, find_level_set, find_or_insert_level_set, \
+    insert_spatial_ref_sys, find_spatial_ref_sys, find_or_insert_spatial_ref_sys, \
     insert_grid, find_grid, find_or_insert_grid, \
     insert_timeset, find_timeset, find_or_insert_timeset, \
     get_grid_info, get_level_set_info, \
-    seconds_since_epoch, usable_name
+    seconds_since_epoch, usable_name, wkt
 
 from mock_helper import Mock
 
@@ -153,405 +155,505 @@ level_set_parametrization = ('tiny_dataset, var_name, level_axis_var_name', [
 ])
 
 
-# Helper functions
-
-def test_get_grid_info(tiny_dataset):
-    info = get_grid_info(tiny_dataset, tiny_dataset.dependent_varnames()[0])
-    assert set(info.keys()) == \
-        set('xc_var yc_var xc_values yc_values '
-            'xc_grid_step yc_grid_step evenly_spaced_y'.split())
-    assert info['xc_var'] == tiny_dataset.variables['lon']
-    assert info['yc_var'] == tiny_dataset.variables['lat']
-
-
-# Note: Overriding default parametrization of tiny_dataset in these tests.
-@pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
-def test_get_level_set_info(tiny_dataset, var_name, level_axis_var_name):
-    info = get_level_set_info(tiny_dataset, var_name)
-    if level_axis_var_name:
-        assert set(info.keys()) == \
-            set('level_axis_var vertical_levels'.split())
-        assert info['level_axis_var'] == \
-            tiny_dataset.variables[level_axis_var_name]
-    else:
-        assert info is None
-
-
-# Model
-
-cond_insert_model = conditional(insert_model)
-
-
-def test_insert_model(test_session_with_empty_db, tiny_dataset):
-    check_insert(
-        insert_model, test_session_with_empty_db, tiny_dataset,
-        short_name=tiny_dataset.metadata.model,
-        organization=tiny_dataset.metadata.institution,
-        type=tiny_dataset.model_type,
-    )
-
-
-@pytest.mark.parametrize('insert', [False, True])
-def test_find_model(test_session_with_empty_db, tiny_dataset, insert):
-    check_find(
-        find_model,
-        cond_insert_model,
-        test_session_with_empty_db,
-        tiny_dataset,
-        invoke=insert
-    )
-
-
-@pytest.mark.parametrize('insert', [False, True])
-def test_find_or_insert_model(test_session_with_empty_db, tiny_dataset, insert):
-    check_find_or_insert(
-        find_or_insert_model,
-        cond_insert_model,
-        test_session_with_empty_db,
-        tiny_dataset,
-        invoke=insert
-    )
-
-
-# Emission
-
-cond_insert_emission = conditional(insert_emission)
-
-
-def test_insert_emission(test_session_with_empty_db, tiny_dataset):
-    check_insert(
-        insert_emission,
-        test_session_with_empty_db,
-        tiny_dataset,
-        short_name=tiny_dataset.metadata.emissions
-    )
-
-
-@pytest.mark.parametrize('insert', [False, True])
-def test_find_emission(test_session_with_empty_db, tiny_dataset, insert):
-    check_find(
-        find_emission,
-        cond_insert_emission,
-        test_session_with_empty_db,
-        tiny_dataset,
-        invoke=insert
-    )
-
-
-@pytest.mark.parametrize('insert', [False, True])
-def test_find_or_insert_emission(
-        test_session_with_empty_db, tiny_dataset, insert):
-    check_find_or_insert(
-        find_or_insert_emission,
-        cond_insert_emission,
-        test_session_with_empty_db,
-        tiny_dataset,
-        invoke=insert
-    )
-
-
-# Run
-
-def insert_run_plus(test_session_with_empty_db, tiny_dataset):
-    """Insert a run plus associated emission and model objects.
-    Return run, model, and emission inserted.
-    """
-    emission = insert_emission(test_session_with_empty_db, tiny_dataset)
-    model = insert_model(test_session_with_empty_db, tiny_dataset)
-    run = insert_run(test_session_with_empty_db, tiny_dataset, model, emission)
-    return run, model, emission
-
-
-def insert_run_plus_prime(*args):
-    """Same as above, but just return the run."""
-    return insert_run_plus(*args)[0]
-
-
-cond_insert_run_plus = conditional(insert_run_plus,
-                                   false_value=(None, None, None))
-cond_insert_run_plus_prime = conditional(insert_run_plus_prime)
-
-
-def test_insert_run(test_session_with_empty_db, tiny_dataset):
-    run, model, emission = \
-        insert_run_plus(test_session_with_empty_db, tiny_dataset)
-    check_properties(
-        run,
-        name=tiny_dataset.metadata.run,
-        project=tiny_dataset.metadata.project,
-        model=model,
-        emission=emission,
-    )
-
-
-@pytest.mark.parametrize('insert', [False, True])
-def test_find_run(test_session_with_empty_db, tiny_dataset, insert):
-    check_find(
-        find_run,
-        cond_insert_run_plus_prime,
-        test_session_with_empty_db,
-        tiny_dataset,
-        invoke=insert
-    )
-
-
-@pytest.mark.parametrize('insert', [False, True])
-def test_find_or_insert_run(test_session_with_empty_db, tiny_dataset, insert):
-    check_find_or_insert(
-        find_or_insert_run,
-        cond_insert_run_plus_prime,
-        test_session_with_empty_db,
-        tiny_dataset,
-        invoke=insert
-    )
-
-
-# VariableAlias
-
-cond_insert_variable_alias = conditional(insert_variable_alias)
-
-
-def test_insert_variable_alias(test_session_with_empty_db, tiny_dataset):
-    var_name = tiny_dataset.dependent_varnames()[0]
-    variable = tiny_dataset.variables[var_name]
-    check_insert(
-        insert_variable_alias,
-        test_session_with_empty_db,
-        tiny_dataset,
-        var_name,
-        long_name=variable.long_name,
-        standard_name=usable_name(variable),
-        units=variable.units,
-    )
-
-
-@pytest.mark.parametrize('insert', [False, True])
-def test_find_variable_alias(test_session_with_empty_db, tiny_dataset, insert):
-    check_find(
-        find_variable_alias,
-        cond_insert_variable_alias,
-        test_session_with_empty_db,
-        tiny_dataset,
-        tiny_dataset.dependent_varnames()[0],
-        invoke=insert
-    )
-
-
-@pytest.mark.parametrize('insert', [False, True])
-def test_find_or_insert_variable_alias(
-        test_session_with_empty_db, tiny_dataset, insert):
-    check_find_or_insert(
-        find_or_insert_variable_alias,
-        cond_insert_variable_alias,
-        test_session_with_empty_db,
-        tiny_dataset,
-        tiny_dataset.dependent_varnames()[0],
-        invoke=insert
-    )
-
-
-# LevelSet, Level
-
-cond_insert_level_set = conditional(insert_level_set)
-
-
-# Note: Overriding default parametrization of tiny_dataset in these tests.
-
-@pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
-def test_insert_level_set(
-        test_session_with_empty_db, tiny_dataset,
-        var_name, level_axis_var_name
-):
-    variable = tiny_dataset.variables[var_name]
-    if level_axis_var_name:
-        level_axis_var = tiny_dataset.variables[level_axis_var_name]
-        assert level_axis_var_name in variable.dimensions
-        level_set = check_insert(
-            insert_level_set,
-            test_session_with_empty_db,
-            tiny_dataset, var_name,
-            level_units=level_axis_var.units
-        )
-        levels = (
-            test_session_with_empty_db.query(Level)
-            .filter(Level.level_set == level_set)
-            .all()
-        )
-        assert level_set.levels == levels
-        assert list(level.vertical_level for level in levels) == \
-            list(vertical_level for vertical_level in level_axis_var[:])
-    else:
-        check_insert(
-            insert_level_set,
-            test_session_with_empty_db,
-            tiny_dataset,
-            var_name
-        )
-
-
-@pytest.mark.parametrize('insert', [False, True])
-@pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
-def test_find_level_set(
-        test_session_with_empty_db, tiny_dataset, var_name,
-        level_axis_var_name, insert):
-    check_find(
-        find_level_set,
-        cond_insert_level_set,
-        test_session_with_empty_db,
-        tiny_dataset,
-        var_name,
-        invoke=insert
-    )
-
-
-@pytest.mark.parametrize('insert', [False, True])
-@pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
-def test_find_or_insert_level_set(
-        test_session_with_empty_db, tiny_dataset, var_name,
-        level_axis_var_name, insert):
-    check_find_or_insert(
-        find_or_insert_level_set,
-        cond_insert_level_set,
-        test_session_with_empty_db,
-        tiny_dataset,
-        var_name,
-        invoke=insert,
-        expect_insert=bool(level_axis_var_name)
-    )
-
-
-# Grid, YCellBound
-
-cond_insert_grid = conditional(insert_grid)
-
-
-def test_insert_grid(test_session_with_empty_db, tiny_dataset):
-    var_name = tiny_dataset.dependent_varnames()[0]
-    info = get_grid_info(tiny_dataset, var_name)
-    grid = check_insert(
-        insert_grid, test_session_with_empty_db, tiny_dataset, var_name,
-        xc_origin=info['xc_values'][0],
-        yc_origin=info['yc_values'][0],
-        xc_grid_step=info['xc_grid_step'],
-        yc_grid_step=info['yc_grid_step'],
-        xc_count=len(info['xc_values']),
-        yc_count=len(info['yc_values']),
-        evenly_spaced_y=info['evenly_spaced_y'],
-        xc_units=info['xc_var'].units,
-        yc_units=info['yc_var'].units,
-    )
-    if grid.evenly_spaced_y:
-        assert len(grid.y_cell_bounds) == 0
-    else:
-        assert len(grid.y_cell_bounds) == len(info['yc_var'][:])
-
-
-@pytest.mark.parametrize('insert', [False, True])
-def test_find_grid(test_session_with_empty_db, tiny_dataset, insert):
-    check_find(
-        find_grid,
-        cond_insert_grid,
-        test_session_with_empty_db,
-        tiny_dataset,
-        tiny_dataset.dependent_varnames()[0],
-        invoke=insert
-    )
-
-
-@pytest.mark.parametrize('insert', [False, True])
-def test_find_or_insert_grid(test_session_with_empty_db, tiny_dataset, insert):
-    check_find_or_insert(
-        find_or_insert_grid,
-        cond_insert_grid,
-        test_session_with_empty_db,
-        tiny_dataset,
-        tiny_dataset.dependent_varnames()[0],
-        invoke=insert
-    )
-
-
-# DataFileVariable
-
-def insert_data_file_variable_plus(
-        test_session_with_empty_db, tiny_dataset, var_name, data_file):
-    """Insert a ``DataFileVariable`` plus associated ``VariableAlias``,
-    ``LevelSet``, and ``Grid`` objects.
-    Return ``DataFileVariable`` inserted.
-    """
-    variable_alias = insert_variable_alias(
-        test_session_with_empty_db, tiny_dataset, var_name)
-    level_set = insert_level_set(
-        test_session_with_empty_db, tiny_dataset, var_name)
-    grid = insert_grid(test_session_with_empty_db, tiny_dataset, var_name)
-    data_file_variable = insert_data_file_variable(
-        test_session_with_empty_db, tiny_dataset, var_name,
-        data_file, variable_alias, level_set, grid
-    )
-    return data_file_variable
-
-
-cond_insert_data_file_variable_plus = \
-    conditional(insert_data_file_variable_plus)
-
-
-def test_insert_data_file_variable(test_session_with_empty_db, tiny_dataset):
-    var_name = tiny_dataset.dependent_varnames()[0]
-    variable = tiny_dataset.variables[var_name]
-    range_min, range_max = tiny_dataset.var_range(var_name)
-    data_file = insert_data_file(test_session_with_empty_db, tiny_dataset)
-    dfv = check_insert(
-        insert_data_file_variable_plus,
-        test_session_with_empty_db,
-        tiny_dataset,
-        var_name,
-        data_file,
-        file=data_file,
-        netcdf_variable_name=var_name,
-        variable_cell_methods=variable.cell_methods,
-        range_min=range_min,
-        range_max=range_max,
-        disabled=False,
-    )
-    assert dfv.variable_alias == find_variable_alias(
-        test_session_with_empty_db, tiny_dataset, var_name)
-    assert dfv.level_set == find_level_set(
-        test_session_with_empty_db, tiny_dataset, var_name)
-    assert dfv.grid == find_grid(
-        test_session_with_empty_db, tiny_dataset, var_name)
-
-
-@pytest.mark.parametrize('insert', [False, True])
-def test_find_data_file_variable(
-        test_session_with_empty_db, tiny_dataset, insert
-):
-    var_name = tiny_dataset.dependent_varnames()[0]
-    data_file = insert_data_file(test_session_with_empty_db, tiny_dataset)
-    check_find(
-        find_data_file_variable,
-        cond_insert_data_file_variable_plus,
-        test_session_with_empty_db,
-        tiny_dataset,
-        var_name,
-        data_file,
-        invoke=insert
-    )
-
-
-@pytest.mark.parametrize('insert', [False, True])
-def test_find_or_insert_data_file_variable(
-        test_session_with_empty_db, tiny_dataset, insert):
-    var_name = tiny_dataset.dependent_varnames()[0]
-    data_file = insert_data_file(test_session_with_empty_db, tiny_dataset)
-    check_find_or_insert(
-        find_or_insert_data_file_variable,
-        cond_insert_data_file_variable_plus,
-        test_session_with_empty_db,
-        tiny_dataset,
-        var_name,
-        data_file,
-        invoke=insert
-    )
-
+# # Test schema setup
+#
+# def print_query_results(session, query, title=None):
+#     print()
+#     if title:
+#         print(title)
+#         print('-' * len(title))
+#     result = session.execute(query)
+#     for row in result:
+#         print(row)
+#
+#
+# def test_schemas(test_session_with_empty_db):
+#     print_query_results(test_session_with_empty_db, '''
+#         SHOW search_path
+#     ''', title='search_path')
+#     print_query_results(test_session_with_empty_db, '''
+#         select nspname
+#         from pg_catalog.pg_namespace
+#     ''', title='Schemas')
+#     print_query_results(test_session_with_empty_db, '''
+#         select *
+#         from information_schema.tables
+#         where table_schema not in ('pg_catalog', 'information_schema')
+#     ''', title='Tables')
+#
+#
+# def test_spatial_ref_sys_orm(test_session_with_empty_db):
+#     q = test_session_with_empty_db.query(SpatialRefSys).limit(10)
+#     for r in q.all():
+#         print(r.id, r.proj4text)
+#
+#
+# # Test helper functions
+#
+# def test_get_grid_info(tiny_dataset):
+#     info = get_grid_info(tiny_dataset, tiny_dataset.dependent_varnames()[0])
+#     assert set(info.keys()) == \
+#         set('xc_var yc_var xc_values yc_values '
+#             'xc_grid_step yc_grid_step evenly_spaced_y'.split())
+#     assert info['xc_var'] == tiny_dataset.variables['lon']
+#     assert info['yc_var'] == tiny_dataset.variables['lat']
+#
+#
+# # Note: Overriding default parametrization of tiny_dataset in these tests.
+# @pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
+# def test_get_level_set_info(tiny_dataset, var_name, level_axis_var_name):
+#     info = get_level_set_info(tiny_dataset, var_name)
+#     if level_axis_var_name:
+#         assert set(info.keys()) == \
+#             set('level_axis_var vertical_levels'.split())
+#         assert info['level_axis_var'] == \
+#             tiny_dataset.variables[level_axis_var_name]
+#     else:
+#         assert info is None
+#
+#
+# # Model
+#
+# cond_insert_model = conditional(insert_model)
+#
+#
+# def test_insert_model(test_session_with_empty_db, tiny_dataset):
+#     check_insert(
+#         insert_model, test_session_with_empty_db, tiny_dataset,
+#         short_name=tiny_dataset.metadata.model,
+#         organization=tiny_dataset.metadata.institution,
+#         type=tiny_dataset.model_type,
+#     )
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# def test_find_model(test_session_with_empty_db, tiny_dataset, insert):
+#     check_find(
+#         find_model,
+#         cond_insert_model,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         invoke=insert
+#     )
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# def test_find_or_insert_model(test_session_with_empty_db, tiny_dataset, insert):
+#     check_find_or_insert(
+#         find_or_insert_model,
+#         cond_insert_model,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         invoke=insert
+#     )
+#
+#
+# # Emission
+#
+# cond_insert_emission = conditional(insert_emission)
+#
+#
+# def test_insert_emission(test_session_with_empty_db, tiny_dataset):
+#     check_insert(
+#         insert_emission,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         short_name=tiny_dataset.metadata.emissions
+#     )
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# def test_find_emission(test_session_with_empty_db, tiny_dataset, insert):
+#     check_find(
+#         find_emission,
+#         cond_insert_emission,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         invoke=insert
+#     )
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# def test_find_or_insert_emission(
+#         test_session_with_empty_db, tiny_dataset, insert):
+#     check_find_or_insert(
+#         find_or_insert_emission,
+#         cond_insert_emission,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         invoke=insert
+#     )
+#
+#
+# # Run
+#
+# def insert_run_plus(test_session_with_empty_db, tiny_dataset):
+#     """Insert a run plus associated emission and model objects.
+#     Return run, model, and emission inserted.
+#     """
+#     emission = insert_emission(test_session_with_empty_db, tiny_dataset)
+#     model = insert_model(test_session_with_empty_db, tiny_dataset)
+#     run = insert_run(test_session_with_empty_db, tiny_dataset, model, emission)
+#     return run, model, emission
+#
+#
+# def insert_run_plus_prime(*args):
+#     """Same as above, but just return the run."""
+#     return insert_run_plus(*args)[0]
+#
+#
+# cond_insert_run_plus = conditional(insert_run_plus,
+#                                    false_value=(None, None, None))
+# cond_insert_run_plus_prime = conditional(insert_run_plus_prime)
+#
+#
+# def test_insert_run(test_session_with_empty_db, tiny_dataset):
+#     run, model, emission = \
+#         insert_run_plus(test_session_with_empty_db, tiny_dataset)
+#     check_properties(
+#         run,
+#         name=tiny_dataset.metadata.run,
+#         project=tiny_dataset.metadata.project,
+#         model=model,
+#         emission=emission,
+#     )
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# def test_find_run(test_session_with_empty_db, tiny_dataset, insert):
+#     check_find(
+#         find_run,
+#         cond_insert_run_plus_prime,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         invoke=insert
+#     )
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# def test_find_or_insert_run(test_session_with_empty_db, tiny_dataset, insert):
+#     check_find_or_insert(
+#         find_or_insert_run,
+#         cond_insert_run_plus_prime,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         invoke=insert
+#     )
+#
+#
+# # VariableAlias
+#
+# cond_insert_variable_alias = conditional(insert_variable_alias)
+#
+#
+# def test_insert_variable_alias(test_session_with_empty_db, tiny_dataset):
+#     var_name = tiny_dataset.dependent_varnames()[0]
+#     variable = tiny_dataset.variables[var_name]
+#     check_insert(
+#         insert_variable_alias,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         var_name,
+#         long_name=variable.long_name,
+#         standard_name=usable_name(variable),
+#         units=variable.units,
+#     )
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# def test_find_variable_alias(test_session_with_empty_db, tiny_dataset, insert):
+#     check_find(
+#         find_variable_alias,
+#         cond_insert_variable_alias,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         tiny_dataset.dependent_varnames()[0],
+#         invoke=insert
+#     )
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# def test_find_or_insert_variable_alias(
+#         test_session_with_empty_db, tiny_dataset, insert):
+#     check_find_or_insert(
+#         find_or_insert_variable_alias,
+#         cond_insert_variable_alias,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         tiny_dataset.dependent_varnames()[0],
+#         invoke=insert
+#     )
+#
+#
+# # LevelSet, Level
+#
+# cond_insert_level_set = conditional(insert_level_set)
+#
+#
+# # Note: Overriding default parametrization of tiny_dataset in these tests.
+#
+# @pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
+# def test_insert_level_set(
+#         test_session_with_empty_db, tiny_dataset,
+#         var_name, level_axis_var_name
+# ):
+#     variable = tiny_dataset.variables[var_name]
+#     if level_axis_var_name:
+#         level_axis_var = tiny_dataset.variables[level_axis_var_name]
+#         assert level_axis_var_name in variable.dimensions
+#         level_set = check_insert(
+#             insert_level_set,
+#             test_session_with_empty_db,
+#             tiny_dataset, var_name,
+#             level_units=level_axis_var.units
+#         )
+#         levels = (
+#             test_session_with_empty_db.query(Level)
+#             .filter(Level.level_set == level_set)
+#             .all()
+#         )
+#         assert level_set.levels == levels
+#         assert list(level.vertical_level for level in levels) == \
+#             list(vertical_level for vertical_level in level_axis_var[:])
+#     else:
+#         check_insert(
+#             insert_level_set,
+#             test_session_with_empty_db,
+#             tiny_dataset,
+#             var_name
+#         )
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# @pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
+# def test_find_level_set(
+#         test_session_with_empty_db, tiny_dataset, var_name,
+#         level_axis_var_name, insert):
+#     check_find(
+#         find_level_set,
+#         cond_insert_level_set,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         var_name,
+#         invoke=insert
+#     )
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# @pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
+# def test_find_or_insert_level_set(
+#         test_session_with_empty_db, tiny_dataset, var_name,
+#         level_axis_var_name, insert):
+#     check_find_or_insert(
+#         find_or_insert_level_set,
+#         cond_insert_level_set,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         var_name,
+#         invoke=insert,
+#         expect_insert=bool(level_axis_var_name)
+#     )
+#
+#
+# # SpatialRefSys
+#
+# cond_insert_spatial_ref_sys = conditional(insert_spatial_ref_sys)
+#
+#
+# def test_insert_spatial_ref_sys(test_session_with_empty_db, tiny_dataset):
+#     var_name = tiny_dataset.dependent_varnames()[0]
+#     proj4_string = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+#     srs = check_insert(
+#         insert_spatial_ref_sys,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         var_name,
+#         auth_name='PCIC',
+#         proj4text=proj4_string,
+#         srtext=wkt(proj4_string),
+#     )
+#     assert srs.id > 990000
+#     assert srs.id == \
+#            test_session_with_empty_db.query(func.max(SpatialRefSys.id)).scalar()
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# def test_find_spatial_ref_sys(test_session_with_empty_db, tiny_dataset, insert):
+#     check_find(
+#         find_spatial_ref_sys,
+#         cond_insert_spatial_ref_sys,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         tiny_dataset.dependent_varnames()[0],
+#         invoke=insert
+#     )
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# def test_find_or_insert_spatial_ref_sys(
+#         test_session_with_empty_db, tiny_dataset, insert):
+#     check_find_or_insert(
+#         find_or_insert_spatial_ref_sys,
+#         cond_insert_spatial_ref_sys,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         tiny_dataset.dependent_varnames()[0],
+#         invoke=insert
+#     )
+#
+#
+# # Grid, YCellBound
+#
+# def insert_grid_plus(sesh, cf, var_name):
+#     """Insert a grid plus associated spatial ref sys object.
+#     Return grid and spatial ref sys inserted.
+#     """
+#     srs = insert_spatial_ref_sys(sesh, cf, var_name)
+#     grid = insert_grid(sesh, cf, var_name, srs)
+#     return grid, srs
+#
+#
+# def insert_grid_plus_prime(*args):
+#     """Same as above, but just return the grid."""
+#     return insert_grid_plus(*args)[0]
+#
+#
+# cond_insert_grid_plus = conditional(insert_grid_plus,
+#                                    false_value=(None, None))
+# cond_insert_grid_plus_prime = conditional(insert_grid_plus_prime)
+#
+#
+# def test_insert_grid(test_session_with_empty_db, tiny_dataset):
+#     var_name = tiny_dataset.dependent_varnames()[0]
+#     info = get_grid_info(tiny_dataset, var_name)
+#     grid, srs = insert_grid_plus(
+#         test_session_with_empty_db, tiny_dataset, var_name)
+#     check_properties(
+#         grid,
+#         xc_origin=info['xc_values'][0],
+#         yc_origin=info['yc_values'][0],
+#         xc_grid_step=info['xc_grid_step'],
+#         yc_grid_step=info['yc_grid_step'],
+#         xc_count=len(info['xc_values']),
+#         yc_count=len(info['yc_values']),
+#         evenly_spaced_y=info['evenly_spaced_y'],
+#         xc_units=info['xc_var'].units,
+#         yc_units=info['yc_var'].units,
+#     )
+#     assert grid.srid == srs.id
+#     if grid.evenly_spaced_y:
+#         assert len(grid.y_cell_bounds) == 0
+#     else:
+#         assert len(grid.y_cell_bounds) == len(info['yc_var'][:])
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# def test_find_grid(test_session_with_empty_db, tiny_dataset, insert):
+#     check_find(
+#         find_grid,
+#         cond_insert_grid_plus_prime,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         tiny_dataset.dependent_varnames()[0],
+#         invoke=insert
+#     )
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# def test_find_or_insert_grid(test_session_with_empty_db, tiny_dataset, insert):
+#     check_find_or_insert(
+#         find_or_insert_grid,
+#         cond_insert_grid_plus_prime,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         tiny_dataset.dependent_varnames()[0],
+#         invoke=insert
+#     )
+#
+#
+# # DataFileVariable
+#
+# def insert_data_file_variable_plus(
+#         test_session_with_empty_db, tiny_dataset, var_name, data_file):
+#     """Insert a ``DataFileVariable`` plus associated ``VariableAlias``,
+#     ``LevelSet``, and ``Grid`` objects.
+#     Return ``DataFileVariable`` inserted.
+#     """
+#     variable_alias = insert_variable_alias(
+#         test_session_with_empty_db, tiny_dataset, var_name)
+#     level_set = insert_level_set(
+#         test_session_with_empty_db, tiny_dataset, var_name)
+#     grid = insert_grid_plus_prime(
+#         test_session_with_empty_db, tiny_dataset, var_name)
+#     data_file_variable = insert_data_file_variable(
+#         test_session_with_empty_db, tiny_dataset, var_name,
+#         data_file, variable_alias, level_set, grid
+#     )
+#     return data_file_variable
+#
+#
+# cond_insert_data_file_variable_plus = \
+#     conditional(insert_data_file_variable_plus)
+#
+#
+# def test_insert_data_file_variable(test_session_with_empty_db, tiny_dataset):
+#     var_name = tiny_dataset.dependent_varnames()[0]
+#     variable = tiny_dataset.variables[var_name]
+#     range_min, range_max = tiny_dataset.var_range(var_name)
+#     data_file = insert_data_file(test_session_with_empty_db, tiny_dataset)
+#     dfv = check_insert(
+#         insert_data_file_variable_plus,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         var_name,
+#         data_file,
+#         file=data_file,
+#         netcdf_variable_name=var_name,
+#         variable_cell_methods=variable.cell_methods,
+#         range_min=range_min,
+#         range_max=range_max,
+#         disabled=False,
+#     )
+#     assert dfv.variable_alias == find_variable_alias(
+#         test_session_with_empty_db, tiny_dataset, var_name)
+#     assert dfv.level_set == find_level_set(
+#         test_session_with_empty_db, tiny_dataset, var_name)
+#     assert dfv.grid == find_grid(
+#         test_session_with_empty_db, tiny_dataset, var_name)
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# def test_find_data_file_variable(
+#         test_session_with_empty_db, tiny_dataset, insert
+# ):
+#     var_name = tiny_dataset.dependent_varnames()[0]
+#     data_file = insert_data_file(test_session_with_empty_db, tiny_dataset)
+#     check_find(
+#         find_data_file_variable,
+#         cond_insert_data_file_variable_plus,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         var_name,
+#         data_file,
+#         invoke=insert
+#     )
+#
+#
+# @pytest.mark.parametrize('insert', [False, True])
+# def test_find_or_insert_data_file_variable(
+#         test_session_with_empty_db, tiny_dataset, insert):
+#     var_name = tiny_dataset.dependent_varnames()[0]
+#     data_file = insert_data_file(test_session_with_empty_db, tiny_dataset)
+#     check_find_or_insert(
+#         find_or_insert_data_file_variable,
+#         cond_insert_data_file_variable_plus,
+#         test_session_with_empty_db,
+#         tiny_dataset,
+#         var_name,
+#         data_file,
+#         invoke=insert
+#     )
+#
 
 # Timeset
 
