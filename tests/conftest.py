@@ -66,8 +66,6 @@ def ensemble2():
 
 def init_database(engine):
     engine.execute("create extension postgis")
-    # engine.execute(CreateSchema('test'))
-    # engine.execute('SET search_path TO test, public')
 
 
 # Session-scoped databases, engines, session factories, and derived sessions
@@ -84,6 +82,7 @@ def test_dsn():
 def test_engine(test_dsn):
     engine = create_engine(test_dsn)
     init_database(engine)
+    create_test_database(engine)
     yield engine
     engine.dispose()
 
@@ -94,39 +93,12 @@ def test_session_factory(test_engine):
     yield Session
 
 
-# TODO: Add documentation for these fixtures
-
-@pytest.fixture
-def old_test_session_with_empty_db(test_dsn):
-    engine = create_engine(test_dsn)
-    # ``init_database`` must be invoked before ``create_test_database``
-    # init_database(engine)
-    create_test_database(engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    # session.execute('SET search_path TO test, public')
-    yield session
-    session.rollback()
-    session.close()
-
-
-@pytest.fixture
-def old_test_session_with_ensembles(
-        test_session_with_empty_db, ensemble1, ensemble2
-):
-    test_session_with_empty_db.add_all([ensemble1, ensemble2])
-    yield test_session_with_empty_db
-
-
 # Function-scoped databases
 # Use these databases when testing functions that take a database or session 
 # factory argument rather than a session. Because these databases are scoped 
 # only per test, tests are isolated, but are much slower than using 
 # (automatically rolled back) sessions based on session-scoped databases.
 # Suffix ``_fs`` stands for "function scope".
-
-# TODO: What about create_test_database for these fixtures?
-
 
 @pytest.fixture(scope='function')
 def test_dsn_fs():
@@ -149,10 +121,16 @@ def test_session_factory_fs(test_engine_fs):
     yield Session
 
 
+# Function-scoped test session based on session-scoped database, engine, and
+# session factory fixtures.
+# These sessions are fast to create, and achieve test isolation by rolling back
+# their actions on teardown.
+
 @pytest.fixture(scope='function')
-def test_session_with_empty_db(test_session_factory_fs):
-    session = test_session_factory_fs()
+def test_session_with_empty_db(test_session_factory):
+    session = test_session_factory()
     yield session
+    session.rollback()
     session.close()
 
 
