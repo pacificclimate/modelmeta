@@ -142,7 +142,7 @@ def test_session_with_ensembles(
     yield test_session_with_empty_db
 
 
-# Dataset fixtures
+# Parametrized fixtures
 
 # We parametrize this fixture so that every test that uses it is run for all
 # params. This can be overridden on specific tests by using
@@ -168,3 +168,8 @@ def tiny_dataset(request):
     """
     filename = 'data/tiny_{}.nc'.format(request.param)
     return CFDataset(resource_filename('modelmeta', filename))
+
+
+@pytest.fixture(params=[False, True])
+def insert(request):
+    return request.param

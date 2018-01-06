@@ -226,7 +226,6 @@ def test_insert_model(test_session_with_empty_db, tiny_dataset):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_model(test_session_with_empty_db, tiny_dataset, insert):
     check_find(
         find_model,
@@ -237,7 +236,6 @@ def test_find_model(test_session_with_empty_db, tiny_dataset, insert):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_model(test_session_with_empty_db, tiny_dataset, insert):
     check_find_or_insert(
         find_or_insert_model,
@@ -262,7 +260,6 @@ def test_insert_emission(test_session_with_empty_db, tiny_dataset):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_emission(test_session_with_empty_db, tiny_dataset, insert):
     check_find(
         find_emission,
@@ -273,7 +270,6 @@ def test_find_emission(test_session_with_empty_db, tiny_dataset, insert):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_emission(
         test_session_with_empty_db, tiny_dataset, insert):
     check_find_or_insert(
@@ -319,7 +315,6 @@ def test_insert_run(test_session_with_empty_db, tiny_dataset):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_run(test_session_with_empty_db, tiny_dataset, insert):
     check_find(
         find_run,
@@ -330,7 +325,6 @@ def test_find_run(test_session_with_empty_db, tiny_dataset, insert):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_run(test_session_with_empty_db, tiny_dataset, insert):
     check_find_or_insert(
         find_or_insert_run,
@@ -360,7 +354,6 @@ def test_insert_variable_alias(test_session_with_empty_db, tiny_dataset):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_variable_alias(test_session_with_empty_db, tiny_dataset, insert):
     check_find(
         find_variable_alias,
@@ -372,7 +365,6 @@ def test_find_variable_alias(test_session_with_empty_db, tiny_dataset, insert):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_variable_alias(
         test_session_with_empty_db, tiny_dataset, insert):
     check_find_or_insert(
@@ -424,7 +416,6 @@ def test_insert_level_set(
         )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 @pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
 def test_find_level_set(
         test_session_with_empty_db, tiny_dataset, var_name,
@@ -439,7 +430,6 @@ def test_find_level_set(
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 @pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
 def test_find_or_insert_level_set(
         test_session_with_empty_db, tiny_dataset, var_name,
@@ -477,7 +467,6 @@ def test_insert_spatial_ref_sys(test_session_with_empty_db, tiny_dataset):
            test_session_with_empty_db.query(func.max(SpatialRefSys.id)).scalar()
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_spatial_ref_sys(test_session_with_empty_db, tiny_dataset, insert):
     check_find(
         find_spatial_ref_sys,
@@ -489,7 +478,6 @@ def test_find_spatial_ref_sys(test_session_with_empty_db, tiny_dataset, insert):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_spatial_ref_sys(
         test_session_with_empty_db, tiny_dataset, insert):
     check_find_or_insert(
@@ -547,7 +535,6 @@ def test_insert_grid(test_session_with_empty_db, tiny_dataset):
         assert len(grid.y_cell_bounds) == len(info['yc_var'][:])
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_grid(test_session_with_empty_db, tiny_dataset, insert):
     check_find(
         find_grid,
@@ -559,7 +546,6 @@ def test_find_grid(test_session_with_empty_db, tiny_dataset, insert):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_grid(test_session_with_empty_db, tiny_dataset, insert):
     check_find_or_insert(
         find_or_insert_grid,
@@ -622,7 +608,6 @@ def test_insert_data_file_variable(test_session_with_empty_db, tiny_dataset):
         test_session_with_empty_db, tiny_dataset, var_name)
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_data_file_variable(
         test_session_with_empty_db, tiny_dataset, insert
 ):
@@ -639,7 +624,6 @@ def test_find_data_file_variable(
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_data_file_variable(
         test_session_with_empty_db, tiny_dataset, insert):
     var_name = tiny_dataset.dependent_varnames()[0]
@@ -704,7 +688,6 @@ def test_insert_timeset(test_session_with_empty_db, tiny_dataset):
             to_datetime(tiny_dataset.time_range_as_dates)
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_timeset(test_session_with_empty_db, tiny_dataset, insert):
     check_find(
         find_timeset,
@@ -715,7 +698,6 @@ def test_find_timeset(test_session_with_empty_db, tiny_dataset, insert):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_timeset(
         test_session_with_empty_db, tiny_dataset, insert
 ):
@@ -756,7 +738,6 @@ def test_insert_data_file(
         find_timeset(test_session_with_empty_db, tiny_dataset)
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_data_file(test_session_with_empty_db, tiny_dataset, insert):
     data_file = cond_insert_data_file(
         test_session_with_empty_db, tiny_dataset, invoke=insert)
