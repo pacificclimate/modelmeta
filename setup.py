@@ -22,6 +22,7 @@ setup(
         nchelpers>=5.3.0
         python-dateutil
         sqlparse
+        PyCRS
     '''.split(),
     package_data = {
         'modelmeta': '''
