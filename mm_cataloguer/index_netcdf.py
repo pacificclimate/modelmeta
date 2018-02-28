@@ -522,8 +522,7 @@ def find_spatial_ref_sys(sesh, cf, var_name):
         .filter(SpatialRefSys.srtext ==
                 wkt(cf.proj4_string(var_name, default=default_proj4)))
     )
-    return q.first()
-    # return q.one_or_none()
+    return q.one_or_none()
 
 
 def insert_spatial_ref_sys(sesh, cf, var_name):
