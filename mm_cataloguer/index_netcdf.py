@@ -579,6 +579,19 @@ def insert_spatial_ref_sys(sesh, cf, var_name):
 
     sesh.add(spatial_ref_sys)
 
+    # At this point, ``spatial_ref_sys.id`` is still in the form of a SELECT
+    # statement, which causes an error if it is attempted to be used in the
+    # Python code. So instead we flush  the session to the database(not commit!
+    # the current transaction can still be rolled back), then query to get the
+    # SRS back with all values (i.e., ``id`` and ``auth_id``) fully defined.
+    # Documentation seems to indicate that ``Session.refresh()`` should do this
+    # for us (and more elegantly), but experimentation shows it doesn't.
+    sesh.flush()
+    # The newly inserted SRS is by definition the one with the highest id.
+    spatial_ref_sys = (sesh.query(SpatialRefSys)
+                       .order_by(SpatialRefSys.id.desc())
+                       .first())
+
     return spatial_ref_sys
 
 
