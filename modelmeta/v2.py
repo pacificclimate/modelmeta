@@ -5,8 +5,7 @@ __all__ = ['ClimatologicalTime', 'DataFile', 'DataFileVariable',
            'DataFileVariablesQcFlag', 'Emission', 'Ensemble', 'EnsembleDataFileVariables',
            'Grid', 'Level', 'LevelSet', 'Model', 'QcFlag', 'Run',
            'Time', 'TimeSet', 'Variable', 'VariableAlias', 'YCellBound',
-           'SpatialRefSys',
-           'test_dsn', 'test_session']
+           'SpatialRefSys']
 
 from pkg_resources import resource_filename
 
@@ -414,16 +413,3 @@ class SpatialRefSys(Base):
 
 # We don't declare constraints on SpatialRefSys because the Postgis plugin is
 # responsible for creating it.
-
-
-# TODO: Move this out to conftest. How did this even get here?
-
-test_dsn = 'sqlite+pysqlite:///{0}'.format(resource_filename('modelmeta', 'data/mddb-v2.sqlite'))
-
-def test_session():
-    '''This creates a testing database session that can be used as a test fixture.
-    '''
-    from sqlalchemy import create_engine
-    engine = create_engine(test_dsn)
-    Session = sessionmaker(bind=engine)
-    return Session()
