@@ -450,8 +450,19 @@ def test_find_or_insert_level_set(
 cond_insert_spatial_ref_sys = conditional(insert_spatial_ref_sys)
 
 
-def test_insert_spatial_ref_sys(test_session_with_empty_db, tiny_dataset):
-    sesh = test_session_with_empty_db
+# All these tests are time consuming and each is the same from dataset to
+# dataset, save for the extraction of the proj4 string from the dataset.
+# So we don't test on all datasets. Comment out the parametrization on
+# ``tiny_dataset`` if you want to restore testing on all datasets.
+
+
+@pytest.mark.parametrize('tiny_dataset', ['gcm'], indirect=['tiny_dataset'])
+def test_insert_spatial_ref_sys(test_session_with_empty_db_fs, tiny_dataset):
+    # Because we have to commit the inserted object to the database to test
+    # properly, we use a session based on a function-scoped database.
+    # This is slow, but it isolates the tests, which session-scoped database
+    # would not do.
+    sesh = test_session_with_empty_db_fs
     q = sesh.query(func.max(SpatialRefSys.id).label('max_srid'))
     prev_max_srid = q.scalar()
 
@@ -464,10 +475,6 @@ def test_insert_spatial_ref_sys(test_session_with_empty_db, tiny_dataset):
     # evaluated. And because of that, we can't use the convenience function
     # `check_insert`. So we commit and check more manually.
 
-    # WARNING: Committing here prevents the test infrastructure
-    # (test_session_with_empty_db, etc.; see conftest) from rolling back the
-    # session's actions, so these tests are not isolated from the others.
-    # Which is more of a concern for the others.
     sesh.commit()
 
     # For reasons not fully understood, using the object `srs` (e.g., `srs.id`)
@@ -498,28 +505,65 @@ def test_insert_spatial_ref_sys(test_session_with_empty_db, tiny_dataset):
         srtext=wkt(proj4_string),
     )
 
-
-def test_find_spatial_ref_sys(test_session_with_empty_db, tiny_dataset, insert):
-    check_find(
-        find_spatial_ref_sys,
-        cond_insert_spatial_ref_sys,
-        test_session_with_empty_db,
-        tiny_dataset,
-        tiny_dataset.dependent_varnames()[0],
-        invoke=insert
-    )
+    sesh.close()
 
 
+@pytest.mark.parametrize('tiny_dataset', ['gcm'], indirect=['tiny_dataset'])
+def test_find_spatial_ref_sys(
+        test_session_with_empty_db_fs, tiny_dataset, insert):
+    # Identical considerations noted in `test_insert_spatial_ref_sys` regarding
+    # database scope and committing the inserted object apply here.
+    # See those comments.
+    sesh = test_session_with_empty_db_fs
+    var_name = tiny_dataset.dependent_varnames()[0]
+    if insert:
+        insert_spatial_ref_sys(sesh, tiny_dataset, var_name)
+        sesh.commit()
+        thing_inserted = (
+            sesh.query(SpatialRefSys)
+            .order_by(SpatialRefSys.id.desc())
+            .first()
+        )
+    else:
+        thing_inserted = None
+    thing_found = find_spatial_ref_sys(sesh, tiny_dataset, var_name)
+    # Both are None when not inserted and not found
+    assert thing_inserted == thing_found
+
+
+@pytest.mark.parametrize('tiny_dataset', ['gcm'], indirect=['tiny_dataset'])
 def test_find_or_insert_spatial_ref_sys(
-        test_session_with_empty_db, tiny_dataset, insert):
-    check_find_or_insert(
-        find_or_insert_spatial_ref_sys,
-        cond_insert_spatial_ref_sys,
-        test_session_with_empty_db,
-        tiny_dataset,
-        tiny_dataset.dependent_varnames()[0],
-        invoke=insert
-    )
+        test_session_with_empty_db_fs, tiny_dataset, insert):
+    # Identical considerations noted in `test_insert_spatial_ref_sys` regarding
+    # database scope and committing the inserted object apply here.
+    # See those comments.
+    sesh = test_session_with_empty_db_fs
+    q = sesh.query(func.max(SpatialRefSys.id).label('max_srid'))
+    prev_max_srid = q.scalar()
+
+    var_name = tiny_dataset.dependent_varnames()[0]
+    if insert:
+        insert_spatial_ref_sys(sesh, tiny_dataset, var_name)
+        sesh.commit()
+        thing_we_inserted = (
+            sesh.query(SpatialRefSys)
+                .order_by(SpatialRefSys.id.desc())
+                .first()
+        )
+    else:
+        thing_we_inserted = None
+
+    thing_it_found_or_inserted = find_or_insert_spatial_ref_sys(
+        sesh, tiny_dataset, var_name)
+    if insert:
+        assert thing_it_found_or_inserted == thing_we_inserted
+    else:
+        # Commit the thing inserted by it
+        sesh.commit()
+        # And check it
+        new_max_srid = q.scalar()
+        assert new_max_srid >= 990000
+        assert new_max_srid > prev_max_srid
 
 
 # Grid, YCellBound

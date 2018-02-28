@@ -93,6 +93,27 @@ def test_session_factory(test_engine):
     yield Session
 
 
+# Function-scoped test session based on SESSION-scoped database, engine, and
+# session factory fixtures.
+# These sessions are fast to create, and achieve test isolation by rolling back
+# their actions on teardown.
+
+@pytest.fixture(scope='function')
+def test_session_with_empty_db(test_session_factory):
+    session = test_session_factory()
+    yield session
+    session.rollback()
+    session.close()
+
+
+@pytest.fixture(scope='function')
+def test_session_with_ensembles(
+        test_session_with_empty_db, ensemble1, ensemble2
+):
+    test_session_with_empty_db.add_all([ensemble1, ensemble2])
+    yield test_session_with_empty_db
+
+
 # Function-scoped databases
 # Use these databases when testing functions that take a database or session 
 # factory argument rather than a session. Because these databases are scoped 
@@ -121,25 +142,16 @@ def test_session_factory_fs(test_engine_fs):
     yield Session
 
 
-# Function-scoped test session based on session-scoped database, engine, and
+# Function-scoped test session based on FUNCTION-scoped database, engine, and
 # session factory fixtures.
-# These sessions are fast to create, and achieve test isolation by rolling back
-# their actions on teardown.
+# These sessions are SLOW to create, and achieve test isolation using a new
+# database each time.
 
 @pytest.fixture(scope='function')
-def test_session_with_empty_db(test_session_factory):
-    session = test_session_factory()
+def test_session_with_empty_db_fs(test_session_factory_fs):
+    session = test_session_factory_fs()
     yield session
-    session.rollback()
     session.close()
-
-
-@pytest.fixture(scope='function')
-def test_session_with_ensembles(
-        test_session_with_empty_db, ensemble1, ensemble2
-):
-    test_session_with_empty_db.add_all([ensemble1, ensemble2])
-    yield test_session_with_empty_db
 
 
 # Parametrized fixtures
