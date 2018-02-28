@@ -73,7 +73,7 @@ import functools
 
 from netCDF4 import num2date
 import numpy as np
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine, func, select, case
 from sqlalchemy.orm import sessionmaker
 
 import pycrs
@@ -522,7 +522,8 @@ def find_spatial_ref_sys(sesh, cf, var_name):
         .filter(SpatialRefSys.srtext ==
                 wkt(cf.proj4_string(var_name, default=default_proj4)))
     )
-    return q.one_or_none()
+    return q.first()
+    # return q.one_or_none()
 
 
 def insert_spatial_ref_sys(sesh, cf, var_name):
@@ -534,21 +535,50 @@ def insert_spatial_ref_sys(sesh, cf, var_name):
     :param var_name: (str) name of variable for which to insert spatial ref sys
     :return: (SpatialRefSys) inserted record
     """
-    # FIXME: This can cause problems if multiple indexers are being run
-    # concurrently. Also ugly as hell.
-    srid = max(
-        sesh.query(func.max(SpatialRefSys.id)).scalar(),
-        990000
-    ) + 1
+
+    # Use a common table expression (CTE, a.k.a. WITH statement) to compute,
+    # atomically, the next SpatialRefSys id to use for the insert. That id is
+    # defined to be the larger of (the largest current id + 1, 990000).
+    #
+    # The CTE is a simpler way to package up the queries needed into a
+    # transaction that either succeeds or is rolled back as a unit.
+    # Also, we've used a CASE statement to avoid having to add special
+    # SQLAlchemy expression compilation code to define the Postgres function
+    # "GREATER", which if present would be more elegant.
+    #
+    # To use the new id value, we have to have a way of using it in an insert
+    # statement, which fortunately SQLAlchemy makes relatively easy.
+    #
+    # Useful reference info:
+    # CTE: http://docs.sqlalchemy.org/en/latest/core/selectable.html#sqlalchemy.sql.expression.CompoundSelect.cte
+    # CTE: http://docs.sqlalchemy.org/en/latest/orm/query.html#sqlalchemy.orm.query.Query.cte
+    # Embedding SQL Insert/Update Expressions into a Flush: http://docs.sqlalchemy.org/en/latest/orm/persistence_techniques.html#embedding-sql-insert-update-expressions-into-a-flush
+    max_srid = (
+        sesh.query(func.max(SpatialRefSys.id).label('max_srid'))
+        .cte(name='max_srid')
+    )
+    next_srid = (
+        select([
+            case([
+                (max_srid.c.max_srid >= 990000, max_srid.c.max_srid + 1),
+            ], else_=990000).label('next_srid')
+        ])
+        .cte(name='next_srid')
+    )
+    id = select([next_srid.c.next_srid])  # Used in two places
+
     proj4_string = cf.proj4_string(var_name, default=default_proj4)
+
     spatial_ref_sys = SpatialRefSys(
-        id=srid,
+        id=id,
         auth_name='PCIC',
-        auth_srid=srid,
+        auth_srid=id,
         proj4text=proj4_string,
         srtext=wkt(proj4_string),
     )
+
     sesh.add(spatial_ref_sys)
+
     return spatial_ref_sys
 
 
