@@ -5,7 +5,7 @@ __all__ = ['ClimatologicalTime', 'DataFile', 'DataFileVariable',
            'DataFileVariablesQcFlag', 'Emission', 'Ensemble', 'EnsembleDataFileVariables',
            'Grid', 'Level', 'LevelSet', 'Model', 'QcFlag', 'Run',
            'Time', 'TimeSet', 'Variable', 'VariableAlias', 'YCellBound',
-           'test_dsn', 'test_session']
+           'SpatialRefSys']
 
 from pkg_resources import resource_filename
 
@@ -15,6 +15,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.orderinglist import ordering_list
 from sqlalchemy.orm import relationship, backref, sessionmaker
 
+print('### Creating modelmeta ORM')
 Base = declarative_base()
 metadata = Base.metadata
 
@@ -393,12 +394,22 @@ class YCellBound(Base):
 Index('y_c_b_grid_id_key', YCellBound.grid_id, unique=False)
 
 
-test_dsn = 'sqlite+pysqlite:///{0}'.format(resource_filename('modelmeta', 'data/mddb-v2.sqlite'))
+class SpatialRefSys(Base):
+    """This table is established by the Postgis plugin."""
+    __tablename__ = 'spatial_ref_sys'
 
-def test_session():
-    '''This creates a testing database session that can be used as a test fixture.
-    '''
-    from sqlalchemy import create_engine
-    engine = create_engine(test_dsn)
-    Session = sessionmaker(bind=engine)
-    return Session()
+    #column definitions
+    id = Column('srid', Integer, primary_key=True, nullable=False)
+    auth_name = Column(String(length=256))
+    auth_srid = Column(Integer)
+    srtext = Column(String(length=2048))
+    proj4text = Column(String(length=2048))
+
+    def __repr__(self):
+        return '{}({}, {}, {}, {})'.format(
+            self.__class__.__name__, self.id,
+            self.auth_name, self.auth_srid, self.srtext, self.proj4text
+        )
+
+# We don't declare constraints on SpatialRefSys because the Postgis plugin is
+# responsible for creating it.

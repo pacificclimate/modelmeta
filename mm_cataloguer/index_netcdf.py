@@ -73,14 +73,18 @@ import functools
 
 from netCDF4 import num2date
 import numpy as np
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine, func, select, case
 from sqlalchemy.orm import sessionmaker
+
+import pycrs
 
 from nchelpers import CFDataset
 from nchelpers.date_utils import to_datetime
+
 from modelmeta import Model, Run, Emission, DataFile, TimeSet, Time, \
     ClimatologicalTime, DataFileVariable, VariableAlias, \
-    LevelSet, Level, Grid, YCellBound, EnsembleDataFileVariables
+    LevelSet, Level, Grid, YCellBound, EnsembleDataFileVariables, \
+    SpatialRefSys
 from mm_cataloguer import psycopg2_adapters
 
 
@@ -489,6 +493,121 @@ def find_or_insert_level_set(sesh, cf, var_name):  # get.level.set.id
     return insert_level_set(sesh, cf, var_name)
 
 
+# SpatialRefSys
+
+default_proj4 = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+
+
+def wkt(proj4):
+    """Return a WKT representation of a CRS defined in PROJ.4 syntax."""
+    return pycrs.parser.from_proj4(proj4).to_ogc_wkt()
+
+
+def find_spatial_ref_sys(sesh, cf, var_name):
+    """Find existing ``SpatialRefSys`` record corresponding to the CRS defined
+    in the the NetCDF file for the specified variable.
+
+    ``SpatialRefSys`` records are matched only on the srtext attribute,
+    which is the WKT representation of the CRS.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable for which to find spatial ref sys
+    :return: existing ``SpatialRefSys`` record or None
+    """
+    q = (
+        sesh.query(SpatialRefSys)
+        .filter(SpatialRefSys.srtext ==
+                wkt(cf.proj4_string(var_name, default=default_proj4)))
+    )
+    return q.one_or_none()
+
+
+def insert_spatial_ref_sys(sesh, cf, var_name):
+    """Insert a new ``SpatialRefSys`` record that describes the CRS defined
+    in the the NetCDF file for the specified variable.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable for which to insert spatial ref sys
+    :return: (SpatialRefSys) inserted record
+    """
+
+    # Use a common table expression (CTE, a.k.a. WITH statement) to compute,
+    # atomically, the next SpatialRefSys id to use for the insert. That id is
+    # defined to be the larger of (the largest current id + 1, 990000).
+    #
+    # The CTE is a simpler way to package up the queries needed into a
+    # transaction that either succeeds or is rolled back as a unit.
+    # Also, we've used a CASE statement to avoid having to add special
+    # SQLAlchemy expression compilation code to define the Postgres function
+    # "GREATER", which if present would be more elegant.
+    #
+    # To use the new id value, we have to have a way of using it in an insert
+    # statement, which fortunately SQLAlchemy makes relatively easy.
+    #
+    # Useful reference info:
+    # CTE: http://docs.sqlalchemy.org/en/latest/core/selectable.html#sqlalchemy.sql.expression.CompoundSelect.cte
+    # CTE: http://docs.sqlalchemy.org/en/latest/orm/query.html#sqlalchemy.orm.query.Query.cte
+    # Embedding SQL Insert/Update Expressions into a Flush: http://docs.sqlalchemy.org/en/latest/orm/persistence_techniques.html#embedding-sql-insert-update-expressions-into-a-flush
+    max_srid = (
+        sesh.query(func.max(SpatialRefSys.id).label('max_srid'))
+        .cte(name='max_srid')
+    )
+    next_srid = (
+        select([
+            case([
+                (max_srid.c.max_srid >= 990000, max_srid.c.max_srid + 1),
+            ], else_=990000).label('next_srid')
+        ])
+        .cte(name='next_srid')
+    )
+    id = select([next_srid.c.next_srid])  # Used in two places
+
+    proj4_string = cf.proj4_string(var_name, default=default_proj4)
+
+    spatial_ref_sys = SpatialRefSys(
+        id=id,
+        auth_name='PCIC',
+        auth_srid=id,
+        proj4text=proj4_string,
+        srtext=wkt(proj4_string),
+    )
+
+    sesh.add(spatial_ref_sys)
+
+    # At this point, ``spatial_ref_sys.id`` is still in the form of a SELECT
+    # statement, which causes an error if it is attempted to be used in the
+    # Python code. So instead we flush  the session to the database(not commit!
+    # the current transaction can still be rolled back), then query to get the
+    # SRS back with all values (i.e., ``id`` and ``auth_id``) fully defined.
+    # Documentation seems to indicate that ``Session.refresh()`` should do this
+    # for us (and more elegantly), but experimentation shows it doesn't.
+    sesh.flush()
+    # The newly inserted SRS is by definition the one with the highest id.
+    spatial_ref_sys = (sesh.query(SpatialRefSys)
+                       .order_by(SpatialRefSys.id.desc())
+                       .first())
+
+    return spatial_ref_sys
+
+
+def find_or_insert_spatial_ref_sys(sesh, cf, var_name):
+    """Find existing or insert new ``SpatialRefSys`` record corresponding
+    to the CRS defined in the the NetCDF file for the specified variable.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable for which to find or insert
+        spatial ref sys
+    :return: existing or new ``SpatialRefSys`` record
+    """
+    spatial_ref_sys = find_spatial_ref_sys(sesh, cf, var_name)
+    if spatial_ref_sys:
+        return spatial_ref_sys
+    return insert_spatial_ref_sys(sesh, cf, var_name)
+
+
 # Grid, YCellBound
 
 def find_grid(sesh, cf, var_name):
@@ -515,8 +634,10 @@ def find_grid(sesh, cf, var_name):
                     relative_tolerance)
 
     info = get_grid_info(cf, var_name)
+    srid = find_or_insert_spatial_ref_sys(sesh, cf, var_name).id
 
-    return (sesh.query(Grid)
+    grid = (
+        sesh.query(Grid)
             .filter(approx_equal(Grid.xc_origin, info['xc_values'][0]))
             .filter(approx_equal(Grid.yc_origin, info['yc_values'][0]))
             .filter(approx_equal(Grid.xc_grid_step, info['xc_grid_step']))
@@ -524,18 +645,22 @@ def find_grid(sesh, cf, var_name):
             .filter(Grid.xc_count == len(info['xc_values']))
             .filter(Grid.yc_count == len(info['yc_values']))
             .filter(Grid.evenly_spaced_y == info['evenly_spaced_y'])
+            .filter(Grid.srid == srid)
             .first()
-            )
+    )
+    return grid
 
 
-def insert_grid(sesh, cf, var_name):
+def insert_grid(sesh, cf, var_name, spatial_ref_sys):
     """Insert new ``Grid`` record and associated ``YCellBound`` records
     corresponding to spatial dimensions of a variable in a NetCDF file.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :param var_name: (str) name of variable for which to find or insert grid
-    :return: existing or new ``Grid`` record
+    :param spatial_ref_sys: (SpatialRefSys) ``SpatialRefSys``  record
+        characterizing the variable's spatial reference system (CRS).
+    :return: new ``Grid`` record
     """
     info = get_grid_info(cf, var_name)
 
@@ -572,6 +697,7 @@ def insert_grid(sesh, cf, var_name):
         cell_avg_area_sq_km=cell_avg_area_sq_km(),
         xc_units=info['xc_var'].units,
         yc_units=info['yc_var'].units,
+        srid=spatial_ref_sys.id,
     )
     sesh.add(grid)
 
@@ -591,6 +717,7 @@ def insert_grid(sesh, cf, var_name):
 def find_or_insert_grid(sesh, cf, var_name):
     """Find existing or insert new ``Grid`` record (and associated ``YCellBound``
     records) corresponding to a variable in a NetCDF file.
+    Find or insert required ``SpatialRefSys`` records as necessary.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
@@ -600,7 +727,12 @@ def find_or_insert_grid(sesh, cf, var_name):
     grid = find_grid(sesh, cf, var_name)
     if grid:
         return grid
-    return insert_grid(sesh, cf, var_name)
+
+    # No matching ``Grid``: Insert new ``Grid`` and find or insert accompanying
+    # ``SpatialRefSys``
+    spatial_ref_sys = find_or_insert_spatial_ref_sys(sesh, cf, var_name)
+    assert spatial_ref_sys
+    return insert_grid(sesh, cf, var_name, spatial_ref_sys)
 
 
 # DataFileVariable

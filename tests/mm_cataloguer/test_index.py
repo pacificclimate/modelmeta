@@ -32,11 +32,12 @@ from netCDF4 import date2num, num2date
 
 from dateutil.relativedelta import relativedelta
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import func
+
+import pycrs
 
 from modelmeta import create_test_database
-from modelmeta import Level, DataFile
+from modelmeta import Level, DataFile, SpatialRefSys
 from nchelpers.date_utils import to_datetime
 
 from mm_cataloguer.index_netcdf import \
@@ -50,10 +51,11 @@ from mm_cataloguer.index_netcdf import \
     find_or_insert_data_file_variable, \
     insert_variable_alias, find_variable_alias, find_or_insert_variable_alias, \
     insert_level_set, find_level_set, find_or_insert_level_set, \
+    insert_spatial_ref_sys, find_spatial_ref_sys, find_or_insert_spatial_ref_sys, \
     insert_grid, find_grid, find_or_insert_grid, \
     insert_timeset, find_timeset, find_or_insert_timeset, \
     get_grid_info, get_level_set_info, \
-    seconds_since_epoch, usable_name
+    seconds_since_epoch, usable_name, wkt
 
 from mock_helper import Mock
 
@@ -153,7 +155,40 @@ level_set_parametrization = ('tiny_dataset, var_name, level_axis_var_name', [
 ])
 
 
-# Helper functions
+# Test schema setup
+
+def print_query_results(session, query, title=None):
+    print()
+    if title:
+        print(title)
+        print('-' * len(title))
+    result = session.execute(query)
+    for row in result:
+        print(row)
+
+
+def test_schemas(test_session_with_empty_db):
+    print_query_results(test_session_with_empty_db, '''
+        SHOW search_path
+    ''', title='search_path')
+    print_query_results(test_session_with_empty_db, '''
+        select nspname
+        from pg_catalog.pg_namespace
+    ''', title='Schemas')
+    print_query_results(test_session_with_empty_db, '''
+        select *
+        from information_schema.tables
+        where table_schema not in ('pg_catalog', 'information_schema')
+    ''', title='Tables')
+
+
+def test_spatial_ref_sys_orm(test_session_with_empty_db):
+    q = test_session_with_empty_db.query(SpatialRefSys).limit(10)
+    for r in q.all():
+        print(r.id, r.proj4text)
+
+
+# Test helper functions
 
 def test_get_grid_info(tiny_dataset):
     info = get_grid_info(tiny_dataset, tiny_dataset.dependent_varnames()[0])
@@ -191,7 +226,6 @@ def test_insert_model(test_session_with_empty_db, tiny_dataset):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_model(test_session_with_empty_db, tiny_dataset, insert):
     check_find(
         find_model,
@@ -202,7 +236,6 @@ def test_find_model(test_session_with_empty_db, tiny_dataset, insert):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_model(test_session_with_empty_db, tiny_dataset, insert):
     check_find_or_insert(
         find_or_insert_model,
@@ -227,7 +260,6 @@ def test_insert_emission(test_session_with_empty_db, tiny_dataset):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_emission(test_session_with_empty_db, tiny_dataset, insert):
     check_find(
         find_emission,
@@ -238,7 +270,6 @@ def test_find_emission(test_session_with_empty_db, tiny_dataset, insert):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_emission(
         test_session_with_empty_db, tiny_dataset, insert):
     check_find_or_insert(
@@ -284,7 +315,6 @@ def test_insert_run(test_session_with_empty_db, tiny_dataset):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_run(test_session_with_empty_db, tiny_dataset, insert):
     check_find(
         find_run,
@@ -295,7 +325,6 @@ def test_find_run(test_session_with_empty_db, tiny_dataset, insert):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_run(test_session_with_empty_db, tiny_dataset, insert):
     check_find_or_insert(
         find_or_insert_run,
@@ -325,7 +354,6 @@ def test_insert_variable_alias(test_session_with_empty_db, tiny_dataset):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_variable_alias(test_session_with_empty_db, tiny_dataset, insert):
     check_find(
         find_variable_alias,
@@ -337,7 +365,6 @@ def test_find_variable_alias(test_session_with_empty_db, tiny_dataset, insert):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_variable_alias(
         test_session_with_empty_db, tiny_dataset, insert):
     check_find_or_insert(
@@ -389,7 +416,6 @@ def test_insert_level_set(
         )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 @pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
 def test_find_level_set(
         test_session_with_empty_db, tiny_dataset, var_name,
@@ -404,7 +430,6 @@ def test_find_level_set(
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 @pytest.mark.parametrize(*level_set_parametrization, indirect=['tiny_dataset'])
 def test_find_or_insert_level_set(
         test_session_with_empty_db, tiny_dataset, var_name,
@@ -420,16 +445,96 @@ def test_find_or_insert_level_set(
     )
 
 
+# SpatialRefSys
+
+cond_insert_spatial_ref_sys = conditional(insert_spatial_ref_sys)
+
+
+def test_insert_spatial_ref_sys(test_session_with_empty_db, tiny_dataset):
+    sesh = test_session_with_empty_db
+    q = sesh.query(func.max(SpatialRefSys.id).label('max_srid'))
+    prev_max_srid = q.scalar()
+
+    var_name = tiny_dataset.dependent_varnames()[0]
+    proj4_string = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+    srs = insert_spatial_ref_sys(sesh, tiny_dataset, var_name)
+
+    # Check that we did in fact insert a new SRS, and its id is according to
+    # spec.
+    new_max_srid = q.scalar()
+    assert new_max_srid >= 990000
+    assert new_max_srid > prev_max_srid
+
+    check_properties(
+        srs,
+        auth_name='PCIC',
+        auth_srid=new_max_srid,
+        proj4text=proj4_string,
+        srtext=wkt(proj4_string),
+    )
+
+    sesh.close()
+
+
+def test_find_spatial_ref_sys(test_session_with_empty_db, tiny_dataset, insert):
+    check_find(
+        find_spatial_ref_sys,
+        cond_insert_spatial_ref_sys,
+        test_session_with_empty_db,
+        tiny_dataset,
+        tiny_dataset.dependent_varnames()[0],
+        invoke=insert
+    )
+
+def test_find_or_insert_spatial_ref_sys(
+        test_session_with_empty_db, tiny_dataset, insert):
+    sesh = test_session_with_empty_db
+    q = sesh.query(func.max(SpatialRefSys.id).label('max_srid'))
+    prev_max_srid = q.scalar()
+
+    check_find_or_insert(
+        find_or_insert_spatial_ref_sys,
+        cond_insert_spatial_ref_sys,
+        sesh,
+        tiny_dataset,
+        tiny_dataset.dependent_varnames()[0],
+        invoke=insert
+    )
+
+    if insert:
+        new_max_srid = q.scalar()
+        assert new_max_srid >= 990000
+        assert new_max_srid > prev_max_srid
+
+
 # Grid, YCellBound
 
-cond_insert_grid = conditional(insert_grid)
+def insert_grid_plus(sesh, cf, var_name):
+    """Insert a grid plus associated spatial ref sys object.
+    Return grid and spatial ref sys inserted.
+    """
+    srs = insert_spatial_ref_sys(sesh, cf, var_name)
+    grid = insert_grid(sesh, cf, var_name, srs)
+    return grid, srs
+
+
+def insert_grid_plus_prime(*args):
+    """Same as above, but just return the grid."""
+    return insert_grid_plus(*args)[0]
+
+
+cond_insert_grid_plus = conditional(insert_grid_plus,
+                                   false_value=(None, None))
+cond_insert_grid_plus_prime = conditional(insert_grid_plus_prime)
 
 
 def test_insert_grid(test_session_with_empty_db, tiny_dataset):
     var_name = tiny_dataset.dependent_varnames()[0]
     info = get_grid_info(tiny_dataset, var_name)
-    grid = check_insert(
-        insert_grid, test_session_with_empty_db, tiny_dataset, var_name,
+    grid, srs = insert_grid_plus(
+        test_session_with_empty_db, tiny_dataset, var_name)
+    check_properties(
+        grid,
         xc_origin=info['xc_values'][0],
         yc_origin=info['yc_values'][0],
         xc_grid_step=info['xc_grid_step'],
@@ -440,17 +545,17 @@ def test_insert_grid(test_session_with_empty_db, tiny_dataset):
         xc_units=info['xc_var'].units,
         yc_units=info['yc_var'].units,
     )
+    assert grid.srid == srs.id
     if grid.evenly_spaced_y:
         assert len(grid.y_cell_bounds) == 0
     else:
         assert len(grid.y_cell_bounds) == len(info['yc_var'][:])
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_grid(test_session_with_empty_db, tiny_dataset, insert):
     check_find(
         find_grid,
-        cond_insert_grid,
+        cond_insert_grid_plus_prime,
         test_session_with_empty_db,
         tiny_dataset,
         tiny_dataset.dependent_varnames()[0],
@@ -458,11 +563,10 @@ def test_find_grid(test_session_with_empty_db, tiny_dataset, insert):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_grid(test_session_with_empty_db, tiny_dataset, insert):
     check_find_or_insert(
         find_or_insert_grid,
-        cond_insert_grid,
+        cond_insert_grid_plus_prime,
         test_session_with_empty_db,
         tiny_dataset,
         tiny_dataset.dependent_varnames()[0],
@@ -482,7 +586,8 @@ def insert_data_file_variable_plus(
         test_session_with_empty_db, tiny_dataset, var_name)
     level_set = insert_level_set(
         test_session_with_empty_db, tiny_dataset, var_name)
-    grid = insert_grid(test_session_with_empty_db, tiny_dataset, var_name)
+    grid = insert_grid_plus_prime(
+        test_session_with_empty_db, tiny_dataset, var_name)
     data_file_variable = insert_data_file_variable(
         test_session_with_empty_db, tiny_dataset, var_name,
         data_file, variable_alias, level_set, grid
@@ -520,7 +625,6 @@ def test_insert_data_file_variable(test_session_with_empty_db, tiny_dataset):
         test_session_with_empty_db, tiny_dataset, var_name)
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_data_file_variable(
         test_session_with_empty_db, tiny_dataset, insert
 ):
@@ -537,7 +641,6 @@ def test_find_data_file_variable(
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_data_file_variable(
         test_session_with_empty_db, tiny_dataset, insert):
     var_name = tiny_dataset.dependent_varnames()[0]
@@ -602,7 +705,6 @@ def test_insert_timeset(test_session_with_empty_db, tiny_dataset):
             to_datetime(tiny_dataset.time_range_as_dates)
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_timeset(test_session_with_empty_db, tiny_dataset, insert):
     check_find(
         find_timeset,
@@ -613,7 +715,6 @@ def test_find_timeset(test_session_with_empty_db, tiny_dataset, insert):
     )
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_or_insert_timeset(
         test_session_with_empty_db, tiny_dataset, insert
 ):
@@ -654,7 +755,6 @@ def test_insert_data_file(
         find_timeset(test_session_with_empty_db, tiny_dataset)
 
 
-@pytest.mark.parametrize('insert', [False, True])
 def test_find_data_file(test_session_with_empty_db, tiny_dataset, insert):
     data_file = cond_insert_data_file(
         test_session_with_empty_db, tiny_dataset, invoke=insert)

@@ -27,11 +27,14 @@ import sys
 import os
 from pkg_resources import resource_filename
 
+import pytest
+import testing.postgresql
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import pytest
+from sqlalchemy.schema import CreateSchema
+
 from nchelpers import CFDataset
-import testing.postgresql
 
 from modelmeta import create_test_database
 from modelmeta import Ensemble
@@ -61,6 +64,10 @@ def ensemble2():
     return make_ensemble(2)
 
 
+def init_database(engine):
+    engine.execute("create extension postgis")
+
+
 # Session-scoped databases, engines, session factories, and derived sessions
 # Use these databases and these sessions in preference to reduce per-test 
 # overhead. Sessions roll back any database actions on teardown.
@@ -74,6 +81,8 @@ def test_dsn():
 @pytest.fixture(scope='session')
 def test_engine(test_dsn):
     engine = create_engine(test_dsn)
+    init_database(engine)
+    create_test_database(engine)
     yield engine
     engine.dispose()
 
@@ -84,18 +93,20 @@ def test_session_factory(test_engine):
     yield Session
 
 
-@pytest.fixture
-def test_session_with_empty_db(test_dsn):
-    engine = create_engine(test_dsn)
-    create_test_database(engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
+# Function-scoped test session based on SESSION-scoped database, engine, and
+# session factory fixtures.
+# These sessions are fast to create, and achieve test isolation by rolling back
+# their actions on teardown.
+
+@pytest.fixture(scope='function')
+def test_session_with_empty_db(test_session_factory):
+    session = test_session_factory()
     yield session
     session.rollback()
     session.close()
 
 
-@pytest.fixture
+@pytest.fixture(scope='function')
 def test_session_with_ensembles(
         test_session_with_empty_db, ensemble1, ensemble2
 ):
@@ -110,7 +121,6 @@ def test_session_with_ensembles(
 # (automatically rolled back) sessions based on session-scoped databases.
 # Suffix ``_fs`` stands for "function scope".
 
-
 @pytest.fixture(scope='function')
 def test_dsn_fs():
     with testing.postgresql.Postgresql() as pg:
@@ -120,6 +130,8 @@ def test_dsn_fs():
 @pytest.fixture(scope='function')
 def test_engine_fs(test_dsn_fs):
     engine = create_engine(test_dsn_fs)
+    init_database(engine)
+    create_test_database(engine)
     yield engine
     engine.dispose()
 
@@ -130,7 +142,19 @@ def test_session_factory_fs(test_engine_fs):
     yield Session
 
 
-# Dataset fixtures
+# Function-scoped test session based on FUNCTION-scoped database, engine, and
+# session factory fixtures.
+# These sessions are SLOW to create, and achieve test isolation using a new
+# database each time.
+
+@pytest.fixture(scope='function')
+def test_session_with_empty_db_fs(test_session_factory_fs):
+    session = test_session_factory_fs()
+    yield session
+    session.close()
+
+
+# Parametrized fixtures
 
 # We parametrize this fixture so that every test that uses it is run for all
 # params. This can be overridden on specific tests by using
@@ -156,3 +180,8 @@ def tiny_dataset(request):
     """
     filename = 'data/tiny_{}.nc'.format(request.param)
     return CFDataset(resource_filename('modelmeta', filename))
+
+
+@pytest.fixture(params=[False, True])
+def insert(request):
+    return request.param

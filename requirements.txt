@@ -3,7 +3,7 @@ alembic
 psycopg2
 numpy
 netCDF4
-nchelpers>=5.1.2
+nchelpers>=5.3.0,<6
 python-dateutil
 sqlparse
-testing.postgresql
+git+git://github.com/karimbahgat/PyCRS.git@70e4210b16260b2c17fd31947816836a29a12117

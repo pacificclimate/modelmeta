@@ -19,9 +19,10 @@ setup(
         psycopg2
         numpy
         netCDF4
-        nchelpers>=5.2.0
+        nchelpers>=5.3.0
         python-dateutil
         sqlparse
+        PyCRS
     '''.split(),
     package_data = {
         'modelmeta': '''
