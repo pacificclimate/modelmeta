@@ -117,8 +117,8 @@ def test_dfv_dsg_ts_x_station(
 
     xs = [
         DataFileVariableDSGTimeSeriesXStation(
-            data_file_variable_dsg_ts_id=dfv_dsg_time_series.id,
-            station_id=station.id,
+            data_file_variable_dsg_ts=dfv_dsg_time_series,
+            station=station,
         )
         for dfv_dsg_time_series in dfvs
         for station in stations

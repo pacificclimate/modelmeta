@@ -189,6 +189,7 @@ class Station(Base):
 class DataFileVariableDSGTimeSeriesXStation(Base):
     __tablename__ = 'data_file_variables_dsg_time_series_x_stations'
 
+    # columns
     data_file_variable_dsg_ts_id = Column(
         Integer, ForeignKey('data_file_variables_dsg_time_series.data_file_variable_dsg_ts_id',
                             name='data_file_variables_dsg_time_series_x_stations_data_file_variable_dsg_ts_id_id_fkey',
@@ -203,6 +204,10 @@ class DataFileVariableDSGTimeSeriesXStation(Base):
         primary_key=True,
         nullable=False
     )
+
+    # relations
+    data_file_variable_dsg_ts = relationship('DataFileVariableDSGTimeSeries')
+    station = relationship('Station')
 
     def __repr__(self):
         return obj_repr('data_file_variable_dsg_ts_id station_id', self)
