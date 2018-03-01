@@ -55,6 +55,9 @@ all_classes = [
 
 
 def check_db_is_empty(sesh):
+    """
+    Sanity check to ensure that all previous test results were rolled back.
+    """
     for C in all_classes:
         assert sesh.query(C).count() == 0, C.__name__
 
@@ -98,19 +101,10 @@ def test_station(test_session_with_empty_db, station_1):
     print(station_1)
 
 
-def test_dfv_dsg_ts_x_station(
-        test_session_with_empty_db,
-        dfv_dsg_time_series_1, dfv_dsg_time_series_2, station_1, station_2):
-    '''
-    Associate each of two timeSeries geometry variables with each of two
-    stations
-    '''
-    sesh = test_session_with_empty_db
-    check_db_is_empty(sesh)
-
-    dfvs = {dfv_dsg_time_series_1, dfv_dsg_time_series_2}
-    stations = {station_1, station_2}
-
+def associate_dfvs_and_stations(sesh, dfvs, stations):
+    """"
+    Helper. Associate each timeSeries geometry variable with each station.
+    """
     sesh.add_all(dfvs)
     sesh.add_all(stations)
     sesh.flush()
@@ -125,7 +119,38 @@ def test_dfv_dsg_ts_x_station(
     ]
     sesh.add_all(xs)
     sesh.flush()
+    return xs
 
+
+@pytest.mark.parametrize('del_dfv', [False, True])
+@pytest.mark.parametrize('del_station', [False, True])
+def test_dfv_dsg_ts_x_station_delete(
+        test_session_with_empty_db,
+        dfv_dsg_time_series_1, dfv_dsg_time_series_2, station_1, station_2,
+        del_dfv, del_station,
+):
+    '''
+    Test associations and various combinations of cascading deletes on cross
+    table, including none.
+    '''
+    sesh = test_session_with_empty_db
+    check_db_is_empty(sesh)
+
+    dfvs = {dfv_dsg_time_series_1, dfv_dsg_time_series_2}
+    stations = {station_1, station_2}
+    associate_dfvs_and_stations(sesh, dfvs, stations)
+
+    if del_dfv:
+        sesh.delete(dfv_dsg_time_series_1)
+        sesh.flush()
+        dfvs = dfvs - {dfv_dsg_time_series_1}
+    if del_station:
+        sesh.delete(station_1)
+        sesh.flush()
+        stations = stations - {station_1}
+
+    assert sesh.query(DataFileVariableDSGTimeSeriesXStation).count() == \
+        len(dfvs) * len(stations)
     for dfv_dsg_time_series in dfvs:
         assert set(dfv_dsg_time_series.stations) == stations
     for station in stations:
