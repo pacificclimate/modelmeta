@@ -1,11 +1,32 @@
 """
 Define v2 modelmeta database in SQLAlchemy using declarative base.
 """
-__all__ = ['ClimatologicalTime', 'DataFile', 'DataFileVariable',
-           'DataFileVariablesQcFlag', 'Emission', 'Ensemble', 'EnsembleDataFileVariables',
-           'Grid', 'Level', 'LevelSet', 'Model', 'QcFlag', 'Run',
-           'Time', 'TimeSet', 'Variable', 'VariableAlias', 'YCellBound',
-           'SpatialRefSys']
+__all__ = '''
+    ClimatologicalTime
+    DataFile
+    DataFileVariable
+    DataFileVariableDSGTimeSeries
+    DataFileVariableDSGTimeSeriesXStation
+    DataFileVariableGridded
+    DataFileVariable
+    DataFileVariablesQcFlag
+    Emission
+    Ensemble
+    EnsembleDataFileVariables
+    Grid
+    Level
+    LevelSet
+    Model
+    QcFlag
+    Run
+    Station
+    Time
+    TimeSet
+    Variable
+    VariableAlias
+    YCellBound
+    SpatialRefSys
+'''.split()
 
 from pkg_resources import resource_filename
 
@@ -14,6 +35,17 @@ from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean, \
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.orderinglist import ordering_list
 from sqlalchemy.orm import relationship, backref, sessionmaker
+
+
+def obj_repr(attributes, obj):
+    if isinstance(attributes, str):
+        attributes = attributes.split()
+    attr_list = ', '.join(
+        ['{name}={value}'.format(name=attr, value=repr(getattr(obj, attr)))
+         for attr in attributes]
+    )
+    return '{}({})'.format(obj.__class__.__name__, attr_list)
+
 
 print('### Creating modelmeta ORM')
 Base = declarative_base()
@@ -73,6 +105,7 @@ class DataFileVariable(Base):
 
     #column definitions
     id = Column('data_file_variable_id', Integer, primary_key=True, nullable=False)
+    geometry_type = Column(String(50))  # polymorphic discriminator
     derivation_method = Column(String(length=255))
     variable_cell_methods = Column(String(length=255))
     netcdf_variable_name = Column(String(length=32), nullable=False)
@@ -81,10 +114,121 @@ class DataFileVariable(Base):
     range_max = Column(Float, nullable=False)
 
     #relation definitions
-    data_file_id = Column(Integer, ForeignKey('data_files.data_file_id', name='data_file_variables_data_file_id_fkey', ondelete='CASCADE'), nullable=False)
+    data_file_id = Column(
+        Integer,
+        ForeignKey('data_files.data_file_id',
+                   name='data_file_variables_data_file_id_fkey',
+                   ondelete='CASCADE'),
+        nullable=False
+    )
+    # DataFile defines backref `file` in this class
     variable_alias_id = Column(Integer, ForeignKey('variable_aliases.variable_alias_id'), nullable=False)
+    # VariableAlias defines backref `data_file_variables` in this class
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'none',
+        'polymorphic_on': geometry_type
+    }
+
+    def __repr__(self):
+        return obj_repr('''
+            id geometry_type derivation_method variable_cell_methods 
+            netcdf_variable_name disabled range_min range_max
+        ''', self)
+
+
+class DataFileVariableDSGTimeSeries(DataFileVariable):
+    __tablename__ = 'data_file_variables_dsg_time_series'
+    id = Column(
+        'data_file_variable_dsg_ts_id',
+        Integer,
+        ForeignKey('data_file_variables.data_file_variable_id'),
+                primary_key=True
+    )
+
+    # relations
+    stations = relationship(
+        'Station',
+        secondary='data_file_variables_dsg_time_series_x_stations',
+        back_populates='data_file_variables')
+
+    __mapper_args__ = {
+        'polymorphic_identity':'dsg_time_series',
+    }
+
+    def __repr__(self):
+        return obj_repr('''
+            id derivation_method variable_cell_methods netcdf_variable_name
+            disabled range_min range_max
+        ''', self)
+
+
+class Station(Base):
+    __tablename__ = 'stations'
+
+    # columns
+    id = Column('station_id', Integer, primary_key=True, nullable=False)
+    x = Column(Float, nullable=False)
+    x_units = Column(String(64), nullable=False)
+    y = Column(Float, nullable=False)
+    y_units = Column(String(64), nullable=False)
+    name = Column(String(32))
+    long_name = Column(String(255))
+
+    # relations
+    data_file_variables = relationship(
+        'DataFileVariableDSGTimeSeries',
+        secondary='data_file_variables_dsg_time_series_x_stations',
+        back_populates='stations')
+
+
+    def __repr__(self):
+        return obj_repr('id x x_units y y_units name long_name', self)
+
+
+class DataFileVariableDSGTimeSeriesXStation(Base):
+    __tablename__ = 'data_file_variables_dsg_time_series_x_stations'
+
+    data_file_variable_dsg_ts_id = Column(
+        Integer, ForeignKey('data_file_variables_dsg_time_series.data_file_variable_dsg_ts_id',
+                            name='data_file_variables_dsg_time_series_x_stations_data_file_variable_dsg_ts_id_id_fkey',
+                            ondelete='CASCADE'),
+        primary_key=True,
+        nullable=False
+    )
+    station_id = Column(
+        Integer, ForeignKey('stations.station_id',
+                            name='data_file_variables_dsg_time_series_x_stations_station_id_fkey',
+                            ondelete='CASCADE'),
+        primary_key=True,
+        nullable=False
+    )
+
+    def __repr__(self):
+        return obj_repr('data_file_variable_dsg_ts_id station_id', self)
+
+
+class DataFileVariableGridded(DataFileVariable):
+    __tablename__ = 'data_file_variables_gridded'
+
+    # columns
+    id = Column(Integer, ForeignKey('data_file_variables.data_file_variable_id'), primary_key=True)
+
+    # relations
     level_set_id = Column(Integer, ForeignKey('level_sets.level_set_id'))
+    # LevelSet defines backref `level_set` in this class
     grid_id = Column(Integer, ForeignKey('grids.grid_id'), nullable=False)
+    # Grid defines backref `grid` in this class
+
+    __mapper_args__ = {
+        'polymorphic_identity':'gridded',
+    }
+
+    def __repr__(self):
+        return obj_repr('''
+            id derivation_method variable_cell_methods netcdf_variable_name
+            disabled range_min range_max level_set_id grid_id
+        ''', self)
 
 
 class DataFileVariablesQcFlag(Base):
@@ -142,7 +286,7 @@ class EnsembleDataFileVariables(Base):
 class Grid(Base):
     __tablename__ = 'grids'
 
-    #column definitions
+    # column definitions
     id = Column('grid_id', Integer, primary_key=True, nullable=False)
     name = Column('grid_name', String(length=255))
     cell_avg_area_sq_km = Column(Float)
@@ -201,9 +345,9 @@ class Grid(Base):
     # SQLAlchemy cooperate here. And at least it only has to happen nominally
     # once, when autogenerating the initial-create migration.
 
-    #relation definitions
+    # relation definitions
     y_cell_bounds = relationship("YCellBound", backref=backref('grid'))
-    data_file_variables = relationship("DataFileVariable", backref=backref('grid'))
+    data_file_variables = relationship("DataFileVariableGridded", backref=backref('grid'))
 
 
 class Level(Base):
@@ -231,7 +375,7 @@ class LevelSet(Base):
                           order_by='Level.vertical_level',
                           collection_class=ordering_list('vertical_level'),
                           backref=backref('level_set'))
-    data_file_variables = relationship("DataFileVariable", backref=backref('level_set'))
+    data_file_variables = relationship("DataFileVariableGridded", backref=backref('level_set'))
 
 
 class Model(Base):
