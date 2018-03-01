@@ -26,6 +26,7 @@ the other with databases with function scope.
 import sys
 import os
 from pkg_resources import resource_filename
+import datetime
 
 import pytest
 import testing.postgresql
@@ -37,13 +38,184 @@ from sqlalchemy.schema import CreateSchema
 from nchelpers import CFDataset
 
 from modelmeta import create_test_database
-from modelmeta import Ensemble
+from modelmeta import \
+    ClimatologicalTime, \
+    DataFile, \
+    DataFileVariable, \
+    DataFileVariableDSGTimeSeries, \
+    DataFileVariableDSGTimeSeriesXStation, \
+    DataFileVariableGridded, \
+    DataFileVariable, \
+    DataFileVariablesQcFlag, \
+    Emission, \
+    Ensemble, \
+    EnsembleDataFileVariables, \
+    Grid, \
+    Level, \
+    LevelSet, \
+    Model, \
+    QcFlag, \
+    Run, \
+    Station, \
+    Time, \
+    TimeSet, \
+    Variable, \
+    VariableAlias, \
+    YCellBound, \
+    SpatialRefSys
 
 # Add helpers directory to pythonpath: See https://stackoverflow.com/a/33515264
 sys.path.append(os.path.join(os.path.dirname(__file__), 'helpers'))
 
 
 # Predefined objects
+
+# DataFile
+
+def make_data_file(i, run=None, timeset=None):
+    return DataFile(
+        filename='data_file_{}'.format(i),
+        first_1mib_md5sum='first_1mib_md5sum',
+        unique_id='unique_id_{}'.format(i),
+        x_dim_name='lon',
+        y_dim_name='lat',
+        t_dim_name='time',
+        index_time=datetime.datetime.now(),
+        run=run,
+        timeset=timeset,
+    )
+
+
+@pytest.fixture(scope='function')
+def data_file_1():
+    return make_data_file(1)
+
+
+# Grid
+
+def make_grid(i):
+    return Grid(
+        name='grid_{}'.format(i),
+        xc_count=10,
+        xc_grid_step=0.1,
+        xc_origin=0,
+        xc_units='units',
+        yc_count=10,
+        yc_grid_step=0.1,
+        yc_origin=0,
+        yc_units='units',
+        evenly_spaced_y=True,
+    )
+
+@pytest.fixture(scope='function')
+def grid_1():
+    return make_grid(1)
+
+
+# VariableAlias
+
+def make_variable_alias(i):
+    return VariableAlias(
+        long_name='long_name_{}'.format(i),
+        standard_name='standard_name_{}'.format(i),
+        units='units_{}'.format(i),
+    )
+
+
+@pytest.fixture(scope='function')
+def variable_alias_1():
+    return make_variable_alias(1)
+
+
+@pytest.fixture(scope='function')
+def variable_alias_2():
+    return make_variable_alias(2)
+
+
+# LevelSet
+
+@pytest.fixture(scope='function')
+def level_set_1():
+    return LevelSet(
+        level_units='units'
+    )
+
+
+# DataFileVariableGridded
+
+def make_dfv_gridded(i, file=None, variable_alias=None, level_set=None, grid=None):
+    return DataFileVariableGridded(
+        derivation_method='derivation_method_{}'.format(i),
+        variable_cell_methods='variable_cell_methods_{}'.format(i),
+        netcdf_variable_name='var_{}'.format(i),
+        disabled=False,
+        range_min=0,
+        range_max=100,
+        file=file,
+        variable_alias=variable_alias,
+        level_set=level_set,
+        grid=grid,
+    )
+
+
+@pytest.fixture(scope='function')
+def dfv_gridded_1(data_file_1, variable_alias_1, level_set_1, grid_1):
+    return make_dfv_gridded(
+        1, file=data_file_1, variable_alias=variable_alias_1,
+        level_set=level_set_1, grid=grid_1)
+
+
+# DataFileVariableDSGTimeSeries
+
+def make_test_dfv_dsg_time_series(i, file=None, variable_alias=None):
+    return DataFileVariableDSGTimeSeries(
+        derivation_method='derivation_method_{}'.format(i),
+        variable_cell_methods='variable_cell_methods_{}'.format(i),
+        netcdf_variable_name='var_{}'.format(i),
+        disabled=False,
+        range_min=0,
+        range_max=100,
+        file=file,
+        variable_alias=variable_alias,
+    )
+
+
+@pytest.fixture(scope='function')
+def dfv_dsg_time_series_1(data_file_1, variable_alias_1):
+    return make_test_dfv_dsg_time_series(
+        1, file=data_file_1, variable_alias=variable_alias_1)
+
+
+@pytest.fixture(scope='function')
+def dfv_dsg_time_series_2(data_file_1, variable_alias_2):
+    return make_test_dfv_dsg_time_series(
+        2, file=data_file_1, variable_alias=variable_alias_2)
+
+
+# Station
+
+def make_station(i):
+    return Station(
+        x=float(i),
+        x_units='m',
+        y=float(i),
+        y_units='m',
+        name='STN{}'.format(i),
+        long_name='station {}'.format(i),
+    )
+
+
+@pytest.fixture(scope='function')
+def station_1():
+    return make_station(1)
+
+
+@pytest.fixture(scope='function')
+def station_2():
+    return make_station(2)
+
+
+# Ensemble
 
 def make_ensemble(id):
     return Ensemble(
@@ -63,6 +235,8 @@ def ensemble1():
 def ensemble2():
     return make_ensemble(2)
 
+
+# Database initialization
 
 def init_database(engine):
     engine.execute("create extension postgis")
