@@ -105,8 +105,6 @@ psycopg2_adapters.register()
 # Miscellaneous constants
 
 filepath_converter = 'realpath'
-default_proj4_string = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
-
 
 
 # Decorators
