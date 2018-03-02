@@ -8,7 +8,6 @@ __all__ = '''
     DataFileVariableDSGTimeSeries
     DataFileVariableDSGTimeSeriesXStation
     DataFileVariableGridded
-    DataFileVariable
     DataFileVariablesQcFlag
     Emission
     Ensemble
@@ -158,7 +157,8 @@ class DataFileVariableDSGTimeSeries(DataFileVariable):
         ForeignKey(
             'data_file_variables.data_file_variable_id',
             ondelete='CASCADE'),
-        primary_key=True
+        primary_key=True,
+        nullable=False
     )
 
     # relations
@@ -241,7 +241,8 @@ class DataFileVariableGridded(DataFileVariable):
         ForeignKey(
             'data_file_variables.data_file_variable_id',
             ondelete='CASCADE'),
-        primary_key=True
+        primary_key=True,
+        nullable=False
     )
 
     # relations
