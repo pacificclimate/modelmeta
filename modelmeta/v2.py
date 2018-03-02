@@ -155,7 +155,9 @@ class DataFileVariableDSGTimeSeries(DataFileVariable):
     id = Column(
         'data_file_variable_dsg_ts_id',
         Integer,
-        ForeignKey('data_file_variables.data_file_variable_id'),
+        ForeignKey(
+            'data_file_variables.data_file_variable_id',
+            ondelete='CASCADE'),
         primary_key=True
     )
 
@@ -234,9 +236,13 @@ class DataFileVariableGridded(DataFileVariable):
     __tablename__ = 'data_file_variables_gridded'
 
     # columns
-    id = Column(Integer, 
-                ForeignKey('data_file_variables.data_file_variable_id'), 
-                primary_key=True)
+    id = Column(
+        Integer,
+        ForeignKey(
+            'data_file_variables.data_file_variable_id',
+            ondelete='CASCADE'),
+        primary_key=True
+    )
 
     # relations
     level_set_id = Column(Integer, ForeignKey('level_sets.level_set_id'))
