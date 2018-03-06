@@ -18,8 +18,10 @@ branch_labels = None
 depends_on = None
 
 
-connection = op.get_bind()
-dialect = connection.dialect.name
+def get_dialect():
+    connection = op.get_bind()
+    dialect = connection.dialect.name
+    return dialect
 
 
 def copy_level_set_id_and_grid_id_to_data_file_variables_gridded():
@@ -132,7 +134,7 @@ def copy_level_set_id_and_grid_id_from_data_file_variables_gridded():
         sa.MetaData(bind=op.get_bind()),
         autoload=True
     )
-    if dialect == 'sqlite':
+    if get_dialect() == 'sqlite':
         # SQLite doesn't support the (standard) form ``UPDATE ... SET ... FROM ...``
         # (https://stackoverflow.com/questions/3845718/), so we have to use an
         # alternate form of UPDATE. This could be really inefficient.
