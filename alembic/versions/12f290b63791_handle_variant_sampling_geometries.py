@@ -41,6 +41,9 @@ def copy_level_set_id_and_grid_id_to_data_file_variables_gridded():
         autoload=True
     )
     op.get_bind().execute(
+        dfvs.update().values(geometry_type='gridded')
+    )
+    op.get_bind().execute(
         dfvs_gridded.insert().from_select(
             ['id', 'level_set_id', 'grid_id'],
             sa.select([dfvs.c.data_file_variable_id, dfvs.c.level_set_id, dfvs.c.grid_id])
@@ -100,8 +103,7 @@ def upgrade():
         batch_op.add_column(
             sa.Column('geometry_type',
                       sa.String(length=50),
-                      nullable=True,
-                      server_default='gridded') # Note default
+                      nullable=True)
         )
 
     # Do data migration
