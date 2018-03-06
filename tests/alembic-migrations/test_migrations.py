@@ -29,7 +29,11 @@ from modelmeta import \
 
 @pytest.fixture
 def alembic_root():
-    return os.path.normpath(resource_filename('modelmeta', '../alembic'))
+    return os.path.normpath(
+        os.path.join(
+            os.path.dirname(__file__), '..', '..', 'alembic'
+        )
+    )
 
 
 @pytest.fixture(scope="module")
