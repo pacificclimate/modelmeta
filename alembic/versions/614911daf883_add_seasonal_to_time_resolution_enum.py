@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """add 'seasonal' to time_resolution enum
 
 Revision ID: 614911daf883
