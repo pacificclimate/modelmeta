@@ -172,7 +172,7 @@ def test_12f290b63791_downgrade_data_migration(uri_left, alembic_config_left):
     """
     # Prepare database in post-migration schema
     engine, script = prepare_schema_from_migrations(
-        uri_left, alembic_config_left)
+        uri_left, alembic_config_left, revision='12f290b63791')
 
     Session = sessionmaker(bind=engine)
     sesh = Session()
