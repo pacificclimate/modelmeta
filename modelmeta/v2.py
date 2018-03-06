@@ -2,6 +2,7 @@
 Define v2 modelmeta database in SQLAlchemy using declarative base.
 """
 __all__ = '''
+    Base
     ClimatologicalTime
     DataFile
     DataFileVariable

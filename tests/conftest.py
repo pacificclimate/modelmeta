@@ -328,6 +328,13 @@ def test_session_with_empty_db_fs(test_session_factory_fs):
     session.close()
 
 
+# Database for migration testing
+
+@pytest.fixture(scope='module')
+def db_uri(test_dsn):
+    yield test_dsn
+
+
 # Parametrized fixtures
 
 # We parametrize this fixture so that every test that uses it is run for all
