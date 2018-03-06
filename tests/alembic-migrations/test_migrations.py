@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
-import os
-from pkg_resources import resource_filename
 import datetime
 
 import pytest
-import testing.postgresql
 
 from sqlalchemy import create_engine, MetaData, Table, select
 from sqlalchemy.orm import sessionmaker
@@ -14,7 +11,6 @@ from alembic import command
 from sqlalchemydiff import compare
 from sqlalchemydiff.util import (
     prepare_schema_from_models,
-    get_temporary_uri,
 )
 
 from alembicverify.util import (
@@ -27,26 +23,7 @@ from modelmeta import \
     DataFileVariable, DataFileVariableGridded
 
 
-@pytest.fixture
-def alembic_root():
-    return os.path.normpath(
-        os.path.join(
-            os.path.dirname(__file__), '..', '..', 'alembic'
-        )
-    )
-
-
-@pytest.fixture(scope="module")
-def uri_left(db_uri):
-    return get_temporary_uri(db_uri)
-
-
-@pytest.fixture(scope="module")
-def uri_right(db_uri):
-    return get_temporary_uri(db_uri)
-
-
-@pytest.mark.usefixtures("new_db_left")
+@pytest.mark.usefixtures('new_db_left')
 def test_upgrade_and_downgrade(uri_left, alembic_config_left):
     """Test all migrations up and down.
 
@@ -66,8 +43,8 @@ def test_upgrade_and_downgrade(uri_left, alembic_config_left):
         current = get_current_revision(alembic_config_left, engine, script)
 
 
-@pytest.mark.usefixtures("new_db_left")
-@pytest.mark.usefixtures("new_db_right")
+@pytest.mark.usefixtures('new_db_left')
+@pytest.mark.usefixtures('new_db_right')
 def test_model_and_migration_schemas_are_the_same(
         uri_left, uri_right, alembic_config_left):
     """Compare two databases.
@@ -77,7 +54,7 @@ def test_model_and_migration_schemas_are_the_same(
     """
     prepare_schema_from_migrations(uri_left, alembic_config_left)
     engine = create_engine(uri_right)
-    engine.execute("create extension postgis")
+    engine.execute('create extension postgis')
     prepare_schema_from_models(uri_right, Base)
 
     result = compare(
@@ -95,7 +72,7 @@ def name(base, i):
     return '{}{}'.format(base, i)
 
 
-@pytest.mark.usefixtures("new_db_left")
+@pytest.mark.usefixtures('new_db_left')
 def test_12f290b63791_upgrade_data_migration(uri_left, alembic_config_left):
     """
     Test the data migration from 614911daf883 to 12f290b63791.
@@ -182,7 +159,7 @@ def test_12f290b63791_upgrade_data_migration(uri_left, alembic_config_left):
     sesh.close()
 
 
-@pytest.mark.usefixtures("new_db_left")
+@pytest.mark.usefixtures('new_db_left')
 def test_12f290b63791_downgrade_data_migration(uri_left, alembic_config_left):
     """
     Test the data migration from 12f290b63791 to 614911daf883.
