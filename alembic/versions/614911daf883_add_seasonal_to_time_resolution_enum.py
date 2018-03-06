@@ -41,7 +41,7 @@ def get_dialect():
 # for time_resolution. See http://alembic.zzzcomputing.com/en/latest/batch.html
 #
 # That documentation says
-#   On other backends, we’d see the usual ALTER statements done as though
+#   On other backends, we'd see the usual ALTER statements done as though
 #   there were no batch directive - the batch context by default only does
 #   the “move and copy” process if SQLite is in use, and if there are migration
 #   directives other than Operations.add_column() present, which is the one
