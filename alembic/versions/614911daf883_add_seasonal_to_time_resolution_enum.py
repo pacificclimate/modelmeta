@@ -18,8 +18,10 @@ branch_labels = None
 depends_on = None
 
 
-connection = op.get_bind()
-dialect = connection.dialect.name
+def get_dialect():
+    connection = op.get_bind()
+    dialect = connection.dialect.name
+    return dialect
 
 
 # This is a *highly* customized migration script, barely related to the
@@ -101,6 +103,7 @@ def swap_and_drop(curr_options, dest_options):
     :param dest_options: tuple of options (members) in the destination enum type
     :return: None
     """
+    connection = op.get_bind()
     tmp_type_name = '_{}'.format(type_name)
     alter_args = dict(
         table_name=table_name,
@@ -136,6 +139,7 @@ def swap_and_drop(curr_options, dest_options):
 
 
 def upgrade():
+    dialect = get_dialect()
     if dialect == 'sqlite':
         alter_column(old_options, new_options)
     else:
@@ -146,6 +150,8 @@ def upgrade():
 
 
 def downgrade():
+    dialect = get_dialect()
+
     # Migrate the data. This is dialect-independent.
     metadata = sa.MetaData()
     time_sets = sa.Table(
