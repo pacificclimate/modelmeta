@@ -99,6 +99,10 @@ def upgrade():
     sa.PrimaryKeyConstraint('data_file_variable_dsg_ts_id', 'station_id')
     )
 
+    with op.batch_alter_table('data_files', schema=None) as batch_op:
+        batch_op.alter_column('x_dim_name', nullable=True)
+        batch_op.alter_column('y_dim_name', nullable=True)
+
     with op.batch_alter_table('data_file_variables', schema=None) as batch_op:
         batch_op.add_column(
             sa.Column('geometry_type',
@@ -202,5 +206,11 @@ def downgrade():
     op.drop_table('data_file_variables_gridded')
     op.drop_table('data_file_variables_dsg_time_series')
     op.drop_table('stations')
+
     with op.batch_alter_table('data_file_variables', schema=None) as batch_op:
         batch_op.drop_column('geometry_type')
+
+    with op.batch_alter_table('data_files', schema=None) as batch_op:
+        batch_op.alter_column('x_dim_name', nullable=False)
+        batch_op.alter_column('y_dim_name', nullable=False)
+

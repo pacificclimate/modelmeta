@@ -86,8 +86,8 @@ class DataFile(Base):
     first_1mib_md5sum = Column('first_1mib_md5sum', 
                                String(length=32), nullable=False)
     unique_id = Column(String(length=255), nullable=False)
-    x_dim_name = Column(String(length=32), nullable=False)
-    y_dim_name = Column(String(length=32), nullable=False)
+    x_dim_name = Column(String(length=32))
+    y_dim_name = Column(String(length=32))
     z_dim_name = Column(String(length=32))
     t_dim_name = Column(String(length=32))
     index_time = Column(DateTime, nullable=False)
