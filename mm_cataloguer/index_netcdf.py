@@ -1191,6 +1191,7 @@ def index_netcdf_file(filename, Session):
     """
     session = Session()
     data_file_id = None
+    filename = os.path.abspath(filename)
     try:
         with CFDataset(filename) as cf:
             data_file = find_update_or_insert_cf_file(session, cf)
