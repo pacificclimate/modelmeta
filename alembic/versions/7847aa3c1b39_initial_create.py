@@ -17,6 +17,12 @@ depends_on = None
 
 
 def upgrade():
+    # `create extension postgis` was originally done externally to the migration
+    # but it proved easier (a.k.a. apparently necessary) for testing to do it
+    # here. Also, it makes eminent sense to remove an external manual step in
+    # setting up a new database. Hence:
+    op.execute('create extension postgis')
+
     op.create_table('emissions',
     sa.Column('emission_id', sa.Integer(), nullable=False),
     sa.Column('emission_long_name', sa.String(length=255), nullable=True),

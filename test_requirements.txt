@@ -1,2 +1,4 @@
 pytest
 testing.postgresql
+alembic
+alembic-verify

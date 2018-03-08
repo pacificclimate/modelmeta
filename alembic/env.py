@@ -29,9 +29,15 @@ from logging.config import fileConfig
 # access to the values within the .ini file in use.
 config = context.config
 
+# Existence of `config.config_file_name` is a proxy for "are we in a live
+# environment or a test env?" There are better ways to do this, but this is
+# expedient for working with alembic-verify.
+is_live_env = config.config_file_name is not None
+
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
-fileConfig(config.config_file_name)
+if is_live_env:
+    fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
@@ -45,13 +51,14 @@ target_metadata = Base.metadata
 # ... etc.
 
 
-# Obtain command-line specification of database to run migration against.
-cmd_kwargs = context.get_x_argument(as_dictionary=True)
-if 'db' not in cmd_kwargs:
-    raise Exception('We couldn\'t find `db` in the CLI arguments. '
-                    'Please verify `alembic` was run with `-x db=<db_name>` '
-                    '(e.g. `alembic -x db=development upgrade head`)')
-db_name = cmd_kwargs['db']
+if is_live_env:
+    # Obtain command-line specification of database to run migration against.
+    cmd_kwargs = context.get_x_argument(as_dictionary=True)
+    if 'db' not in cmd_kwargs:
+        raise Exception('We couldn\'t find `db` in the CLI arguments. '
+                        'Please verify `alembic` was run with `-x db=<db_name>` '
+                        '(e.g. `alembic -x db=development upgrade head`)')
+    db_name = cmd_kwargs['db']
 
 
 def run_migrations_offline():
@@ -84,9 +91,10 @@ def run_migrations_online():
     # Load db config on top of alembic config. This enables CLI spec of
     # database to migrate.
     alembic_config = config.get_section(config.config_ini_section)
-    db_config = config.get_section(db_name)
-    for key in db_config:
-        alembic_config[key] = db_config[key]
+    if is_live_env:
+        db_config = config.get_section(db_name)
+        for key in db_config:
+            alembic_config[key] = db_config[key]
 
     connectable = engine_from_config(
         alembic_config,
@@ -102,6 +110,7 @@ def run_migrations_online():
 
         with context.begin_transaction():
             context.run_migrations()
+
 
 if context.is_offline_mode():
     run_migrations_offline()

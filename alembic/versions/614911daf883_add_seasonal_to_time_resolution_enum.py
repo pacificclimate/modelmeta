@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """add 'seasonal' to time_resolution enum
 
 Revision ID: 614911daf883
@@ -18,8 +19,10 @@ branch_labels = None
 depends_on = None
 
 
-connection = op.get_bind()
-dialect = connection.dialect.name
+def get_dialect():
+    connection = op.get_bind()
+    dialect = connection.dialect.name
+    return dialect
 
 
 # This is a *highly* customized migration script, barely related to the
@@ -39,7 +42,7 @@ dialect = connection.dialect.name
 # for time_resolution. See http://alembic.zzzcomputing.com/en/latest/batch.html
 #
 # That documentation says
-#   On other backends, we’d see the usual ALTER statements done as though
+#   On other backends, we'd see the usual ALTER statements done as though
 #   there were no batch directive - the batch context by default only does
 #   the “move and copy” process if SQLite is in use, and if there are migration
 #   directives other than Operations.add_column() present, which is the one
@@ -101,6 +104,7 @@ def swap_and_drop(curr_options, dest_options):
     :param dest_options: tuple of options (members) in the destination enum type
     :return: None
     """
+    connection = op.get_bind()
     tmp_type_name = '_{}'.format(type_name)
     alter_args = dict(
         table_name=table_name,
@@ -136,6 +140,7 @@ def swap_and_drop(curr_options, dest_options):
 
 
 def upgrade():
+    dialect = get_dialect()
     if dialect == 'sqlite':
         alter_column(old_options, new_options)
     else:
@@ -146,6 +151,8 @@ def upgrade():
 
 
 def downgrade():
+    dialect = get_dialect()
+
     # Migrate the data. This is dialect-independent.
     metadata = sa.MetaData()
     time_sets = sa.Table(

@@ -19,7 +19,7 @@ the object name. (E.g., Model (1) means a Run has 1 Model associated to it.)
         Run (1)
             Model (1)
             Emission (1)
-        DataFileVariable (*)
+        DataFileVariableGridded (*)
             VariableAlias (1)
                 Variable (*)
             LevelSet (1)
@@ -81,9 +81,12 @@ import pycrs
 from nchelpers import CFDataset
 from nchelpers.date_utils import to_datetime
 
-from modelmeta import Model, Run, Emission, DataFile, TimeSet, Time, \
-    ClimatologicalTime, DataFileVariable, VariableAlias, \
-    LevelSet, Level, Grid, YCellBound, EnsembleDataFileVariables, \
+from modelmeta import \
+    Model, Run, Emission, \
+    DataFile, TimeSet, Time, ClimatologicalTime, \
+    DataFileVariable, VariableAlias, EnsembleDataFileVariables, \
+    DataFileVariableGridded, \
+    LevelSet, Level, Grid, YCellBound, \
     SpatialRefSys
 from mm_cataloguer import psycopg2_adapters
 
@@ -738,7 +741,7 @@ def find_or_insert_grid(sesh, cf, var_name):
 # DataFileVariable
 
 def find_data_file_variable(sesh, cf, var_name, data_file):
-    """Find existing ``DataFileVariable`` record corresponding to a named
+    """Find existing ``DataFileVariableGridded`` record corresponding to a named
     variable in a NetCDF file and associated to a specified ``DataFile`` record.
 
     NOTE: Parameter ``cf`` is not used in this function, but it is retained to
@@ -750,18 +753,18 @@ def find_data_file_variable(sesh, cf, var_name, data_file):
     :param cf: CFDatafile object representing NetCDF file
     :param var_name: (str) name of variable
     :param data_file: (DataFile) data file to associate this dfv to
-    :return: existing ``DataFileVariable`` record or None
+    :return: existing ``DataFileVariableGridded`` record or None
     """
-    q = (sesh.query(DataFileVariable)
-         .filter(DataFileVariable.file == data_file)
-         .filter(DataFileVariable.netcdf_variable_name == var_name)
+    q = (sesh.query(DataFileVariableGridded)
+         .filter(DataFileVariableGridded.file == data_file)
+         .filter(DataFileVariableGridded.netcdf_variable_name == var_name)
          )
     return q.first()
 
 
 def insert_data_file_variable(
         sesh, cf, var_name, data_file, variable_alias, level_set, grid):
-    """Insert a new ``DataFileVariable`` record corresponding to a named
+    """Insert a new ``DataFileVariableGridded`` record corresponding to a named
     variable in a NetCDF file and associated to a specified ``DataFile`` record.
 
     NOTE: Parameter `cf` is not used in this function, but it is retained to
@@ -777,11 +780,11 @@ def insert_data_file_variable(
         this dfv
     :param level_set: (LevelSet) level set to associate to this dfv
     :param grid: (Grid) grid to associate to this dfv
-    :return: inserted DataFileVariable record
+    :return: inserted DataFileVariableGridded record
     """
     variable = cf.variables[var_name]
     range_min, range_max = cf.var_range(var_name)
-    dfv = DataFileVariable(
+    dfv = DataFileVariableGridded(
         file=data_file,
         variable_alias=variable_alias,
         # TODO: verify no value for this and other unspecified attributes
@@ -799,7 +802,7 @@ def insert_data_file_variable(
 
 
 def find_or_insert_data_file_variable(sesh, cf, var_name, data_file):
-    """Find or insert a DataFileVariable record corresponding to a named
+    """Find or insert a DataFileVariableGridded record corresponding to a named
     variable in a NetCDF file and associated to a specified DataFile record.
     If none exists, return None.
 
@@ -812,7 +815,7 @@ def find_or_insert_data_file_variable(sesh, cf, var_name, data_file):
     :param cf: CFDatafile object representing NetCDF file
     :param var_name: (str) name of variable
     :param data_file: (DataFile) data file to associate this dfv to
-    :return: found or inserted DataFileVariable record
+    :return: found or inserted DataFileVariableGridded record
     """
     dfv = find_data_file_variable(sesh, cf, var_name, data_file)
     if dfv:
@@ -827,13 +830,13 @@ def find_or_insert_data_file_variable(sesh, cf, var_name, data_file):
 
 
 def find_or_insert_data_file_variables(sesh, cf, data_file):
-    """Find or insert DataFileVariables for all dependent variables in a
+    """Find or insert DataFileVariableGridded for all dependent variables in a
     NetCDF file, associated to a specified DataFile record.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :param data_file: (DataFile) data file to associate this dfv to
-    :return: list of found or inserted DataFileVariable records
+    :return: list of found or inserted DataFileVariableGridded records
     """
     return [find_or_insert_data_file_variable(sesh, cf, var_name, data_file)
             for var_name in cf.dependent_varnames()]
@@ -999,6 +1002,9 @@ def delete_data_file(sesh, existing_data_file):
     """
     logger.info("Deleting DataFile for unique_id '{}'"
                 .format(existing_data_file.unique_id))
+    # TODO: Deleting the associated ``DataFileVariable``s and
+    # ``EnsembleDataFileVariables`` should be unnecessary because
+    # cascading deletes are declared for these relationships.
     # TODO: Also delete associations with `QCFlag`s?
     # (via `DataFileVariablesQcFlag`)
     existing_data_file_variables = existing_data_file.data_file_variables

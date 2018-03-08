@@ -58,7 +58,7 @@ def test_can_add_data_file_variable_relationships(test_session):
     some_grid = test_session.query(modelmeta.Grid).first()
     some_variable = test_session.query(modelmeta.VariableAlias).first()
     df = test_session.query(modelmeta.DataFile).first()
-    dfv = modelmeta.DataFileVariable(netcdf_variable_name='some_var',
+    dfv = modelmeta.DataFileVariableGridded(netcdf_variable_name='some_var',
                                      range_min=0, range_max=50, file=df,
                                      variable_alias=some_variable,
                                      grid=some_grid)
