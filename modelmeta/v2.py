@@ -110,6 +110,10 @@ Index('data_files_run_id_key', DataFile.run_id, unique=False)
 
 
 class DataFileVariable(Base):
+    """Base type for polymorphic DataFileVariable (see `__mapper_args__`).
+    Not a valid object by itself, but there is no obvious way to specify
+    this in code."""
+
     __tablename__ = 'data_file_variables'
 
     # column definitions
@@ -151,7 +155,11 @@ class DataFileVariable(Base):
 
 
 class DataFileVariableDSGTimeSeries(DataFileVariable):
+    """DataFileVariable of subtype Discrete Sampling Geometry (DSG), subtype
+    timeSeries."""
+
     __tablename__ = 'data_file_variables_dsg_time_series'
+
     id = Column(
         'data_file_variable_dsg_ts_id',
         Integer,
@@ -203,6 +211,9 @@ class Station(Base):
 
 
 class DataFileVariableDSGTimeSeriesXStation(Base):
+    """Cross table for many:many relation between DataFileVariableDSGTimeSeries
+    and Station."""
+
     __tablename__ = 'data_file_variables_dsg_time_series_x_stations'
 
     # columns
@@ -234,6 +245,8 @@ class DataFileVariableDSGTimeSeriesXStation(Base):
 
 
 class DataFileVariableGridded(DataFileVariable):
+    """DataFileVariable of subtype gridded."""
+
     __tablename__ = 'data_file_variables_gridded'
 
     # columns
