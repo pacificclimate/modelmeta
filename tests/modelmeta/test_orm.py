@@ -92,15 +92,6 @@ def test_dfv_dsg_time_series(
     assert variable_alias_1.data_file_variables == [dfv_dsg_time_series_1]
 
 
-def test_station(test_session_with_empty_db, station_1):
-    sesh = test_session_with_empty_db
-    check_db_is_empty(sesh)
-    sesh.add(station_1)
-    sesh.flush()
-    print()
-    print(station_1)
-
-
 def associate_dfvs_and_stations(sesh, dfvs, stations):
     """"
     Helper. Associate each timeSeries geometry variable with each station.
