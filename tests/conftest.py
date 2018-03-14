@@ -339,7 +339,7 @@ def db_uri(test_dsn):
 
 # We parametrize this fixture so that every test that uses it is run for all
 # params. This can be overridden on specific tests by using
-# ``@pytest.mark.parametrize`` with arg ``indirect=['tiny_dataset']``;
+# ``@pytest.mark.parametrize`` with arg ``indirect=['tiny_gridded_dataset']``;
 # see ``test_get_level_set_info`` for an example.
 # TODO: Parametrize over more tiny datasets.
 @pytest.fixture(params='''
@@ -351,7 +351,7 @@ def db_uri(test_dsn):
     gcm_climo_yearly
     gridded_obs
 '''.split())
-def tiny_dataset(request):
+def tiny_gridded_dataset(request):
     """Return a 'tiny' test dataset, based on request param.
     This fixture is used to parametrize over test data files.
     This fixture must be invoked with indirection.

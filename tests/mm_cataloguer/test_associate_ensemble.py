@@ -82,22 +82,22 @@ def test_find_ensemble__(test_session_with_ensembles, ensemble1):
 
 # associate_ensemble_to_data_file_variable
 
-@pytest.mark.parametrize('tiny_dataset, var_names', [
+@pytest.mark.parametrize('tiny_gridded_dataset, var_names', [
     ('gcm', {'tasmax'}),
     ('downscaled', {'tasmax'}),
     ('hydromodel_gcm', {'BASEFLOW', 'EVAP', 'GLAC_AREA_BAND', 'GLAC_MBAL_BAND', 'RUNOFF', 'SWE_BAND', }),
     ('gcm_climo_monthly', {'tasmax'}),
-], indirect=['tiny_dataset'])
+], indirect=['tiny_gridded_dataset'])
 def test_associate_ensemble_to_data_file_variable__(
         test_session_with_ensembles,
         ensemble1,
-        tiny_dataset,
+        tiny_gridded_dataset,
         var_names,
 ):
     session = test_session_with_ensembles
 
     # Set up test database
-    data_file = index_cf_file(session, tiny_dataset)
+    data_file = index_cf_file(session, tiny_gridded_dataset)
 
     # Extract some info
     assert set(
@@ -117,7 +117,7 @@ def test_associate_ensemble_to_data_file_variable__(
 
 # associate_ensemble_to_data_file
 
-@pytest.mark.parametrize('tiny_dataset, var_names, expected_var_names', [
+@pytest.mark.parametrize('tiny_gridded_dataset, var_names, expected_var_names', [
     ('gcm', None, {'tasmax'}),
     ('gcm', {'tasmax'}, {'tasmax'}),
     ('gcm', {'tasmax', 'foo'}, {'tasmax'}),
@@ -127,18 +127,18 @@ def test_associate_ensemble_to_data_file_variable__(
     ('hydromodel_gcm', None, {'BASEFLOW', 'EVAP', 'GLAC_AREA_BAND', 'GLAC_MBAL_BAND', 'RUNOFF', 'SWE_BAND', }),
     ('hydromodel_gcm', {'foo'}, set()),
     ('gcm_climo_monthly', None, {'tasmax'}),
-], indirect=['tiny_dataset'])
+], indirect=['tiny_gridded_dataset'])
 def test_associate_ensemble_to_data_file__(
         test_session_with_ensembles,
         ensemble1,
-        tiny_dataset,
+        tiny_gridded_dataset,
         var_names,
         expected_var_names
 ):
     session = test_session_with_ensembles
 
     # Set up test database
-    data_file = index_cf_file(session, tiny_dataset)
+    data_file = index_cf_file(session, tiny_gridded_dataset)
 
     # Associate
     associated_dfvs = associate_ensemble_to_data_file(
@@ -159,7 +159,7 @@ fp_hydromodel_gcm = resource_filename('modelmeta', 'data/tiny_hydromodel_gcm.nc'
 fp_gcm_climo_monthly = resource_filename('modelmeta', 'data/tiny_gcm_climo_monthly.nc')
 
 @pytest.mark.parametrize(
-    'tiny_dataset, regex_filepath, filepath, var_names, expected_filepaths, expected_var_names',
+    'tiny_gridded_dataset, regex_filepath, filepath, var_names, expected_filepaths, expected_var_names',
     [
         ('gcm', False, fp_gcm, None, {fp_gcm}, {'tasmax'}),
         ('gcm', True, fp_gcm, None, {fp_gcm}, {'tasmax'}),
@@ -178,12 +178,12 @@ fp_gcm_climo_monthly = resource_filename('modelmeta', 'data/tiny_gcm_climo_month
         ('hydromodel_gcm', False, fp_hydromodel_gcm, {'foo'}, {fp_hydromodel_gcm}, set()),
         ('gcm_climo_monthly', False, fp_gcm_climo_monthly, None, {fp_gcm_climo_monthly}, {'tasmax'}),
     ],
-    indirect=['tiny_dataset']
+    indirect=['tiny_gridded_dataset']
 )
 def test_associate_ensemble_to_filepath__(
         test_session_with_ensembles,
         ensemble1,
-        tiny_dataset,
+        tiny_gridded_dataset,
         regex_filepath,
         filepath,
         var_names,
@@ -193,7 +193,7 @@ def test_associate_ensemble_to_filepath__(
     session = test_session_with_ensembles
 
     # Set up test database
-    data_file = index_cf_file(session, tiny_dataset)
+    data_file = index_cf_file(session, tiny_gridded_dataset)
 
     # Associate
     associated_items = associate_ensemble_to_filepath(
