@@ -47,12 +47,14 @@ from mm_cataloguer.index_netcdf import \
     insert_run, find_run, find_or_insert_run, \
     insert_model, find_model, find_or_insert_model, \
     insert_emission, find_emission, find_or_insert_emission, \
-    insert_data_file_variable, find_data_file_variable, \
+    insert_data_file_variable_gridded, insert_data_file_variable_dsg_time_series, \
+    find_data_file_variable, \
     find_or_insert_data_file_variable, \
     insert_variable_alias, find_variable_alias, find_or_insert_variable_alias, \
     insert_level_set, find_level_set, find_or_insert_level_set, \
     insert_spatial_ref_sys, find_spatial_ref_sys, find_or_insert_spatial_ref_sys, \
     insert_grid, find_grid, find_or_insert_grid, \
+    insert_station, find_station, find_or_insert_station, find_or_insert_stations, \
     insert_timeset, find_timeset, find_or_insert_timeset, \
     get_grid_info, get_level_set_info, \
     seconds_since_epoch, usable_name, wkt
@@ -576,7 +578,7 @@ def test_find_or_insert_grid(test_session_with_empty_db, tiny_dataset, insert):
 
 # DataFileVariable
 
-def insert_data_file_variable_plus(
+def insert_data_file_variable_gridded_plus(
         test_session_with_empty_db, tiny_dataset, var_name, data_file):
     """Insert a ``DataFileVariable`` plus associated ``VariableAlias``,
     ``LevelSet``, and ``Grid`` objects.
@@ -588,24 +590,25 @@ def insert_data_file_variable_plus(
         test_session_with_empty_db, tiny_dataset, var_name)
     grid = insert_grid_plus_prime(
         test_session_with_empty_db, tiny_dataset, var_name)
-    data_file_variable = insert_data_file_variable(
+    data_file_variable = insert_data_file_variable_gridded(
         test_session_with_empty_db, tiny_dataset, var_name,
         data_file, variable_alias, level_set, grid
     )
     return data_file_variable
 
 
-cond_insert_data_file_variable_plus = \
-    conditional(insert_data_file_variable_plus)
+cond_insert_data_file_variable_gridded_plus = \
+    conditional(insert_data_file_variable_gridded_plus)
 
 
-def test_insert_data_file_variable(test_session_with_empty_db, tiny_dataset):
+def test_insert_data_file_variable_gridded(
+        test_session_with_empty_db, tiny_dataset):
     var_name = tiny_dataset.dependent_varnames()[0]
     variable = tiny_dataset.variables[var_name]
     range_min, range_max = tiny_dataset.var_range(var_name)
     data_file = insert_data_file(test_session_with_empty_db, tiny_dataset)
     dfv = check_insert(
-        insert_data_file_variable_plus,
+        insert_data_file_variable_gridded_plus,
         test_session_with_empty_db,
         tiny_dataset,
         var_name,
@@ -632,7 +635,7 @@ def test_find_data_file_variable(
     data_file = insert_data_file(test_session_with_empty_db, tiny_dataset)
     check_find(
         find_data_file_variable,
-        cond_insert_data_file_variable_plus,
+        cond_insert_data_file_variable_gridded_plus,
         test_session_with_empty_db,
         tiny_dataset,
         var_name,
@@ -647,7 +650,7 @@ def test_find_or_insert_data_file_variable(
     data_file = insert_data_file(test_session_with_empty_db, tiny_dataset)
     check_find_or_insert(
         find_or_insert_data_file_variable,
-        cond_insert_data_file_variable_plus,
+        cond_insert_data_file_variable_gridded_plus,
         test_session_with_empty_db,
         tiny_dataset,
         var_name,
