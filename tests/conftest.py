@@ -337,6 +337,11 @@ def db_uri(test_dsn):
 
 # Parametrized fixtures
 
+def open_tiny_dataset(abbrev):
+    filename = 'data/tiny_{}.nc'.format(abbrev)
+    return CFDataset(resource_filename('modelmeta', filename))
+
+
 # We parametrize this fixture so that every test that uses it is run for all
 # params. This can be overridden on specific tests by using
 # ``@pytest.mark.parametrize`` with arg ``indirect=['tiny_gridded_dataset']``;
@@ -352,15 +357,32 @@ def db_uri(test_dsn):
     gridded_obs
 '''.split())
 def tiny_gridded_dataset(request):
-    """Return a 'tiny' test dataset, based on request param.
+    """Return a 'tiny' test gridded dataset, based on request param.
     This fixture is used to parametrize over test data files.
     This fixture must be invoked with indirection.
 
     request.param: (str) selects the test file to be returned
     returns: (nchelpers.CFDataset) test file as a CFDataset object
     """
-    filename = 'data/tiny_{}.nc'.format(request.param)
-    return CFDataset(resource_filename('modelmeta', filename))
+    return open_tiny_dataset(request.param)
+
+
+# We parametrize this fixture so that every test that uses it is run for all
+# params. This can be overridden on specific tests by using
+# ``@pytest.mark.parametrize`` with arg ``indirect=['tiny_dsg_dataset']``;
+@pytest.fixture(params='''
+    streamflow
+'''.split())
+def tiny_dsg_dataset(request):
+    """Return a 'tiny' test discrete sampling geometry dataset, based on
+    request param.
+    This fixture is used to parametrize over test data files.
+    This fixture must be invoked with indirection.
+
+    request.param: (str) selects the test file to be returned
+    returns: (nchelpers.CFDataset) test file as a CFDataset object
+    """
+    return open_tiny_dataset(request.param)
 
 
 @pytest.fixture(params=[False, True])

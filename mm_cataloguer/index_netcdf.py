@@ -71,7 +71,7 @@ import logging
 import datetime
 import functools
 
-from netCDF4 import num2date
+from netCDF4 import num2date, chartostring
 import numpy as np
 from sqlalchemy import create_engine, func, select, case
 from sqlalchemy.orm import sessionmaker
@@ -829,7 +829,7 @@ def insert_data_file_variable_dsg_time_series(
         netcdf_variable_name=var_name,
         range_min=range_min,
         range_max=range_max,
-        variable_cell_methods=variable.cell_methods,
+        variable_cell_methods=getattr(variable, 'cell_methods', None),
     )
     sesh.add(dfv)
     return dfv
@@ -839,7 +839,7 @@ def find_station(sesh, cf, i, name, x, y):
     return (
         sesh.query(Station)
         .filter_by(
-            name=name[i],
+            name=str(chartostring(name[i])),
             x=x[i],
             x_units=x.units,
             y=y[i],
@@ -851,7 +851,7 @@ def find_station(sesh, cf, i, name, x, y):
 
 def insert_station(sesh, cf, i, name, x, y):
     station = Station(
-        name=name[i],
+        name=str(chartostring(name[i])),
         x=x[i],
         x_units=x.units,
         y=y[i],
@@ -879,15 +879,15 @@ def find_or_insert_stations(sesh, cf, var_name):
     :return: (list of Station) stations at which this variable is defined
     """
     variable = cf.variables[var_name]
-    # Some of this probably belongs in nchelpers
+    # TODO: Move some of this to nchelpers
     coordinates = [cf.variables[name] for name in variable.coordinates.split()]
     instance_dim = cf.dimensions[coordinates[0].dimensions[0]]
-    name = next(c for c in coordinates if c.cf_role == 'timeseries_id')
+    name = next(c for c in coordinates if getattr(c, 'cf_role', None) == 'timeseries_id')
     lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
     lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
 
     return [
-        find_or_insert_station(cf, var_name, i, name, lon, lat)
+        find_or_insert_station(sesh, cf, i, name, lon, lat)
         for i in range(0, instance_dim.size)
     ]
 

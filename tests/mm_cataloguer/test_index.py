@@ -28,7 +28,7 @@ import datetime
 from pkg_resources import resource_filename
 
 import pytest
-from netCDF4 import date2num, num2date
+from netCDF4 import date2num, num2date, chartostring
 
 from dateutil.relativedelta import relativedelta
 
@@ -47,7 +47,8 @@ from mm_cataloguer.index_netcdf import \
     insert_run, find_run, find_or_insert_run, \
     insert_model, find_model, find_or_insert_model, \
     insert_emission, find_emission, find_or_insert_emission, \
-    insert_data_file_variable_gridded, insert_data_file_variable_dsg_time_series, \
+    insert_data_file_variable_gridded, \
+    insert_data_file_variable_dsg_time_series, \
     find_data_file_variable, \
     find_or_insert_data_file_variable, \
     insert_variable_alias, find_variable_alias, find_or_insert_variable_alias, \
@@ -580,17 +581,173 @@ def test_find_or_insert_grid(test_session_with_empty_db, tiny_gridded_dataset, i
 
 cond_insert_station = conditional(insert_station)
 
-def test_find_station():
-    pass
+
+def test_insert_station(test_session_with_empty_db, tiny_dsg_dataset):
+    var_name = tiny_dsg_dataset.dependent_varnames()[0]
+    variable = tiny_dsg_dataset.variables[var_name]
+    # TODO: Move some of this to nchelpers
+    coordinates = [tiny_dsg_dataset.variables[name] for name in variable.coordinates.split()]
+    instance_dim = tiny_dsg_dataset.dimensions[coordinates[0].dimensions[0]]
+    name = next(c for c in coordinates if getattr(c, 'cf_role', None) == 'timeseries_id')
+    lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
+    lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
+    i = 0
+    check_insert(
+        insert_station,
+        test_session_with_empty_db,
+        tiny_dsg_dataset, i, name, lon, lat,
+        name=str(chartostring(name[i])),
+        x=lon[i],
+        x_units=lon.units,
+        y=lat[i],
+        y_units=lat.units
+    )
 
 
-# DataFileVariable
+def test_find_station(test_session_with_empty_db, tiny_dsg_dataset, insert):
+    assert tiny_dsg_dataset.sampling_geometry == 'dsg.timeSeries'
+    var_name = tiny_dsg_dataset.dependent_varnames()[0]
+    variable = tiny_dsg_dataset.variables[var_name]
+    # TODO: Move some of this to nchelpers
+    coordinates = [tiny_dsg_dataset.variables[name] for name in variable.coordinates.split()]
+    instance_dim = tiny_dsg_dataset.dimensions[coordinates[0].dimensions[0]]
+    name = next(c for c in coordinates if getattr(c, 'cf_role', None) == 'timeseries_id')
+    lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
+    lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
+    i = 0
+    check_find(
+        find_station,
+        cond_insert_station,
+        test_session_with_empty_db,
+        tiny_dsg_dataset, i, name, lon, lat,
+        invoke=insert
+    )
+
+
+def test_find_or_insert_station(
+        test_session_with_empty_db, tiny_dsg_dataset, insert):
+    var_name = tiny_dsg_dataset.dependent_varnames()[0]
+    variable = tiny_dsg_dataset.variables[var_name]
+    # TODO: Move some of this to nchelpers
+    coordinates = [tiny_dsg_dataset.variables[name] for name in variable.coordinates.split()]
+    instance_dim = tiny_dsg_dataset.dimensions[coordinates[0].dimensions[0]]
+    name = next(c for c in coordinates if getattr(c, 'cf_role', None) == 'timeseries_id')
+    lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
+    lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
+    i = 0
+    check_find_or_insert(
+        find_or_insert_station,
+        cond_insert_station,
+        test_session_with_empty_db,
+        tiny_dsg_dataset, i, name, lon, lat,
+        invoke=insert
+    )
+
+
+def test_find_or_insert_stations(
+        test_session_with_empty_db, tiny_dsg_dataset):
+    var_name = tiny_dsg_dataset.dependent_varnames()[0]
+    stations = find_or_insert_stations(
+        test_session_with_empty_db, tiny_dsg_dataset, var_name)
+
+    variable = tiny_dsg_dataset.variables[var_name]
+    # TODO: Move some of this to nchelpers
+    coordinates = [tiny_dsg_dataset.variables[name] for name in variable.coordinates.split()]
+    instance_dim = tiny_dsg_dataset.dimensions[coordinates[0].dimensions[0]]
+    name = next(c for c in coordinates if getattr(c, 'cf_role', None) == 'timeseries_id')
+    lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
+    lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
+    for i, station in enumerate(stations):
+        check_properties(
+            station,
+            name=str(chartostring(name[i])),
+            x=lon[i],
+            x_units=lon.units,
+            y=lat[i],
+            y_units=lat.units
+        )
+
+# DataFileVariableDSGTimeSeries
+
+def insert_data_file_variable_dsg_plus(
+        test_session_with_empty_db, tiny_gridded_dataset, var_name, data_file):
+    """Insert a ``DataFileVariableDSGTimeSeries`` plus associated
+    ``VariableAlias`` object.
+    Return ``DataFileVariableDSGTimeSeries`` inserted.
+    """
+    variable_alias = insert_variable_alias(
+        test_session_with_empty_db, tiny_gridded_dataset, var_name)
+    data_file_variable = insert_data_file_variable_dsg_time_series(
+        test_session_with_empty_db, tiny_gridded_dataset, var_name,
+        data_file, variable_alias
+    )
+    return data_file_variable
+
+
+cond_insert_data_file_variable_dsg_plus = \
+    conditional(insert_data_file_variable_dsg_plus)
+
+
+def test_insert_data_file_variable_dsg_time_series(
+        test_session_with_empty_db, tiny_dsg_dataset):
+    var_name = tiny_dsg_dataset.dependent_varnames()[0]
+    variable = tiny_dsg_dataset.variables[var_name]
+    range_min, range_max = tiny_dsg_dataset.var_range(var_name)
+    data_file = insert_data_file(test_session_with_empty_db, tiny_dsg_dataset)
+    dfv = check_insert(
+        insert_data_file_variable_dsg_plus,
+        test_session_with_empty_db,
+        tiny_dsg_dataset,
+        var_name,
+        data_file,
+        netcdf_variable_name=var_name,
+        variable_cell_methods=getattr(variable, 'cell_methods', None),
+        range_min=range_min,
+        range_max=range_max,
+        disabled=False,
+    )
+    assert dfv.variable_alias == find_variable_alias(
+        test_session_with_empty_db, tiny_dsg_dataset, var_name)
+
+
+def test_find_data_file_variable_dsg(
+        test_session_with_empty_db, tiny_dsg_dataset, insert
+):
+    var_name = tiny_dsg_dataset.dependent_varnames()[0]
+    data_file = insert_data_file(test_session_with_empty_db, tiny_dsg_dataset)
+    check_find(
+        find_data_file_variable,
+        cond_insert_data_file_variable_dsg_plus,
+        test_session_with_empty_db,
+        tiny_dsg_dataset,
+        var_name,
+        data_file,
+        invoke=insert
+    )
+
+
+def test_find_or_insert_data_file_variable_dsg(
+        test_session_with_empty_db, tiny_dsg_dataset, insert):
+    var_name = tiny_dsg_dataset.dependent_varnames()[0]
+    data_file = insert_data_file(test_session_with_empty_db, tiny_dsg_dataset)
+    check_find_or_insert(
+        find_or_insert_data_file_variable,
+        cond_insert_data_file_variable_dsg_plus,
+        test_session_with_empty_db,
+        tiny_dsg_dataset,
+        var_name,
+        data_file,
+        invoke=insert
+    )
+
+
+# DataFileVariableGridded
 
 def insert_data_file_variable_gridded_plus(
         test_session_with_empty_db, tiny_gridded_dataset, var_name, data_file):
-    """Insert a ``DataFileVariable`` plus associated ``VariableAlias``,
+    """Insert a ``DataFileVariableGridded`` plus associated ``VariableAlias``,
     ``LevelSet``, and ``Grid`` objects.
-    Return ``DataFileVariable`` inserted.
+    Return ``DataFileVariableGridded`` inserted.
     """
     variable_alias = insert_variable_alias(
         test_session_with_empty_db, tiny_gridded_dataset, var_name)
@@ -636,7 +793,7 @@ def test_insert_data_file_variable_gridded(
         test_session_with_empty_db, tiny_gridded_dataset, var_name)
 
 
-def test_find_data_file_variable(
+def test_find_data_file_variable_gridded(
         test_session_with_empty_db, tiny_gridded_dataset, insert
 ):
     var_name = tiny_gridded_dataset.dependent_varnames()[0]
@@ -652,7 +809,7 @@ def test_find_data_file_variable(
     )
 
 
-def test_find_or_insert_data_file_variable(
+def test_find_or_insert_data_file_variable_gridded(
         test_session_with_empty_db, tiny_gridded_dataset, insert):
     var_name = tiny_gridded_dataset.dependent_varnames()[0]
     data_file = insert_data_file(test_session_with_empty_db, tiny_gridded_dataset)
