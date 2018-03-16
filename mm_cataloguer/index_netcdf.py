@@ -885,7 +885,6 @@ def find_or_insert_stations(sesh, cf, var_name):
     name = next(c for c in coordinates if getattr(c, 'cf_role', None) == 'timeseries_id')
     lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
     lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
-
     return [
         find_or_insert_station(sesh, cf, i, name, lon, lat)
         for i in range(0, instance_dim.size)
@@ -917,26 +916,24 @@ def associate_stations_to_data_file_variable_dsg_time_series(
     return associations
 
 
-def find_or_insert_data_file_variable(sesh, cf, var_name, data_file):
-    """Find or insert a DataFileVariableGridded record corresponding to a named
+def insert_data_file_variable(sesh, cf, var_name, data_file):
+    """Insert a ``DataFileVariable`` record corresponding to a named
     variable in a NetCDF file and associated to a specified DataFile record.
-    If none exists, return None.
 
-    NOTE: Parameter `cf` is not used in this function, but it is retained to
-    maintain a consistent signature amongst all `find_` functions. This is
-    useful in testing, although its absence could be accommodated with more
-    complex testing code.
+    This function is essentially a delegator for
+    ``insert_data_file_variable_gridded`` and
+    ``insert_data_file_variable_dsg_time_series``
+
+    It also has the responsibility to create the necessary dependent records
+    for each item. In simpler cases (no delegation), this responsibility is
+    in the ``find_or_insert_X`` function.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
     :param var_name: (str) name of variable
     :param data_file: (DataFile) data file to associate this dfv to
-    :return: found or inserted DataFileVariableGridded record
+    :return:
     """
-    dfv = find_data_file_variable(sesh, cf, var_name, data_file)
-    if dfv:
-        return dfv
-
     # Common to all sampling geometry types
     variable_alias = find_or_insert_variable_alias(sesh, cf, var_name)
     assert variable_alias
@@ -950,16 +947,31 @@ def find_or_insert_data_file_variable(sesh, cf, var_name, data_file):
     else:
         dfv = insert_data_file_variable_dsg_time_series(
             sesh, cf, var_name, data_file, variable_alias)
-        # The following is an instance of the rule that there are only two
-        # difficult things in CS: naming things and cache invalidation.
+        # TODO: Should this association be done here? Where else?
         associate_stations_to_data_file_variable_dsg_time_series(
             sesh, cf, var_name, dfv)
         return dfv
 
 
+def find_or_insert_data_file_variable(sesh, cf, var_name, data_file):
+    """Find or insert a ``DataFileVariable`` record corresponding to a named
+    variable in a NetCDF file and associated to a specified DataFile record.
+    If none exists, return None.
+
+    :param sesh: modelmeta database session
+    :param cf: CFDatafile object representing NetCDF file
+    :param var_name: (str) name of variable
+    :param data_file: (DataFile) data file to associate this dfv to
+    :return: found or inserted DataFileVariableGridded record
+    """
+    dfv = find_data_file_variable(sesh, cf, var_name, data_file)
+    if dfv:
+        return dfv
+    return insert_data_file_variable(sesh, cf, var_name, data_file)
+
 
 def find_or_insert_data_file_variables(sesh, cf, data_file):
-    """Find or insert DataFileVariableGridded for all dependent variables in a
+    """Find or insert DataFileVariable for all dependent variables in a
     NetCDF file, associated to a specified DataFile record.
 
     :param sesh: modelmeta database session
@@ -1122,6 +1134,22 @@ def insert_data_file(sesh, cf):  # create.data.file.id
     return df
 
 
+def delete_data_file_variable(sesh, existing_data_file_variable):
+    if isinstance(existing_data_file_variable, DataFileVariableDSGTimeSeries):
+        # We shouldn't have to do this, but for some reason without manually
+        # deleting the X records, we get a
+        existing_dfv_x_stations = (
+            sesh.query(DataFileVariableDSGTimeSeriesXStation)
+            .filter_by(
+                data_file_variable_dsg_ts_id=existing_data_file_variable.id
+            )
+        )
+        for x in existing_dfv_x_stations:
+            sesh.delete(x)
+    sesh.flush()
+    sesh.delete(existing_data_file_variable)
+
+
 def delete_data_file(sesh, existing_data_file):
     """Delete existing ``DataFile`` object, associated ``DataFileVariable``s,
     and the associations of those ``DataFileVariable``s to ``Ensemble``s
@@ -1146,10 +1174,10 @@ def delete_data_file(sesh, existing_data_file):
                 [edfv.id for edfv in existing_data_file_variables]
             ))
     )
-    for obj in existing_ensemble_data_file_variables:
-        sesh.delete(obj)
-    for obj in existing_data_file_variables:
-        sesh.delete(obj)
+    for edfv in existing_ensemble_data_file_variables:
+        sesh.delete(edfv)
+    for dfv in existing_data_file_variables:
+        delete_data_file_variable(sesh, dfv)
     sesh.delete(existing_data_file)
 
 
