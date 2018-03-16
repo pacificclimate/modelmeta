@@ -342,12 +342,13 @@ def open_tiny_dataset(abbrev):
     return CFDataset(resource_filename('modelmeta', filename))
 
 
-# We parametrize this fixture so that every test that uses it is run for all
+# We parametrize these fixture so that every test that uses it is run for all
 # params. This can be overridden on specific tests by using
-# ``@pytest.mark.parametrize`` with arg ``indirect=['tiny_gridded_dataset']``;
+# ``@pytest.mark.parametrize`` with arg ``indirect=['<fixture name>']``;
 # see ``test_get_level_set_info`` for an example.
-# TODO: Parametrize over more tiny datasets.
-@pytest.fixture(params='''
+
+# TODO: Parametrize over more gridded datasets.
+gridded_dataset_names = '''
     gcm
     downscaled
     hydromodel_gcm
@@ -355,7 +356,17 @@ def open_tiny_dataset(abbrev):
     gcm_climo_seasonal
     gcm_climo_yearly
     gridded_obs
-'''.split())
+'''.split()
+
+# TODO: Parametrize over more dsg datasets.
+dsg_dataset_names = '''
+    streamflow
+'''.split()
+
+any_dataset_names = gridded_dataset_names + dsg_dataset_names
+
+
+@pytest.fixture(params=gridded_dataset_names)
 def tiny_gridded_dataset(request):
     """Return a 'tiny' test gridded dataset, based on request param.
     This fixture is used to parametrize over test data files.
@@ -367,13 +378,21 @@ def tiny_gridded_dataset(request):
     return open_tiny_dataset(request.param)
 
 
-# We parametrize this fixture so that every test that uses it is run for all
-# params. This can be overridden on specific tests by using
-# ``@pytest.mark.parametrize`` with arg ``indirect=['tiny_dsg_dataset']``;
-@pytest.fixture(params='''
-    streamflow
-'''.split())
+@pytest.fixture(params=dsg_dataset_names)
 def tiny_dsg_dataset(request):
+    """Return a 'tiny' test discrete sampling geometry dataset, based on
+    request param.
+    This fixture is used to parametrize over test data files.
+    This fixture must be invoked with indirection.
+
+    request.param: (str) selects the test file to be returned
+    returns: (nchelpers.CFDataset) test file as a CFDataset object
+    """
+    return open_tiny_dataset(request.param)
+
+
+@pytest.fixture(params=any_dataset_names)
+def tiny_any_dataset(request):
     """Return a 'tiny' test discrete sampling geometry dataset, based on
     request param.
     This fixture is used to parametrize over test data files.

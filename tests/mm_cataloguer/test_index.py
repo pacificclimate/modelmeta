@@ -901,34 +901,34 @@ cond_insert_data_file = conditional(insert_data_file)
 
 
 def test_insert_data_file(
-        monkeypatch, test_session_with_empty_db, tiny_gridded_dataset
+        monkeypatch, test_session_with_empty_db, tiny_any_dataset
 ):
     # Have to use a datetime with no hours, min, sec because apparently
     # SQLite loses precision
     fake_now = freeze_utcnow(monkeypatch, 2000, 1, 2)
-    dim_names = tiny_gridded_dataset.axes_dim()
+    dim_names = tiny_any_dataset.axes_dim()
     data_file = check_insert(
-        insert_data_file, test_session_with_empty_db, tiny_gridded_dataset,
-        filename=tiny_gridded_dataset.filepath(),
-        first_1mib_md5sum=tiny_gridded_dataset.first_MiB_md5sum,
-        unique_id=tiny_gridded_dataset.unique_id,
+        insert_data_file, test_session_with_empty_db, tiny_any_dataset,
+        filename=tiny_any_dataset.filepath(),
+        first_1mib_md5sum=tiny_any_dataset.first_MiB_md5sum,
+        unique_id=tiny_any_dataset.unique_id,
         index_time=fake_now,
         x_dim_name=dim_names.get('X', None),
         y_dim_name=dim_names.get('Y', None),
         z_dim_name=dim_names.get('Z', None),
         t_dim_name=dim_names.get('T', None)
     )
-    assert data_file.run == find_run(test_session_with_empty_db, tiny_gridded_dataset)
+    assert data_file.run == find_run(test_session_with_empty_db, tiny_any_dataset)
     assert data_file.timeset == \
-        find_timeset(test_session_with_empty_db, tiny_gridded_dataset)
+        find_timeset(test_session_with_empty_db, tiny_any_dataset)
 
 
-def test_find_data_file(test_session_with_empty_db, tiny_gridded_dataset, insert):
+def test_find_data_file(test_session_with_empty_db, tiny_any_dataset, insert):
     data_file = cond_insert_data_file(
-        test_session_with_empty_db, tiny_gridded_dataset, invoke=insert)
+        test_session_with_empty_db, tiny_any_dataset, invoke=insert)
     id_match, hash_match, filename_match = \
         find_data_file_by_id_hash_filename(
-            test_session_with_empty_db, tiny_gridded_dataset)
+            test_session_with_empty_db, tiny_any_dataset)
     if insert:
         assert id_match == data_file
         assert hash_match == data_file
@@ -939,12 +939,12 @@ def test_find_data_file(test_session_with_empty_db, tiny_gridded_dataset, insert
         assert not filename_match
 
 
-def test_delete_data_file(test_session_with_empty_db, tiny_gridded_dataset):
-    data_file = insert_data_file(test_session_with_empty_db, tiny_gridded_dataset)
+def test_delete_data_file(test_session_with_empty_db, tiny_any_dataset):
+    data_file = insert_data_file(test_session_with_empty_db, tiny_any_dataset)
     delete_data_file(test_session_with_empty_db, data_file)
     assert \
         find_data_file_by_id_hash_filename(
-            test_session_with_empty_db, tiny_gridded_dataset) \
+            test_session_with_empty_db, tiny_any_dataset) \
         == (None, None, None)
 
 
@@ -1067,7 +1067,7 @@ far_future = seconds_since_epoch(datetime.datetime(2100, 1, 1))
      False),
 ])
 def test_find_update_or_insert_cf_file__dup(
-        monkeypatch, test_session_with_empty_db, tiny_gridded_dataset,
+        monkeypatch, test_session_with_empty_db, tiny_any_dataset,
         dataset_mocks, os_path_mocks, same_data_file
 ):
     """Test cases where the data file to be inserted is a variant of an
@@ -1081,11 +1081,11 @@ def test_find_update_or_insert_cf_file__dup(
     on the dataset filename) should be changed for the test.
     """
     # Index original file
-    data_file1 = index_cf_file(test_session_with_empty_db, tiny_gridded_dataset)
+    data_file1 = index_cf_file(test_session_with_empty_db, tiny_any_dataset)
     assert data_file1
 
     # Mock specified differences into tiny_gridded_dataset
-    other_tiny_gridded_dataset = Mock(tiny_gridded_dataset, **dataset_mocks)
+    other_tiny_gridded_dataset = Mock(tiny_any_dataset, **dataset_mocks)
 
     # Mock specified differences into os.path
     for attr, value in os_path_mocks.items():
@@ -1186,6 +1186,7 @@ def test_index_netcdf_files(test_dsn_fs, test_engine_fs):
         'data/tiny_gcm_climo_monthly.nc',
         'data/tiny_gcm_climo_seasonal.nc',
         'data/tiny_gcm_climo_yearly.nc',
+        'data/tiny_streamflow.nc',
     ]
     filenames = [resource_filename('modelmeta', f) for f in test_files]
     data_file_ids = index_netcdf_files(filenames, test_dsn_fs)
