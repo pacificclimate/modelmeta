@@ -37,7 +37,7 @@ from sqlalchemy import func
 import pycrs
 
 from modelmeta import create_test_database
-from modelmeta import Level, DataFile, SpatialRefSys
+from modelmeta import Level, DataFile, SpatialRefSys, Station
 from nchelpers.date_utils import to_datetime
 
 from mm_cataloguer.index_netcdf import \
@@ -56,6 +56,7 @@ from mm_cataloguer.index_netcdf import \
     insert_spatial_ref_sys, find_spatial_ref_sys, find_or_insert_spatial_ref_sys, \
     insert_grid, find_grid, find_or_insert_grid, \
     insert_station, find_station, find_or_insert_station, find_or_insert_stations, \
+    associate_stations_to_data_file_variable_dsg_time_series, \
     insert_timeset, find_timeset, find_or_insert_timeset, \
     get_grid_info, get_level_set_info, \
     seconds_since_epoch, usable_name, wkt
@@ -130,6 +131,7 @@ def check_find_or_insert(*args, **kwargs):
         assert thing_found_or_inserted
     else:
         assert not thing_found_or_inserted
+    return thing_found_or_inserted
 
 
 def freeze_utcnow(*args):
@@ -592,6 +594,7 @@ def test_insert_station(test_session_with_empty_db, tiny_dsg_dataset):
     lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
     lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
     i = 0
+    assert instance_dim.size > 0
     check_insert(
         insert_station,
         test_session_with_empty_db,
@@ -615,6 +618,7 @@ def test_find_station(test_session_with_empty_db, tiny_dsg_dataset, insert):
     lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
     lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
     i = 0
+    assert instance_dim.size > 0
     check_find(
         find_station,
         cond_insert_station,
@@ -635,6 +639,7 @@ def test_find_or_insert_station(
     lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
     lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
     i = 0
+    assert instance_dim.size > 0
     check_find_or_insert(
         find_or_insert_station,
         cond_insert_station,
@@ -657,6 +662,7 @@ def test_find_or_insert_stations(
     name = next(c for c in coordinates if getattr(c, 'cf_role', None) == 'timeseries_id')
     lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
     lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
+    assert len(stations) == instance_dim.size
     for i, station in enumerate(stations):
         check_properties(
             station,
@@ -667,19 +673,42 @@ def test_find_or_insert_stations(
             y_units=lat.units
         )
 
+# DataFileVariableDSGTimeSeriesXStation
+
+def test_associate_stations_to_data_file_variable_dsg_time_series(
+        test_session_with_empty_db, tiny_dsg_dataset, dfv_dsg_time_series_1
+):
+    sesh = test_session_with_empty_db
+    var_name = tiny_dsg_dataset.dependent_varnames()[0]
+    variable = tiny_dsg_dataset.variables[var_name]
+    sesh.add(dfv_dsg_time_series_1)
+    associations = associate_stations_to_data_file_variable_dsg_time_series(
+        sesh, tiny_dsg_dataset, var_name, dfv_dsg_time_series_1
+    )
+    # TODO: Move some of this to nchelpers
+    coordinates = [tiny_dsg_dataset.variables[name] for name in variable.coordinates.split()]
+    instance_dim = tiny_dsg_dataset.dimensions[coordinates[0].dimensions[0]]
+    assert instance_dim.size > 0
+    assert len(associations) == instance_dim.size
+
+
 # DataFileVariableDSGTimeSeries
 
 def insert_data_file_variable_dsg_plus(
-        test_session_with_empty_db, tiny_gridded_dataset, var_name, data_file):
+        test_session_with_empty_db, tiny_dsg_dataset, var_name, data_file):
     """Insert a ``DataFileVariableDSGTimeSeries`` plus associated
     ``VariableAlias`` object.
     Return ``DataFileVariableDSGTimeSeries`` inserted.
     """
     variable_alias = insert_variable_alias(
-        test_session_with_empty_db, tiny_gridded_dataset, var_name)
+        test_session_with_empty_db, tiny_dsg_dataset, var_name)
     data_file_variable = insert_data_file_variable_dsg_time_series(
-        test_session_with_empty_db, tiny_gridded_dataset, var_name,
+        test_session_with_empty_db, tiny_dsg_dataset, var_name,
         data_file, variable_alias
+    )
+    associate_stations_to_data_file_variable_dsg_time_series(
+        test_session_with_empty_db, tiny_dsg_dataset, var_name,
+        data_file_variable
     )
     return data_file_variable
 
@@ -727,18 +756,26 @@ def test_find_data_file_variable_dsg(
 
 
 def test_find_or_insert_data_file_variable_dsg(
-        test_session_with_empty_db, tiny_dsg_dataset, insert):
+        test_session_with_empty_db, tiny_dsg_dataset, insert, data_file_1):
     var_name = tiny_dsg_dataset.dependent_varnames()[0]
-    data_file = insert_data_file(test_session_with_empty_db, tiny_dsg_dataset)
-    check_find_or_insert(
+    variable = tiny_dsg_dataset.variables[var_name]
+    # data_file = insert_data_file(test_session_with_empty_db, tiny_dsg_dataset)
+    dfv = check_find_or_insert(
         find_or_insert_data_file_variable,
         cond_insert_data_file_variable_dsg_plus,
         test_session_with_empty_db,
         tiny_dsg_dataset,
         var_name,
-        data_file,
+        data_file_1,
         invoke=insert
     )
+    stations = test_session_with_empty_db.query(Station).all()
+    # TODO: Move some of this to nchelpers
+    coordinates = [tiny_dsg_dataset.variables[name] for name in variable.coordinates.split()]
+    instance_dim = tiny_dsg_dataset.dimensions[coordinates[0].dimensions[0]]
+
+    assert len(stations) == instance_dim.size
+    assert set(dfv.stations) == set(stations)
 
 
 # DataFileVariableGridded
