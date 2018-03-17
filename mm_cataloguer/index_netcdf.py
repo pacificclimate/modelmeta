@@ -878,13 +878,10 @@ def find_or_insert_stations(sesh, cf, var_name):
     :param var_name: (str) name of variable
     :return: (list of Station) stations at which this variable is defined
     """
-    variable = cf.variables[var_name]
-    # TODO: Move some of this to nchelpers
-    coordinates = [cf.variables[name] for name in variable.coordinates.split()]
-    instance_dim = cf.dimensions[coordinates[0].dimensions[0]]
-    name = next(c for c in coordinates if getattr(c, 'cf_role', None) == 'timeseries_id')
-    lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
-    lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
+    instance_dim = cf.instance_dim(var_name)
+    name = cf.id_instance_var(var_name)
+    lat = cf.spatial_instance_var(var_name, 'X')
+    lon = cf.spatial_instance_var(var_name, 'Y')
     return [
         find_or_insert_station(sesh, cf, i, name, lon, lat)
         for i in range(0, instance_dim.size)

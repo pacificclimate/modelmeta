@@ -586,13 +586,10 @@ cond_insert_station = conditional(insert_station)
 
 def test_insert_station(test_session_with_empty_db, tiny_dsg_dataset):
     var_name = tiny_dsg_dataset.dependent_varnames()[0]
-    variable = tiny_dsg_dataset.variables[var_name]
-    # TODO: Move some of this to nchelpers
-    coordinates = [tiny_dsg_dataset.variables[name] for name in variable.coordinates.split()]
-    instance_dim = tiny_dsg_dataset.dimensions[coordinates[0].dimensions[0]]
-    name = next(c for c in coordinates if getattr(c, 'cf_role', None) == 'timeseries_id')
-    lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
-    lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
+    instance_dim = tiny_dsg_dataset.instance_dim(var_name)
+    name = tiny_dsg_dataset.id_instance_var(var_name)
+    lat = tiny_dsg_dataset.spatial_instance_var(var_name, 'X')
+    lon = tiny_dsg_dataset.spatial_instance_var(var_name, 'Y')
     i = 0
     assert instance_dim.size > 0
     check_insert(
@@ -610,13 +607,10 @@ def test_insert_station(test_session_with_empty_db, tiny_dsg_dataset):
 def test_find_station(test_session_with_empty_db, tiny_dsg_dataset, insert):
     assert tiny_dsg_dataset.sampling_geometry == 'dsg.timeSeries'
     var_name = tiny_dsg_dataset.dependent_varnames()[0]
-    variable = tiny_dsg_dataset.variables[var_name]
-    # TODO: Move some of this to nchelpers
-    coordinates = [tiny_dsg_dataset.variables[name] for name in variable.coordinates.split()]
-    instance_dim = tiny_dsg_dataset.dimensions[coordinates[0].dimensions[0]]
-    name = next(c for c in coordinates if getattr(c, 'cf_role', None) == 'timeseries_id')
-    lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
-    lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
+    instance_dim = tiny_dsg_dataset.instance_dim(var_name)
+    name = tiny_dsg_dataset.id_instance_var(var_name)
+    lat = tiny_dsg_dataset.spatial_instance_var(var_name, 'X')
+    lon = tiny_dsg_dataset.spatial_instance_var(var_name, 'Y')
     i = 0
     assert instance_dim.size > 0
     check_find(
@@ -631,13 +625,10 @@ def test_find_station(test_session_with_empty_db, tiny_dsg_dataset, insert):
 def test_find_or_insert_station(
         test_session_with_empty_db, tiny_dsg_dataset, insert):
     var_name = tiny_dsg_dataset.dependent_varnames()[0]
-    variable = tiny_dsg_dataset.variables[var_name]
-    # TODO: Move some of this to nchelpers
-    coordinates = [tiny_dsg_dataset.variables[name] for name in variable.coordinates.split()]
-    instance_dim = tiny_dsg_dataset.dimensions[coordinates[0].dimensions[0]]
-    name = next(c for c in coordinates if getattr(c, 'cf_role', None) == 'timeseries_id')
-    lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
-    lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
+    instance_dim = tiny_dsg_dataset.instance_dim(var_name)
+    name = tiny_dsg_dataset.id_instance_var(var_name)
+    lat = tiny_dsg_dataset.spatial_instance_var(var_name, 'X')
+    lon = tiny_dsg_dataset.spatial_instance_var(var_name, 'Y')
     i = 0
     assert instance_dim.size > 0
     check_find_or_insert(
@@ -655,13 +646,10 @@ def test_find_or_insert_stations(
     stations = find_or_insert_stations(
         test_session_with_empty_db, tiny_dsg_dataset, var_name)
 
-    variable = tiny_dsg_dataset.variables[var_name]
-    # TODO: Move some of this to nchelpers
-    coordinates = [tiny_dsg_dataset.variables[name] for name in variable.coordinates.split()]
-    instance_dim = tiny_dsg_dataset.dimensions[coordinates[0].dimensions[0]]
-    name = next(c for c in coordinates if getattr(c, 'cf_role', None) == 'timeseries_id')
-    lat = next(c for c in coordinates if c.name in ['lat', 'latitude'])
-    lon = next(c for c in coordinates if c.name in ['lon', 'longitude'])
+    instance_dim = tiny_dsg_dataset.instance_dim(var_name)
+    name = tiny_dsg_dataset.id_instance_var(var_name)
+    lat = tiny_dsg_dataset.spatial_instance_var(var_name, 'X')
+    lon = tiny_dsg_dataset.spatial_instance_var(var_name, 'Y')
     assert len(stations) == instance_dim.size
     for i, station in enumerate(stations):
         check_properties(
@@ -685,9 +673,7 @@ def test_associate_stations_to_data_file_variable_dsg_time_series(
     associations = associate_stations_to_data_file_variable_dsg_time_series(
         sesh, tiny_dsg_dataset, var_name, dfv_dsg_time_series_1
     )
-    # TODO: Move some of this to nchelpers
-    coordinates = [tiny_dsg_dataset.variables[name] for name in variable.coordinates.split()]
-    instance_dim = tiny_dsg_dataset.dimensions[coordinates[0].dimensions[0]]
+    instance_dim = tiny_dsg_dataset.instance_dim(var_name)
     assert instance_dim.size > 0
     assert len(associations) == instance_dim.size
 
@@ -770,10 +756,7 @@ def test_find_or_insert_data_file_variable_dsg(
         invoke=insert
     )
     stations = test_session_with_empty_db.query(Station).all()
-    # TODO: Move some of this to nchelpers
-    coordinates = [tiny_dsg_dataset.variables[name] for name in variable.coordinates.split()]
-    instance_dim = tiny_dsg_dataset.dimensions[coordinates[0].dimensions[0]]
-
+    instance_dim = tiny_dsg_dataset.instance_dim(var_name)
     assert len(stations) == instance_dim.size
     assert set(dfv.stations) == set(stations)
 
