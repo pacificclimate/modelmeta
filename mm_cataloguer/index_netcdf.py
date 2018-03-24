@@ -499,6 +499,10 @@ def find_or_insert_level_set(sesh, cf, var_name):  # get.level.set.id
 # SpatialRefSys
 
 default_proj4 = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+default_wkt = ('GEOGCS["Unknown", DATUM["WGS_1984",',
+               ' SPHEROID["WGS_1984", 6378137, 298.257223563]],',
+               ' PRIMEM["Greenwich", 0], UNIT["degree", 0.017453292519943295],',
+               ' AXIS["Lon", EAST], AXIS["Lat", NORTH]]')
 
 
 def wkt(proj4):
@@ -518,11 +522,13 @@ def find_spatial_ref_sys(sesh, cf, var_name):
     :param var_name: (str) name of variable for which to find spatial ref sys
     :return: existing ``SpatialRefSys`` record or None
     """
+    
+    wkt_string = cf.wkt_string(var_name, default_wkt)
+
     q = (
         sesh.query(SpatialRefSys)
-        .filter(SpatialRefSys.srtext ==
-                wkt(cf.proj4_string(var_name, default=default_proj4)))
-    )
+        .filter(SpatialRefSys.srtext == wkt_string)
+    )    
     return q.one_or_none()
 
 
@@ -567,14 +573,20 @@ def insert_spatial_ref_sys(sesh, cf, var_name):
     )
     id = select([next_srid.c.next_srid])  # Used in two places
 
+    wkt_string = cf.wkt_string(var_name, default=default_wkt)
     proj4_string = cf.proj4_string(var_name, default=default_proj4)
+
+    if not wkt(proj4) == wkt_string:
+        raise Exception(
+            'WKT and proj4 data in this file do not match'
+            )
 
     spatial_ref_sys = SpatialRefSys(
         id=id,
         auth_name='PCIC',
         auth_srid=id,
         proj4text=proj4_string,
-        srtext=wkt(proj4_string),
+        srtext=wkt_string,
     )
 
     sesh.add(spatial_ref_sys)
