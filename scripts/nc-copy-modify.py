@@ -1,4 +1,12 @@
 #! python
+
+"""
+Slice a NetCDF file along the time dimension.
+"""
+
+# TODO: Generalize to slice along any combination of dimensions.
+# Change args to source dest dim_name:index_range*
+# Don't specify variables, slice em all.
 from argparse import ArgumentParser
 
 from netCDF4 import Dataset
