@@ -1,6 +1,14 @@
 News / Release Notes
 ====================
 
+0.3.0
+-----
+
+*Release Date: 2018-Aug-22*
+
+* Indexer handles discrete sampling geometry (station-based, non-gridded)
+  data files, such as streamflow output files. Requires nchelpers>=5.5.0.
+
 0.2.0
 -----
 
