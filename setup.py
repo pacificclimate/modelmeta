@@ -18,8 +18,8 @@ setup(
         alembic
         psycopg2
         numpy
-        netCDF4
-        nchelpers>=5.3.0
+        netCDF4==1.3
+        nchelpers>=5.5.0,<6
         python-dateutil
         sqlparse
         PyCRS
@@ -36,6 +36,7 @@ setup(
             data/tiny_gcm_climo_seasonal.nc
             data/tiny_gcm_climo_monthly.nc
             data/tiny_gridded_obs.nc
+            data/tiny_streamflow.nc
         '''.split()
     },
     include_package_data = True,
