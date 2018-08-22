@@ -2,8 +2,8 @@ SQLAlchemy
 alembic
 psycopg2
 numpy
-netCDF4
-nchelpers>=5.4.0,<6
+netCDF4==1.3
+nchelpers>=5.5.0,<6
 python-dateutil
 sqlparse
 git+git://github.com/karimbahgat/PyCRS.git@70e4210b16260b2c17fd31947816836a29a12117
