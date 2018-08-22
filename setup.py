@@ -19,7 +19,7 @@ setup(
         psycopg2
         numpy
         netCDF4
-        nchelpers>=5.3.0
+        nchelpers>=5.4.0,<6
         python-dateutil
         sqlparse
         PyCRS
