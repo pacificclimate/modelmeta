@@ -692,3 +692,53 @@ class SpatialRefSys(Base):
 
 # We don't declare constraints on SpatialRefSys because the Postgis plugin is
 # responsible for creating it.
+
+
+class StreamflowOrder(Base):
+    __tablename__ = 'streamflow_orders'
+
+    # column definitions
+    id = Column('streamflow_order_id', Integer, primary_key=True, nullable=False)
+    hydromodel_output_id = Column(
+        Integer, ForeignKey('data_files.data_file_id'),
+        nullable=False)
+    streamflow_result_id = Column(
+        Integer, ForeignKey('streamflow_results.streamflow_result_id'),
+        nullable=False)
+    longitude = Column(Float, nullable=False)
+    latitude = Column(Float, nullable=False)
+    notification_method = Column(
+        Enum('none', 'email'),
+        nullable=False
+    )
+    notification_address = Column(String(length=255), nullable=True)
+    status = Column(
+        Enum('accepted', 'fulfilled', 'cancelled', 'error'),
+        nullable=False
+    )
+
+    # relationships
+    hydromodel = relationship('DataFile')
+    result = relationship('StreamflowResult', back_populates='orders')
+
+
+class StreamflowResult(Base):
+    __tablename__ = 'streamflow_results'
+
+    # column definitions
+    id = Column('streamflow_result_id', Integer, primary_key=True, nullable=False)
+    data_file_id = Column(
+        Integer, ForeignKey('data_files.data_file_id'),
+        nullable=False)
+    station_id = Column(
+        Integer, ForeignKey('stations.station_id'),
+        nullable=False)
+    status = Column(
+        Enum('queued', 'processing', 'error', 'cancelled', 'ready', 'removed'),
+        nullable=False
+    )
+
+    # relationships
+    data_file = relationship('DataFile')
+    station = relationship('Station')
+    orders = relationship('StreamflowOrder', back_populates='result')
