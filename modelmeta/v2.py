@@ -26,6 +26,8 @@ __all__ = '''
     VariableAlias
     YCellBound
     SpatialRefSys
+    StreamflowOrder
+    StreamflowResult
 '''.split()
 
 from pkg_resources import resource_filename
@@ -721,6 +723,11 @@ class StreamflowOrder(Base):
     hydromodel = relationship('DataFile')
     result = relationship('StreamflowResult', back_populates='orders')
 
+    def __str__(self):
+        return obj_repr(
+            'id hydromodel_output_id streamflow_result_id longitude latitude '
+            'notification_address status', self)
+
 
 class StreamflowResult(Base):
     __tablename__ = 'streamflow_results'
@@ -742,3 +749,7 @@ class StreamflowResult(Base):
     data_file = relationship('DataFile')
     station = relationship('Station')
     orders = relationship('StreamflowOrder', back_populates='result')
+
+    def __str__(self):
+        return obj_repr(
+            'id data_file_id station_id status', self)
