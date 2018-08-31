@@ -710,17 +710,23 @@ class StreamflowOrder(Base):
     longitude = Column(Float, nullable=False)
     latitude = Column(Float, nullable=False)
     notification_method = Column(
-        Enum('none', 'email'),
+        Enum(
+            'none', 'email',
+            name='notification_methods'
+        ),
         nullable=False
     )
     notification_address = Column(String(length=255), nullable=True)
     status = Column(
-        Enum('accepted', 'fulfilled', 'cancelled', 'error'),
+        Enum(
+            'accepted', 'fulfilled', 'cancelled', 'error',
+            name='streamflow_order_statuses'
+        ),
         nullable=False
     )
 
     # relationships
-    hydromodel = relationship('DataFile')
+    hydromodel_output = relationship('DataFile')
     result = relationship('StreamflowResult', back_populates='orders')
 
     def __str__(self):
@@ -736,12 +742,15 @@ class StreamflowResult(Base):
     id = Column('streamflow_result_id', Integer, primary_key=True, nullable=False)
     data_file_id = Column(
         Integer, ForeignKey('data_files.data_file_id'),
-        nullable=False)
+        nullable=True)
     station_id = Column(
         Integer, ForeignKey('stations.station_id'),
-        nullable=False)
+        nullable=True)
     status = Column(
-        Enum('queued', 'processing', 'error', 'cancelled', 'ready', 'removed'),
+        Enum(
+            'queued', 'processing', 'error', 'cancelled', 'ready', 'removed',
+            name='streamflow_result_statuses',
+        ),
         nullable=False
     )
 
