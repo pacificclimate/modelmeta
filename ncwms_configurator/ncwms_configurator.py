@@ -188,7 +188,7 @@ def create(args):
     sesh = get_session(args.dsn)
     q = sesh.query(DataFileVariable)\
                 .join(EnsembleDataFileVariables, Ensemble)\
-                .filter(Ensemble.name == args.ensemble)
+                .filter(Ensemble.name.in_(args.ensemble))
 
     results = [(
         dfv.file.unique_id,
@@ -285,8 +285,8 @@ Examples:\n
     \tpostgresql+pg8000://scott:tiger@localhost/mydatabase\n''')
     parser.add_argument('-o', '--outfile', default=None,
         help='Output file path. To overwrite an existing file use the "--overwrite" option')
-    parser.add_argument('-e', '--ensemble', required=True,
-        help='Ensemble to use for updating/creating the output file')
+    parser.add_argument('-e', '--ensemble', required=True, default=[], action='append',
+        help='Ensembles to use for updating/creating the output file')
     parser.add_argument('-v', '--version', type=int, default=2, choices=[1, 2],
         help='Version of ncWMS to target configuration to')
     subparsers = parser.add_subparsers(title='Operation type')
