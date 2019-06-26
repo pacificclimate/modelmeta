@@ -90,7 +90,7 @@ def upgrade():
     sa.ForeignKeyConstraint(
         ['data_file_variable_dsg_ts_id'],
         ['data_file_variables_dsg_time_series.data_file_variable_dsg_ts_id'],
-        name='data_file_variables_dsg_time_series_x_stations_data_file_variable_dsg_ts_id_id_fkey',
+        name='dfv_dsg_time_series_x_stations_dfv_dsg_ts_id_id_fkey',
         ondelete='CASCADE'),
     sa.ForeignKeyConstraint(
         ['station_id'], ['stations.station_id'],
