@@ -7,3 +7,4 @@ nchelpers>=5.5.0,<6
 python-dateutil
 sqlparse
 git+git://github.com/karimbahgat/PyCRS.git@70e4210b16260b2c17fd31947816836a29a12117
+lxml
