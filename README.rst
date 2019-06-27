@@ -147,10 +147,11 @@ Instructions:
 
       - ``search_path = ce_meta,public``
 
-   #. `Enable PostGIS in the new database <http://postgis.net/install/>`_.
+   #. `Optionally enable PostGIS in the new database <http://postgis.net/install/>`_.
 
       - ``CREATE EXTENSION postgis;``
       - This creates the table ``spatial_ref_sys`` in schema ``public``. Check that.
+      - If you you don't do this, the initial migration will do it for you.
 
 #. Add a DSN for your new database, including the appropriate user name, to ``alembic.ini``. For example::
 

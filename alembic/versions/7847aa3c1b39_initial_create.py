@@ -21,7 +21,7 @@ def upgrade():
     # but it proved easier (a.k.a. apparently necessary) for testing to do it
     # here. Also, it makes eminent sense to remove an external manual step in
     # setting up a new database. Hence:
-    op.execute('create extension postgis')
+    op.execute('create extension if not exists postgis')
 
     op.create_table('emissions',
     sa.Column('emission_id', sa.Integer(), nullable=False),
