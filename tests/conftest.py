@@ -74,6 +74,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'helpers'))
 
 def make_data_file(i, run=None, timeset=None):
     return DataFile(
+        id=i,
         filename='data_file_{}'.format(i),
         first_1mib_md5sum='first_1mib_md5sum',
         unique_id='unique_id_{}'.format(i),
@@ -169,6 +170,7 @@ def dfv_gridded_1(data_file_1, variable_alias_1, level_set_1, grid_1):
 
 def make_test_dfv_dsg_time_series(i, file=None, variable_alias=None):
     return DataFileVariableDSGTimeSeries(
+        id=i,
         derivation_method='derivation_method_{}'.format(i),
         variable_cell_methods='variable_cell_methods_{}'.format(i),
         netcdf_variable_name='var_{}'.format(i),
