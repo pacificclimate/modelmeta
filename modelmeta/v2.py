@@ -221,7 +221,7 @@ class DataFileVariableDSGTimeSeriesXStation(Base):
         Integer, 
         ForeignKey(
             'data_file_variables_dsg_time_series.data_file_variable_dsg_ts_id',
-            name='data_file_variables_dsg_time_series_x_stations_data_file_variable_dsg_ts_id_id_fkey',
+            name='dfv_dsg_time_series_x_stations_dfv_dsg_ts_id_id_fkey',
             ondelete='CASCADE'),
         primary_key=True,
         nullable=False
