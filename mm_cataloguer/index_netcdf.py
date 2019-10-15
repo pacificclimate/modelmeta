@@ -1060,15 +1060,20 @@ def insert_timeset(sesh, cf):
 def find_or_insert_timeset(sesh, cf):
     """Find existing or insert new ``TimeSet`` record (and associated `
     `Time`` and ``ClimatologicalTime`` records) corresponding to a NetCDF file.
+    If this is a time-invariant dataset (has no time dimension at all, like
+    elevation or soil type data), return None.
 
     :param sesh: modelmeta database session
     :param cf: CFDatafile object representing NetCDF file
-    :return: existing or new ``TimeSet`` record
+    :return: existing or new ``TimeSet`` record, or None
     """
-    time_set = find_timeset(sesh, cf)
-    if time_set:
-        return time_set
-    return insert_timeset(sesh, cf)
+    if not cf.is_time_invariant:
+        time_set = find_timeset(sesh, cf)
+        if time_set:
+            return time_set
+        return insert_timeset(sesh, cf)
+    else:
+        return None
 
 
 # DataFile
@@ -1107,7 +1112,7 @@ def insert_data_file(sesh, cf):  # create.data.file.id
     logger.info("Creating new DataFile for unique_id {}".format(cf.unique_id))
     # TODO: Parametrize on timeset, run; like run on model, emission
     timeset = find_or_insert_timeset(sesh, cf)
-    assert timeset
+    assert timeset or cf.is_time_invariant
     run = find_or_insert_run(sesh, cf)
     assert run
 
