@@ -1067,13 +1067,13 @@ def find_or_insert_timeset(sesh, cf):
     :param cf: CFDatafile object representing NetCDF file
     :return: existing or new ``TimeSet`` record, or None
     """
-    if not cf.is_time_invariant:
-        time_set = find_timeset(sesh, cf)
-        if time_set:
-            return time_set
-        return insert_timeset(sesh, cf)
-    else:
+    if cf.is_time_invariant:
         return None
+
+    time_set = find_timeset(sesh, cf)
+    if time_set:
+        return time_set
+    return insert_timeset(sesh, cf)
 
 
 # DataFile
