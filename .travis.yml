@@ -5,16 +5,13 @@ python:
   - 3.6
   - 3.7
 addons:
+  postgresql: "9.3"
   apt:
     packages:
       - libhdf5-serial-dev
       - libnetcdf-dev
       - libspatialite-dev
-addons:
-  postgresql: "9.3"
-  apt:
-      packages:
-        - postgresql-9.3-postgis-2.4
+      - postgresql-9.3-postgis-2.4
 install:
   - pip install -i https://pypi.pacificclimate.org/simple -r requirements.txt
   - pip install -r test_requirements.txt
