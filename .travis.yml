@@ -14,7 +14,7 @@ addons:
   postgresql: "9.3"
   apt:
       packages:
-        - postgresql-9.3-postgis-2.3
+        - postgresql-9.3-postgis-2.4
 install:
   - pip install -i https://pypi.pacificclimate.org/simple -r requirements.txt
   - pip install -r test_requirements.txt
