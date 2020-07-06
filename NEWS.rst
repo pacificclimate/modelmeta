@@ -1,6 +1,18 @@
 News / Release Notes
 ====================
 
+1.0.0
+-----
+
+*Release Date: 2020-Jul-6*
+
+* Handle problems with >63 character identifiers (PR #85)
+* Index time-invariant datasets (PR #89)
+* Drop support for Python <3.6 (PR #91)
+* Allow GetFeatureInfo requests (PR #94)
+* Fix the package to install ncwms_configurator (PR #83)
+* Upgrade netCDF4 requirements to 1.5.x
+
 0.3.0
 -----
 
