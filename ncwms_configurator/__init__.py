@@ -12,19 +12,19 @@ from lxml import etree
 log = logging.getLogger(__name__)
 
 DEFAULT_CONTACT_CHILDREN = {
-    "name": "",
-    "organization": "",
+    "name": "Pacific Climate Impacts Consortium",
+    "organization": "Pacific Climate Impacts Consortium",
     "telephone": "",
     "email": ""
 }
 
 DEFAULT_SERVER_CHILDREN = {
-    "title": "My ncWMS server",
+    "title": "PCIC ncWMS server",
     "allowFeatureInfo": "True",
     "maxImageWidth": "1024",
     "maxImageHeight": "1024",
     "abstract": "",
-    "keywords": "",
+    "keywords": "Climate, CMIP5, BCCAQ, Climdex",
     "url": "",
     "allowglobalcapabilities": "true"
 }
@@ -83,6 +83,8 @@ def get_element(element_name, atts={}, **kwargs):
         children = DEFAULT_SERVER_CHILDREN
         if(args.version == 1):
             children["adminPassword"] = "ncWMS"
+        else:
+            children["allowFeatureInfo"] = "true"
 
     elif element_name == "cache":
         if(args.version == 2):
