@@ -18,8 +18,8 @@ setup(
         alembic
         psycopg2
         numpy
-        netCDF4==1.3
-        nchelpers>=5.5.0,<6
+        netCDF4
+        nchelpers>=5.5.0
         python-dateutil
         sqlparse
         PyCRS
