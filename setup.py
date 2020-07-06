@@ -7,7 +7,7 @@ setup(
     name="modelmeta",
     description="An ORM representation of the model metadata database",
     keywords="sql database climate",
-    packages=['modelmeta', 'mm_cataloguer'],
+    packages=['modelmeta', 'mm_cataloguer', 'ncwms_configurator'],
     version='.'.join(str(d) for d in __version__),
     url="http://www.pacificclimate.org/",
     author="James Hiebert",
@@ -18,11 +18,12 @@ setup(
         alembic
         psycopg2
         numpy
-        netCDF4==1.3
-        nchelpers>=5.5.0,<6
+        netCDF4
+        nchelpers>=5.5.0
         python-dateutil
         sqlparse
         PyCRS
+        lxml
     '''.split(),
     package_data = {
         'modelmeta': '''
@@ -47,6 +48,7 @@ setup(
         scripts/list-csv
         scripts/index_netcdf
         scripts/associate_ensemble
+        scripts/ncwms_configurator
     '''.split(),
     classifiers=['Development Status :: 5 - Production/Stable',
                  'Environment :: Console',
