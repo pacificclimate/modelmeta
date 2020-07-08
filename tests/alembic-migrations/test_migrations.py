@@ -43,6 +43,7 @@ def test_upgrade_and_downgrade(uri_left, alembic_config_left):
         current = get_current_revision(alembic_config_left, engine, script)
 
 
+@pytest.mark.slow
 @pytest.mark.usefixtures('new_db_left')
 @pytest.mark.usefixtures('new_db_right')
 def test_model_and_migration_schemas_are_the_same(

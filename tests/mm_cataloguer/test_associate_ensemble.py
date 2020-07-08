@@ -82,6 +82,7 @@ def test_find_ensemble__(test_session_with_ensembles, ensemble1):
 
 # associate_ensemble_to_data_file_variable
 
+@pytest.mark.slow
 @pytest.mark.parametrize('tiny_gridded_dataset, var_names', [
     ('gcm', {'tasmax'}),
     ('downscaled', {'tasmax'}),
@@ -117,6 +118,7 @@ def test_associate_ensemble_to_data_file_variable__(
 
 # associate_ensemble_to_data_file
 
+@pytest.mark.slow
 @pytest.mark.parametrize('tiny_gridded_dataset, var_names, expected_var_names', [
     ('gcm', None, {'tasmax'}),
     ('gcm', {'tasmax'}, {'tasmax'}),
@@ -158,6 +160,7 @@ fp_downscaled = resource_filename('modelmeta', 'data/tiny_downscaled.nc')
 fp_hydromodel_gcm = resource_filename('modelmeta', 'data/tiny_hydromodel_gcm.nc')
 fp_gcm_climo_monthly = resource_filename('modelmeta', 'data/tiny_gcm_climo_monthly.nc')
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     'tiny_gridded_dataset, regex_filepath, filepath, var_names, expected_filepaths, expected_var_names',
     [
@@ -229,6 +232,7 @@ fps = [
     for number in [1,2,4]
 ]
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     'regex_filepath, filepaths, var_names, '
     'expected_filepaths, expected_var_names',

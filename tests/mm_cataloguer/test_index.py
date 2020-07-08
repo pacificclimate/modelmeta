@@ -703,6 +703,7 @@ cond_insert_data_file_variable_dsg_plus = \
     conditional(insert_data_file_variable_dsg_plus)
 
 
+@pytest.mark.slow
 def test_insert_data_file_variable_dsg_time_series(
         test_session_with_empty_db, tiny_dsg_dataset):
     var_name = tiny_dsg_dataset.dependent_varnames()[0]
@@ -725,6 +726,7 @@ def test_insert_data_file_variable_dsg_time_series(
         test_session_with_empty_db, tiny_dsg_dataset, var_name)
 
 
+@pytest.mark.slow
 def test_find_data_file_variable_dsg(
         test_session_with_empty_db, tiny_dsg_dataset, insert
 ):
@@ -786,6 +788,7 @@ cond_insert_data_file_variable_gridded_plus = \
     conditional(insert_data_file_variable_gridded_plus)
 
 
+@pytest.mark.slow
 def test_insert_data_file_variable_gridded(
         test_session_with_empty_db, tiny_gridded_dataset):
     var_name = tiny_gridded_dataset.dependent_varnames()[0]
@@ -813,6 +816,7 @@ def test_insert_data_file_variable_gridded(
         test_session_with_empty_db, tiny_gridded_dataset, var_name)
 
 
+@pytest.mark.slow
 def test_find_data_file_variable_gridded(
         test_session_with_empty_db, tiny_gridded_dataset, insert
 ):
@@ -829,6 +833,7 @@ def test_find_data_file_variable_gridded(
     )
 
 
+@pytest.mark.slow
 def test_find_or_insert_data_file_variable_gridded(
         test_session_with_empty_db, tiny_gridded_dataset, insert):
     var_name = tiny_gridded_dataset.dependent_varnames()[0]
@@ -893,6 +898,7 @@ def test_insert_timeset(test_session_with_empty_db, tiny_gridded_dataset):
             to_datetime(tiny_gridded_dataset.time_range_as_dates)
 
 
+@pytest.mark.slow
 def test_find_timeset(test_session_with_empty_db, tiny_gridded_dataset, insert):
     check_find(
         find_timeset,
@@ -903,6 +909,7 @@ def test_find_timeset(test_session_with_empty_db, tiny_gridded_dataset, insert):
     )
 
 
+@pytest.mark.slow
 def test_find_or_insert_timeset(
         test_session_with_empty_db, tiny_gridded_dataset, insert
 ):
@@ -959,6 +966,7 @@ def test_find_data_file(test_session_with_empty_db, tiny_any_dataset, insert):
         assert not filename_match
 
 
+@pytest.mark.slow
 def test_delete_data_file(test_session_with_empty_db, tiny_any_dataset):
     data_file = insert_data_file(test_session_with_empty_db, tiny_any_dataset)
     delete_data_file(test_session_with_empty_db, data_file)
@@ -975,6 +983,7 @@ def test_delete_data_file(test_session_with_empty_db, tiny_any_dataset):
 far_future = seconds_since_epoch(datetime.datetime(2100, 1, 1))
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize('dataset_mocks, os_path_mocks, same_data_file', [
     # new file: no match on id, hash, or filename
     ({
@@ -1137,6 +1146,7 @@ def test_find_update_or_insert_cf_file__dup(
         check_properties(data_file2, **properties)
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize('rel_filepath', [
     'data/tiny_gcm.nc',
     'data/tiny_downscaled.nc',
@@ -1168,6 +1178,7 @@ def test_index_netcdf_file(
     session.close()
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize('rel_filepath', [
     'data/bad_tiny_gcm.nc',
 ])
@@ -1194,6 +1205,7 @@ def test_index_netcdf_file_with_error(
     session.close()
 
 
+@pytest.mark.slow
 def test_index_netcdf_files(test_dsn_fs, test_engine_fs):
     # Set up test database
     create_test_database(test_engine_fs)
