@@ -25,13 +25,9 @@ jobs:
         pip install .
     - name: Test with pytest (full)
       if: github.ref == 'refs/heads/master'
-      env:
-        TZ: Canada/Pacific
       run: |
         py.test -v --tb=short
     - name: Test with pytest (fast)
       if: github.ref != 'refs/heads/master'
-      env:
-        TZ: Canada/Pacific
       run: |
         py.test -m "not slow" -v --tb=short
