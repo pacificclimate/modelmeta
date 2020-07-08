@@ -2,31 +2,34 @@
 modelmeta
 =========
 
-.. image:: https://travis-ci.org/pacificclimate/modelmeta.svg?branch=master
-   :target: https://travis-ci.org/pacificclimate/modelmeta
+.. image:: https://github.com/pacificclimate/modelmeta/workflows/Python%20CI/badge.svg
+   :target: https://github.com/pacificclimate/modelmeta
+
+.. image:: https://github.com/pacificclimate/modelmeta/workflows/Pypi%20Publishing/badge.svg
+   :target: https://github.com/pacificclimate/modelmeta
 
 .. image:: https://codeclimate.com/github/pacificclimate/modelmeta/badges/gpa.svg
    :target: https://codeclimate.com/github/pacificclimate/modelmeta
-   :alt: Code Climate			  
+   :alt: Code Climate
 
 Overview
 ========
 
 ``modelmeta`` is a Python package that provides an
-`Object Relational Mapping (ORM) <http://en.wikipedia.org/wiki/Object-relational_mapping>`_ layer 
+`Object Relational Mapping (ORM) <http://en.wikipedia.org/wiki/Object-relational_mapping>`_ layer
 for accessing the `Pacific Climate Impacts Consortium (PCIC) <http://www.pacificclimate.org/>`_'s
-database of `coverage data <http://en.wikipedia.org/wiki/Coverage_data>`_ metadata. 
+database of `coverage data <http://en.wikipedia.org/wiki/Coverage_data>`_ metadata.
 The package provides model classes for each of the tables in the database.
 
-With this package, one can recreate the database schema in `PostgreSQL <http://www.postgresql.org>`_ 
+With this package, one can recreate the database schema in `PostgreSQL <http://www.postgresql.org>`_
 or `SQLite <http://www.sqlite.org>`_ and/or use the package as an object mapper for programmatic database access.
 
 ``modelmeta`` uses `SQLAlchemy <http://www.sqlalchemy.org>`_ to provide the ORM layer, and
 `Alembic <http://alembic.zzzcomputing.com/en/latest/>`_ to manage database creation and migration (see section
 below).
 
-The intent of the database itself is to separate the small, inexpensive, structured metadata and attribute information 
-(stored in the database) from the expensive-to-access bulk spatiotemporal data (stored on disk in multidimensional 
+The intent of the database itself is to separate the small, inexpensive, structured metadata and attribute information
+(stored in the database) from the expensive-to-access bulk spatiotemporal data (stored on disk in multidimensional
 files). It provides an efficiently searchable index of the bulk data files, and separates storage from indexing.
 
 Installation
@@ -210,4 +213,3 @@ Once the initialization steps have been completed, ongoing migrations are simple
 #. Apply later migrations: ``alembic -x db=prod_pcic_meta upgrade head``
 
    - At the time of this writing (2017-08-01), that would be migration ``614911daf883``.
-
