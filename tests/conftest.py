@@ -377,7 +377,9 @@ def tiny_gridded_dataset(request):
     request.param: (str) selects the test file to be returned
     returns: (nchelpers.CFDataset) test file as a CFDataset object
     """
-    return open_tiny_dataset(request.param)
+    dst = open_tiny_dataset(request.param)
+    yield dst
+    dst.close()
 
 
 @pytest.fixture(params=dsg_dataset_names)
@@ -390,7 +392,9 @@ def tiny_dsg_dataset(request):
     request.param: (str) selects the test file to be returned
     returns: (nchelpers.CFDataset) test file as a CFDataset object
     """
-    return open_tiny_dataset(request.param)
+    dst = open_tiny_dataset(request.param)
+    yield dst
+    dst.close()
 
 
 @pytest.fixture(params=any_dataset_names)
@@ -403,7 +407,9 @@ def tiny_any_dataset(request):
     request.param: (str) selects the test file to be returned
     returns: (nchelpers.CFDataset) test file as a CFDataset object
     """
-    return open_tiny_dataset(request.param)
+    dst = open_tiny_dataset(request.param)
+    yield dst
+    dst.close()
 
 
 @pytest.fixture(params=[False, True])
