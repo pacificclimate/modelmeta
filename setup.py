@@ -49,6 +49,7 @@ setup(
         scripts/index_netcdf
         scripts/associate_ensemble
         scripts/ncwms_configurator
+        scripts/generate_manifest
     '''.split(),
     classifiers=['Development Status :: 5 - Production/Stable',
                  'Environment :: Console',
