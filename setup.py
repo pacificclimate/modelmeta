@@ -47,6 +47,7 @@ setup(
         scripts/list-csv
         scripts/index_netcdf
         scripts/associate_ensemble
+        scripts/generate_manifest
     '''.split(),
     classifiers=['Development Status :: 5 - Production/Stable',
                  'Environment :: Console',
