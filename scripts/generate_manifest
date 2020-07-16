@@ -8,7 +8,7 @@ if __name__ == '__main__':
     parser = ArgumentParser(
         description='Generate manifest of files requested from database')
     parser.add_argument("-c", "--connection_string", help="DSN for modelmeta database")
-    parser.add_argument("-e", "--ensemble", nargs="+", default="all", 
+    parser.add_argument("-e", "--ensemble", nargs="+", default=["all"], 
                         help="Ensembles from which files should be listed")
     parser.add_argument("-s", "--since", help="Date after which files should be listed")
     args = parser.parse_args()
