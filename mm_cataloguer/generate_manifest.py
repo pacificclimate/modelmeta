@@ -1,19 +1,21 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from modelmeta import DataFile, DataFileVariable, Ensemble, EnsembleDataFileVariables
-from datetime import datetime
+import sys
 
-def list_filepaths(session, ensemble, since):
-    if ensemble == ["all"]:
-        ensemble = ["all_files"]
-    since = datetime.strptime(since, "%Y-%m-%d")
+def list_filepaths(session, ensembles, since, outfile):
+    if ensembles == ["all"]:
+        ensembles = ["all_files"]
     print(session.query(DataFile.filename).join(DataFileVariable)
                                           .join(EnsembleDataFileVariables)
                                           .join(Ensemble)
-                                          .filter(Ensemble.name.in_(ensemble))
-                                          .filter(DataFile.index_time >= since).all())
+                                          .filter(Ensemble.name.in_(ensembles))
+                                          .filter(DataFile.index_time >= since).all(),
+         file=outfile)
 
-def Generate_Manifest(dsn, ensemble, since):
+def generate_manifest(dsn, ensembles, since, outfile):
     engine = create_engine(dsn)
     session = sessionmaker(bind=engine)()
-    list_filepaths(session, ensemble, since) 
+    if outfile != sys.stdout:
+        outfile = open(outfile, "w")
+    list_filepaths(session, ensembles, since, outfile) 
