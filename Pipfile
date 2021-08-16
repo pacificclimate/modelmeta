@@ -17,6 +17,7 @@ netCDF4 = "==1.5.*"
 nchelpers = "==5.5.7"
 python-dateutil = "*"
 sqlparse = "*"
+pycrs = "*"
 
 [dev-packages]
 pytest = "*"
