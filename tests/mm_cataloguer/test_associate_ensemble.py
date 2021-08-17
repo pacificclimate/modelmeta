@@ -27,7 +27,7 @@ def index_test_files(Session):
     Since this is done in a local session, these database records must be
     committed.
     """
-    session = Session()
+    session = Session(expire_on_commit=False)
     test_files = [
         'data/tiny_gcm.nc',
         'data/tiny_downscaled.nc',
@@ -46,7 +46,7 @@ def add_objects(Session, objects):
     Since this is done in a local session, these database records must be
     committed.
     """
-    session = Session()
+    session = Session(expire_on_commit=False)
     session.add_all(objects)
     session.commit()
 
