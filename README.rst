@@ -35,7 +35,11 @@ files). It provides an efficiently searchable index of the bulk data files, and 
 Installation
 ============
 
-Install ``modelmeta`` using the standard methods for any other Python package.
+Installation is fully automated through ``make``::
+
+    $ make
+
+If you wish to install ``modelmeta`` manually, follow the steps below.
 
 #. Clone the repository::
 
@@ -44,18 +48,7 @@ Install ``modelmeta`` using the standard methods for any other Python package.
 #. Create a virtual environment::
 
     $ cd modelmeta
-    $ python3 -m venv venv
-    $ . venv/bin/activate
-    (venv) $
-
-#. Install::
-
-    $ pip install -i https://pypi.pacificclimate.org/simple -r requirements.txt
-    $ pip install .  # or for development: pip install -e .
-
-#. Or just point ``pip`` to our `GitHub repo <https://github.com/pacificclimate/modelmeta>`_::
-
-    $ pip install git+https://github.com/pacificclimate/modelmeta
+    $ pipenv install # --dev for development packages
 
 What is climate coverage data?
 ==============================

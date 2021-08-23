@@ -506,7 +506,7 @@ default_proj4 = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
 
 def wkt(proj4):
     """Return a WKT representation of a CRS defined in PROJ.4 syntax."""
-    return pycrs.parser.from_proj4(proj4).to_ogc_wkt()
+    return pycrs.parse.from_proj4(proj4).to_ogc_wkt()
 
 
 def find_spatial_ref_sys(sesh, cf, var_name):
