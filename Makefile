@@ -9,7 +9,7 @@ install:
 		postgresql-12-postgis-3
 
 install-pipenv:
-	pip install pipenv
+	sudo apt-get install pipenv
 	pipenv install
 	pipenv install --dev
 
