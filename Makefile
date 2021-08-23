@@ -6,7 +6,7 @@ install:
 		libhdf5-serial-dev \
 		libnetcdf-dev \
 		libspatialite-dev \
-		postgresql-12-postgis-3
+		postgresql-13-postgis-3
 
 install-pipenv:
 	sudo apt-get install pipenv
