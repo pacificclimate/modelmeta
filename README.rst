@@ -39,7 +39,7 @@ Installation is fully automated through ``make``::
 
     $ make
 
-If you wish to install ``modelmeta`` using the standard methods follow the steps below.
+If you wish to install ``modelmeta`` manually, follow the steps below.
 
 #. Clone the repository::
 
