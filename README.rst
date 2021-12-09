@@ -51,16 +51,18 @@ If you wish to install ``modelmeta`` manually, follow the steps below.
     $ pipenv install # --dev for development packages
 
 
-Adding new datafiles to a PCIC modelmeta database
-=================================================
+Scripts to manage a PCIC modelmeta database
+===========================================
 
 This repository contains two convenient scripts that add data files to an existing modelmeta database so that our websites can access data from them. They are installed when the package is installed.
 
+Indexing new files with index_netcdf
+------------------------------------
 ``index_netcdf`` adds one or more netCDF climate data files to a PCIC modelmeta-format database::
 
   index_netcdf -d postgresql://username:password@monsoon.pcic.uvic.ca/database /path/to/files/*.nc
 
-Usernames and passwords can be found in Team Password Manager. To add files to the data portal, use database ``pcic_meta``; to add files to climate explore or plan2adapt, use database ``ce_meta_12f290b63791``.
+Usernames and passwords can be found in Team Password Manager. To add files to the data portal, use database ``pcic_meta``; to add files to PCEX or Plan2adapt, use database ``ce_meta_12f290b63791``.
 
 In order to determine the metadata of the file, the ``index_metadata`` script scans its netCDF attributes. If the file does not have all the `required attributes <https://pcic.uvic.ca/confluence/display/CSG/PCIC+metadata+standard+for+downscaled+data+and+hydrology+modelling+data>`_ specified, the ``index_metadata`` script will be unable to proceed. You can look at a file's attributes with the command::
 
@@ -69,7 +71,10 @@ In order to determine the metadata of the file, the ``index_metadata`` script sc
 
 and update attributes using the ``update_metadata`` script in the `climate-explorer-data-prep <https://github.com/pacificclimate/climate-explorer-data-prep>`_ respository. If you update file attributes, log your update YAML and a list of which files you used with in in the `data-prep-actions <https://github.com/pacificclimate/data-prep-actions>`_ repository, in case you need to reprocess or check the files later.
 
-Once files have been indexed into the database, they need to be associated to individual ensembles; each ensemble is associated with a particular project or website and contains all data files needed to support the functioning of that component. In most cases, a file will be added to more than one ensemble::
+Making files accessible to PCIC projects with associate_ensemble
+----------------------------------------------------------------
+
+Once files have been indexed into the database, they need to be added to individual ensembles; each ensemble is associated with a particular project or website and contains all data files needed to support the functioning of that component. In most cases, a file will be added to more than one ensemble::
 
   associate_ensemble -n ensemble_name -v 1 -d postgresql://username:password@monsoon.pcic.uvic.ca/database /path/to/files/*.nc
 
@@ -84,7 +89,7 @@ ce_files
 p2a_classic
  files displayed as maps on plan2adapt
 p2a_rules
- files needed to plan2adapt's expert system
+ files needed to run plan2adapt's expert system
 bc_moti
  hydrological files describing flow in the Peace River
 upper_fraser
@@ -114,6 +119,11 @@ vic_gen1
  datafiles that can be downloaded from the older hydrological data portal
 vic_cmip5
  data files that can be downloaded from the newer hydrological data portal
+
+Deleting files from the databases
+---------------------------------
+
+Unfortunately, we don't currently have a script that can delete files from the databases. If you accidentally index a file with bad metadata and need to get rid of it, at present the only way is to log on to the database directly with ``psql`` or ``pgadmin``.
 
 
 What is climate coverage data?
