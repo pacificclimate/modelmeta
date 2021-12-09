@@ -50,6 +50,72 @@ If you wish to install ``modelmeta`` manually, follow the steps below.
     $ cd modelmeta
     $ pipenv install # --dev for development packages
 
+
+Adding new datafiles to a PCIC modelmeta database
+=================================================
+
+This repository contains two convenient scripts that add data files to an existing modelmeta database so that our websites can access data from them. They are installed when the package is installed.
+
+``index_netcdf`` adds one or more netCDF climate data files to a PCIC modelmeta-format database::
+
+  index_netcdf -d postgresql://username:password@monsoon.pcic.uvic.ca/database /path/to/files/*.nc
+
+Usernames and passwords can be found in Team Password Manager. To add files to the data portal, use database ``pcic_meta``; to add files to climate explore or plan2adapt, use database ``ce_meta_12f290b63791``.
+
+In order to determine the metadata of the file, the ``index_metadata`` script scans its netCDF attributes. If the file does not have all the `required attributes <https://pcic.uvic.ca/confluence/display/CSG/PCIC+metadata+standard+for+downscaled+data+and+hydrology+modelling+data>`_ specified, the ``index_metadata`` script will be unable to proceed. You can look at a file's attributes with the command::
+
+  ncdump -h file.nc
+
+
+and update attributes using the ``update_metadata`` script in the `climate-explorer-data-prep <https://github.com/pacificclimate/climate-explorer-data-prep>`_ respository. If you update file attributes, log your update YAML and a list of which files you used with in in the `data-prep-actions <https://github.com/pacificclimate/data-prep-actions>`_ repository, in case you need to reprocess or check the files later.
+
+Once files have been indexed into the database, they need to be associated to individual ensembles; each ensemble is associated with a particular project or website and contains all data files needed to support the functioning of that component. In most cases, a file will be added to more than one ensemble::
+
+  associate_ensemble -n ensemble_name -v 1 -d postgresql://username:password@monsoon.pcic.uvic.ca/database /path/to/files/*.nc
+
+An incomplete list of ensembles you might want to add a file to:
+
+**ensembles in ce_meta_12f290b63791**
+
+all_files
+ every file that is not time-invariant goes in this ensemble, used for testing purposes
+ce_files
+ files available in the "main" PCEX page
+p2a_classic
+ files displayed as maps on plan2adapt
+p2a_rules
+ files needed to plan2adapt's expert system
+bc_moti
+ hydrological files describing flow in the Peace River
+upper_fraser
+ hydrological files describing flow in the Upper Fraser
+upper_fraser_watershed
+ time-invariant files describing the geography of the Upper Fraser River
+peace_watershed
+ time-invariant files describing the geography of the Peace River
+
+**ensembles in pcic_meta**
+
+downscaled_canada
+ all files that appear as maps on the data portal. if you add any files to this ensemble, reboot the ncWMS proxy to load the new files.
+bc_prism_monthly_and_climos
+ datafiles that can be downloaded from the PRISM data portal
+gridded-obs-meta-data
+ datafiles that can be downloaded from the daily gridded meteorological portal
+downscaled_gcms_archive
+ datafiles that can be downloaded from the oldest downscaled portal - CMIP5 and BCCAQ1
+bccaq_version_2
+ datafiles that can be downloaded from the old downscaled portal - CMIP5 and BCCAQ2
+bccaq2_cmip6
+ datafiles that can be downloaded from the new downscaled portal - CMIP6 and BCCAQ2
+bccaq_canesm5
+ datafiles that can be downloaded from the new CanESM5-only portal - CMIP6 and BCCAQ2
+vic_gen1
+ datafiles that can be downloaded from the older hydrological data portal
+vic_cmip5
+ data files that can be downloaded from the newer hydrological data portal
+
+
 What is climate coverage data?
 ==============================
 
