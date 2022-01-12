@@ -25,9 +25,9 @@ pytest = "*"
 alembic = "*"
 alembic-verify = "*"
 
-#[requires]
-#python_version = "3.8"
+[requires]
+python_version = "3.8"
 
-[packages.e1839a8]
-path = "."
-editable = true
+#[packages.e1839a8]
+#path = "."
+#editable = true
