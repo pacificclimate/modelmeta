@@ -15,7 +15,7 @@ from mm_cataloguer.associate_ensemble import \
 from mm_cataloguer.index_netcdf import \
     index_cf_file, find_update_or_insert_cf_file
 
-from modelmeta import create_test_database
+from modelmeta.util import create_test_database
 from modelmeta import DataFile, DataFileVariable, \
     Ensemble, EnsembleDataFileVariables
 

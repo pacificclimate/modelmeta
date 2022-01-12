@@ -36,7 +36,7 @@ from sqlalchemy import func
 
 import pycrs
 
-from modelmeta import create_test_database
+from modelmeta.util import create_test_database
 from modelmeta import Level, DataFile, SpatialRefSys, Station
 from nchelpers.date_utils import to_datetime
 
