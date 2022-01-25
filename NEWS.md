@@ -1,6 +1,17 @@
 News / Release Notes
 ====================
 
+1.0.1
+-----
+
+*Release Date: 2022-Jan-25*
+
+- Fix core dump error after running test suite (PR #98)
+- Use GitHub Actions for continuous integration (PR #99)
+- Add script to generate manifest of files requested from database (PR #100)
+- Use pipenv and a Makefile to handle package installation (PR #111)
+- Update nchelpers to 5.5.8 to handle CMIP6 datasets (PR #114)
+
 1.0.0
 -----
 
