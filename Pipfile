@@ -14,7 +14,7 @@ alembic = "*"
 psycopg2 = "*"
 numpy = "*"
 netCDF4 = "==1.5.*"
-nchelpers = "==5.5.7"
+nchelpers = "==5.5.8"
 python-dateutil = "*"
 sqlparse = "*"
 pycrs = "*"
@@ -25,6 +25,7 @@ pytest = "*"
 "testing.postgresql" = "*"
 alembic = "*"
 alembic-verify = "*"
+modelmeta = {editable = true, path = "."}
 
 [requires]
 python_version = "3.8"
