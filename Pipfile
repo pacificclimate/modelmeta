@@ -18,6 +18,7 @@ nchelpers = "==5.5.7"
 python-dateutil = "*"
 sqlparse = "*"
 pycrs = "*"
+modelmeta = {editable = true, path = "." }
 
 [dev-packages]
 pytest = "*"
@@ -27,7 +28,3 @@ alembic-verify = "*"
 
 [requires]
 python_version = "3.8"
-
-#[packages.e1839a8]
-#path = "."
-#editable = true
