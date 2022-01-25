@@ -37,7 +37,7 @@ from sqlalchemy.schema import CreateSchema
 
 from nchelpers import CFDataset
 
-from modelmeta.util import create_test_database
+from modelmeta import create_test_database
 from modelmeta import \
     ClimatologicalTime, \
     DataFile, \
