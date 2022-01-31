@@ -67,7 +67,7 @@ DEFAULT_DATASET_ATTS = {
 NCWMS2_HEADER = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
 
 
-def get_element(element_name, atts={}, **kwargs):
+def get_element(element_name, ncwms_version=2, atts={}, **kwargs):
     '''
     Generates a general xml element with provided name, attributes (dictionary), and basic
     children with text
@@ -81,13 +81,13 @@ def get_element(element_name, atts={}, **kwargs):
 
     elif element_name == "server":
         children = DEFAULT_SERVER_CHILDREN
-        if(args.version == 1):
+        if(ncwms_version == 1):
             children["adminPassword"] = "ncWMS"
         else:
             children["allowFeatureInfo"] = "true"
 
     elif element_name == "cache":
-        if(args.version == 2):
+        if(ncwms_version == 2):
             children = DEFAULT_CACHE_CHILDREN_NCWMS2
         else:
             children = DEFAULT_CACHE_CHILDREN_NCWMS1
@@ -134,6 +134,7 @@ class Config:
     '''
 
     def __init__(self,
+                 ncwms_version = 2,
                  datasets=None,
                  threddsCatalog=None,
                  contact=None,
@@ -144,9 +145,9 @@ class Config:
 
         self.root = etree.Element("config")
 
-        self.contact = contact if contact else get_element("contact")
-        self.server = server if server else get_element("server")
-        self.cache = cache if cache else get_element("cache")
+        self.contact = contact if contact else get_element("contact", ncwms_version=ncwms_version)
+        self.server = server if server else get_element("server", ncwms_version=ncwms_version)
+        self.cache = cache if cache else get_element("cache", ncwms_version=ncwms_version)
 
         self.datasets = datasets if datasets else etree.Element("datasets")
 
@@ -154,7 +155,7 @@ class Config:
 
         to_add = [self.datasets, self.contact, self.server, self.cache, self.dynamicServices]
 
-        if(args.version == 1):
+        if(ncwms_version == 1):
             self.threddsCatalog = threddsCatalog if threddsCatalog else etree.Element("threddsCatalog")
             to_add.append(self.threddsCatalog)
         else:
@@ -167,8 +168,8 @@ class Config:
     def __str__(self):
         return '<Root ncWMS config object>'
 
-    def xml(self, pretty=True):
-        header = NCWMS2_HEADER if args.version == 2 else ""
+    def xml(self, pretty=True, ncwms_version=2):
+        header = NCWMS2_HEADER if ncwms_version == 2 else ""
         return header + etree.tostring(self.root, pretty_print=pretty).decode('utf-8')
 
     def add_dataset(self, dataset):
@@ -176,7 +177,7 @@ class Config:
 
 
 def get_session(dsn):
-    engine = create_engine(args.dsn)
+    engine = create_engine(dsn)
     Session = sessionmaker(bind=engine)
     return Session()
 
@@ -220,16 +221,16 @@ def create(args):
             })
 
     # Create base config object
-    config = Config()
+    config = Config(ncwms_version=args.version)
 
     # Iterate through db results, adding to config as required
     for k, v in rv.items():
         k.replace('+', '-')
-        dataset = get_element('dataset', {
+        dataset = get_element('dataset', ncwms_version=args.version, atts={
                                     "id": k,
                                     "location": v['filename'],
                                     "title": k})
-        variables = [get_element('variable', {
+        variables = [get_element('variable', ncwms_version=args.version, atts={
                                     "id": var_['id'],
                                     "title": var_['title'],
                                     "colorScaleRange":  var_['colorScaleRange']
@@ -257,7 +258,7 @@ def create(args):
 
     # If we aren't saving, print to stdout and exit
     if not args.outfile:
-        print(config.xml())
+        print(config.xml(ncwms_version=args.version))
         sys.exit(0)
 
     # Check if the output filepath exists
@@ -266,7 +267,7 @@ def create(args):
 
     # Write output to file
     with open(args.outfile, 'w') as f:
-            f.write(config.xml())
+            f.write(config.xml(ncwms_version=args.version))
 
 
 def update(args):
