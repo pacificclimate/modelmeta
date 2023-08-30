@@ -5,7 +5,7 @@ on: push
 jobs:
   test:
 
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         python-version:
@@ -24,7 +24,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install postgis postgresql-14 postgresql-client-14 libhdf5-serial-dev libnetcdf-dev libspatialite-dev python3-dev
+        sudo apt-get install postgis postgresql-14 postgresql-client-14 libhdf5-serial-dev libnetcdf-dev libspatialite-dev
 
     - name: Install pipenv
       run: |
