@@ -24,7 +24,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install postgis postgresql-14 postgresql-client-14 libhdf5-serial-dev libnetcdf-dev libspatialite-dev
+        sudo apt-get install postgresql-14-postgis-3 postgresql-14 postgresql-client-14 libhdf5-serial-dev libnetcdf-dev libspatialite-dev
 
     - name: Install pipenv
       run: |
