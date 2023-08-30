@@ -37,7 +37,7 @@ jobs:
         key: ${{ runner.os }}-pipenv-${{ hashFiles('**/Pipfile.lock') }}
 
     - name: Install dependencies if changed
-      if: steps.cache-pipenv.outputs.cache-hit != 'true' && ${{ matrix.python-version == '3.8' }}
+      if: ${{ steps.cache-pipenv.outputs.cache-hit != 'true' && matrix.python-version == '3.8' }}
       run: |
         pipenv install --deploy --dev
     - name: Re-install dependencies if alternative python version
