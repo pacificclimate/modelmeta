@@ -9,12 +9,12 @@ verify_ssl = true
 name = "pcic"
 
 [packages]
-SQLAlchemy = "*"
+SQLAlchemy = "<2.0"
 alembic = "*"
 psycopg2 = "*"
 numpy = "*"
 netCDF4 = "==1.5.*"
-nchelpers = "==5.5.8"
+nchelpers = {version = "==5.5.11", index = "pcic"}
 python-dateutil = "*"
 sqlparse = "*"
 pycrs = "*"
