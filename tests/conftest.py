@@ -91,6 +91,10 @@ def make_data_file(i, run=None, timeset=None):
 def data_file_1():
     return make_data_file(1)
 
+@pytest.fixture(scope='function')
+def data_file_2():
+    return make_data_file(2)
+
 
 # Grid
 
@@ -183,15 +187,15 @@ def make_test_dfv_dsg_time_series(i, file=None, variable_alias=None):
 
 
 @pytest.fixture(scope='function')
-def dfv_dsg_time_series_1(data_file_1, variable_alias_1):
+def dfv_dsg_time_series_1(data_file_2, variable_alias_1):
     return make_test_dfv_dsg_time_series(
-        1, file=data_file_1, variable_alias=variable_alias_1)
+        1, file=data_file_2, variable_alias=variable_alias_1)
 
 
 @pytest.fixture(scope='function')
-def dfv_dsg_time_series_2(data_file_1, variable_alias_2):
+def dfv_dsg_time_series_2(data_file_2, variable_alias_2):
     return make_test_dfv_dsg_time_series(
-        2, file=data_file_1, variable_alias=variable_alias_2)
+        2, file=data_file_2, variable_alias=variable_alias_2)
 
 
 # Station
