@@ -1,0 +1,44 @@
+[project]
+name = "modelmeta"
+version = "0.1.2"
+description = "An ORM representation of the model meta database"
+authors = [
+    {name = "James Hiebert", email = "hiebert@uvic.ca"},
+    {name = "Rod Glover", email = "rglover@uvic.ca"},
+    {name = "Eric Yvorchuk"},
+    {name = "Lee Zeman", email = "lzeman@uvic.ca"},
+    {name = "David Bronaugh"}
+]
+requires-python = ">=3.10"
+dependencies = [
+    "setuptools (>=79.0.1,<80.0.0)",
+    "sqlalchemy (>=2.0.40,<3.0.0)",
+    "nchelpers (>=5.5.11,<6.0.0)",
+    "pycrs (>=1.0.2,<2.0.0)",
+    "psycopg2 (>=2.9.10,<3.0.0)",
+    "alembic (>=1.15.2,<2.0.0)",
+]
+
+[tool.poetry]
+packages = [{include = "modelmeta"}]
+
+[[tool.poetry.source]]
+name = "pcic"
+url = "https://pypi.pacificclimate.org/simple"
+priority = "supplemental"
+
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.5"
+testing-postgresql = "^1.3.0"
+alembic-verify = ">=0.1.4,<0.2.0"
+sqlalchemy-diff = ">=0.1.5,<0.2.0"
+
+
+
+
+[tool.poetry.dependencies]
+nchelpers = {source = "pcic"}
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
