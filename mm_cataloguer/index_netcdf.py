@@ -561,14 +561,14 @@ def insert_spatial_ref_sys(sesh, cf, var_name):
         .cte(name='max_srid')
     )
     next_srid = (
-        select([
+        select(
             case([
                 (max_srid.c.max_srid >= 990000, max_srid.c.max_srid + 1),
             ], else_=990000).label('next_srid')
-        ])
+        )
         .cte(name='next_srid')
     )
-    id = select([next_srid.c.next_srid])  # Used in two places
+    id = select(next_srid.c.next_srid)  # Used in two places
 
     proj4_string = cf.proj4_string(var_name, default=default_proj4)
 

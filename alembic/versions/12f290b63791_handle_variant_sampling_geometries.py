@@ -46,7 +46,7 @@ def copy_level_set_id_and_grid_id_to_data_file_variables_gridded():
     op.get_bind().execute(
         dfvs_gridded.insert().from_select(
             ['id', 'level_set_id', 'grid_id'],
-            sa.select([dfvs.c.data_file_variable_id, dfvs.c.level_set_id, dfvs.c.grid_id])
+            sa.select(dfvs.c.data_file_variable_id, dfvs.c.level_set_id, dfvs.c.grid_id)
         )
     )
 
@@ -147,10 +147,10 @@ def copy_level_set_id_and_grid_id_from_data_file_variables_gridded():
         op.get_bind().execute(
             dfvs.update().values(
                 level_set_id=
-                    sa.select([dfvs_gridded.c.level_set_id])
+                    sa.select(dfvs_gridded.c.level_set_id)
                     .where(dfvs_gridded.c.id == dfvs.c.data_file_variable_id),
                 grid_id=
-                    sa.select([dfvs_gridded.c.grid_id])
+                    sa.select(dfvs_gridded.c.grid_id)
                     .where(dfvs_gridded.c.id == dfvs.c.data_file_variable_id),
             )
         )
