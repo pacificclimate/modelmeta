@@ -33,12 +33,12 @@ def copy_level_set_id_and_grid_id_to_data_file_variables_gridded():
     dfvs = sa.Table(
         'data_file_variables',
         sa.MetaData(bind=op.get_bind()),
-        autoload=True
+        autoload_with=op.get_bind()
     )
     dfvs_gridded = sa.Table(
         'data_file_variables_gridded',
         sa.MetaData(bind=op.get_bind()),
-        autoload=True
+        autoload_with=op.get_bind()
     )
     op.get_bind().execute(
         dfvs.update().values(geometry_type='gridded')
@@ -133,12 +133,12 @@ def copy_level_set_id_and_grid_id_from_data_file_variables_gridded():
     dfvs = sa.Table(
         'data_file_variables',
         sa.MetaData(bind=op.get_bind()),
-        autoload=True
+        autoload_with=op.get_bind()
     )
     dfvs_gridded = sa.Table(
         'data_file_variables_gridded',
         sa.MetaData(bind=op.get_bind()),
-        autoload=True
+        autoload_with=op.get_bind()
     )
     if get_dialect() == 'sqlite':
         # SQLite doesn't support the (standard) form ``UPDATE ... SET ... FROM ...``
@@ -170,7 +170,7 @@ def delete_dsg_time_series_data_file_variables():
     dfvs = sa.Table(
         'data_file_variables',
         sa.MetaData(bind=op.get_bind()),
-        autoload=True
+        autoload_with=op.get_bind()
     )
     dfvs.delete().where(dfvs.c.geometry_type == 'dsg_time_series')
 

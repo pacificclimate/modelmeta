@@ -90,10 +90,10 @@ def test_12f290b63791_upgrade_data_migration(uri_left, alembic_config_left):
 
     # Define minimal set of tables needed to test migration
     meta_data = MetaData(bind=engine)
-    variable_aliases = Table('variable_aliases', meta_data, autoload=True)
-    grids = Table('grids', meta_data, autoload=True)
-    data_files = Table('data_files', meta_data, autoload=True)
-    data_file_variables = Table('data_file_variables', meta_data, autoload=True)
+    variable_aliases = Table('variable_aliases', meta_data, autoload_with=engine)
+    grids = Table('grids', meta_data, autoload_with=engine)
+    data_files = Table('data_files', meta_data, autoload_with=engine)
+    data_file_variables = Table('data_file_variables', meta_data, autoload_with=engine)
 
     # Insert minimal data needed to test migration: Several instances of each of
     # variable_aliases, grids, data_files, associated to a data_file_variables.
@@ -227,7 +227,7 @@ def test_12f290b63791_downgrade_data_migration(uri_left, alembic_config_left):
 
     # Define minimal set of tables needed to test migration
     meta_data = MetaData(bind=engine)
-    data_file_variables = Table('data_file_variables', meta_data, autoload=True)
+    data_file_variables = Table('data_file_variables', meta_data, autoload_with=engine)
 
     # Check data results of migration.
     results = list(engine.execute(
