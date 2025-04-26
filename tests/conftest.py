@@ -31,7 +31,7 @@ import datetime
 import pytest
 import testing.postgresql
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import CreateSchema
 
@@ -241,7 +241,7 @@ def ensemble2():
 # Database initialization
 
 def init_database(engine):
-    engine.execute("create extension postgis")
+    engine.execute(text("create extension postgis"))
 
 
 # Session-scoped databases, engines, session factories, and derived sessions

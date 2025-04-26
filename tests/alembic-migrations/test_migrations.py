@@ -3,7 +3,7 @@ import datetime
 
 import pytest
 
-from sqlalchemy import create_engine, MetaData, Table, select
+from sqlalchemy import create_engine, MetaData, Table, select, text
 from sqlalchemy.orm import sessionmaker
 
 from alembic import command
@@ -55,7 +55,7 @@ def test_model_and_migration_schemas_are_the_same(
     """
     prepare_schema_from_migrations(uri_left, alembic_config_left)
     engine = create_engine(uri_right)
-    engine.execute('create extension postgis')
+    engine.execute(text('create extension postgis'))
     prepare_schema_from_models(uri_right, Base)
 
     result = compare(
