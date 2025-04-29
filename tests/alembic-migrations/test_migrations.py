@@ -236,6 +236,6 @@ def test_12f290b63791_downgrade_data_migration(uri_left, alembic_config_left):
 
     assert results is not None
     assert len(results) == num_test_records
-    assert all(r['variable_alias_id'] == r['data_file_variable_id'] for r in results)
-    assert all(r['grid_id'] == r['data_file_variable_id'] for r in results)
-    assert all(r['data_file_id'] == r['data_file_variable_id'] for r in results)
+    assert all(r.mappings()['variable_alias_id'] == r.mappings()['data_file_variable_id'] for r in results)
+    assert all(r.mappings()['grid_id'] == r.mappings()['data_file_variable_id'] for r in results)
+    assert all(r.mappings()['data_file_id'] == r.mappings()['data_file_variable_id'] for r in results)
