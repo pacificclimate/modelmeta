@@ -32,7 +32,7 @@ from netCDF4 import date2num, num2date, chartostring
 
 from dateutil.relativedelta import relativedelta
 
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 import pycrs
 
@@ -167,7 +167,7 @@ def print_query_results(session, query, title=None):
     if title:
         print(title)
         print('-' * len(title))
-    result = session.execute(query)
+    result = session.execute(text(query))
     for row in result:
         print(row)
 

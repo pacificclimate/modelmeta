@@ -32,12 +32,12 @@ def copy_level_set_id_and_grid_id_to_data_file_variables_gridded():
     # Adapted from https://gist.github.com/mafrosis/5e456eb16bf4cc619c959f4d6e1aa8e1
     dfvs = sa.Table(
         'data_file_variables',
-        sa.MetaData(bind=op.get_bind()),
+        sa.MetaData(),
         autoload_with=op.get_bind()
     )
     dfvs_gridded = sa.Table(
         'data_file_variables_gridded',
-        sa.MetaData(bind=op.get_bind()),
+        sa.MetaData(),
         autoload_with=op.get_bind()
     )
     op.get_bind().execute(
@@ -132,12 +132,12 @@ def copy_level_set_id_and_grid_id_from_data_file_variables_gridded():
     # Adapted from https://gist.github.com/mafrosis/5e456eb16bf4cc619c959f4d6e1aa8e1
     dfvs = sa.Table(
         'data_file_variables',
-        sa.MetaData(bind=op.get_bind()),
+        sa.MetaData(),
         autoload_with=op.get_bind()
     )
     dfvs_gridded = sa.Table(
         'data_file_variables_gridded',
-        sa.MetaData(bind=op.get_bind()),
+        sa.MetaData(),
         autoload_with=op.get_bind()
     )
     if get_dialect() == 'sqlite':
@@ -169,7 +169,7 @@ def copy_level_set_id_and_grid_id_from_data_file_variables_gridded():
 def delete_dsg_time_series_data_file_variables():
     dfvs = sa.Table(
         'data_file_variables',
-        sa.MetaData(bind=op.get_bind()),
+        sa.MetaData(),
         autoload_with=op.get_bind()
     )
     dfvs.delete().where(dfvs.c.geometry_type == 'dsg_time_series')

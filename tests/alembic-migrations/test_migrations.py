@@ -89,7 +89,7 @@ def test_12f290b63791_upgrade_data_migration(uri_left, alembic_config_left):
         uri_left, alembic_config_left, revision='614911daf883')
 
     # Define minimal set of tables needed to test migration
-    meta_data = MetaData(bind=engine)
+    meta_data = MetaData()
     variable_aliases = Table('variable_aliases', meta_data, autoload_with=engine)
     grids = Table('grids', meta_data, autoload_with=engine)
     data_files = Table('data_files', meta_data, autoload_with=engine)
@@ -236,6 +236,6 @@ def test_12f290b63791_downgrade_data_migration(uri_left, alembic_config_left):
 
     assert results is not None
     assert len(results) == num_test_records
-    assert all(r.mappings()['variable_alias_id'] == r.mappings()['data_file_variable_id'] for r in results)
-    assert all(r.mappings()['grid_id'] == r.mappings()['data_file_variable_id'] for r in results)
-    assert all(r.mappings()['data_file_id'] == r.mappings()['data_file_variable_id'] for r in results)
+    assert all(r._mapping['variable_alias_id'] == r._mapping['data_file_variable_id'] for r in results)
+    assert all(r._mapping['grid_id'] == r._mapping['data_file_variable_id'] for r in results)
+    assert all(r._mapping['data_file_id'] == r._mapping['data_file_variable_id'] for r in results)
