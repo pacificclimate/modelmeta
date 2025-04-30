@@ -55,7 +55,7 @@ def test_model_and_migration_schemas_are_the_same(
     """
     prepare_schema_from_migrations(uri_left, alembic_config_left)
     engine = create_engine(uri_right)
-    engine.execute(text('create extension postgis'))
+    engine.connect().execute(text('create extension postgis'))
     prepare_schema_from_models(uri_right, Base)
 
     result = compare(
@@ -137,7 +137,7 @@ def test_12f290b63791_upgrade_data_migration(uri_left, alembic_config_left):
                 range_max=10.0,
             )
         ]:
-            engine.execute(stmt)
+            engine.connect().execute(stmt)
 
     # Run upgrade migration
     command.upgrade(alembic_config_left, '+1')
@@ -226,11 +226,11 @@ def test_12f290b63791_downgrade_data_migration(uri_left, alembic_config_left):
     command.downgrade(alembic_config_left, '-1')
 
     # Define minimal set of tables needed to test migration
-    meta_data = MetaData(bind=engine)
+    meta_data = MetaData()
     data_file_variables = Table('data_file_variables', meta_data, autoload_with=engine)
 
     # Check data results of migration.
-    results = list(engine.execute(
+    results = list(engine.connect().execute(
         data_file_variables.select()
     ))
 
