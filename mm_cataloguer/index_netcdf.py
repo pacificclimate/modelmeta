@@ -562,9 +562,9 @@ def insert_spatial_ref_sys(sesh, cf, var_name):
     )
     next_srid = (
         select(
-            case([
+            case(
                 (max_srid.c.max_srid >= 990000, max_srid.c.max_srid + 1),
-            ], else_=990000).label('next_srid')
+                else_=990000).label('next_srid')
         )
         .cte(name='next_srid')
     )
