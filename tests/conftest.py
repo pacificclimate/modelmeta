@@ -241,7 +241,9 @@ def ensemble2():
 # Database initialization
 
 def init_database(engine):
-    engine.connect().execute(text("create extension postgis"))
+	with engine.connect() as connection:
+		with connection.begin():
+			connection.execute(text("create extension postgis"))
 
 
 # Session-scoped databases, engines, session factories, and derived sessions
