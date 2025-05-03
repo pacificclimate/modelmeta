@@ -76,7 +76,6 @@ def nc_copy(source_fp, dest_fp, time_dimension, time_indices, variables):
                 else:
                     dest_variable[:] = source_variable[:]
 
-
 if __name__ == '__main__':
     parser = ArgumentParser(
         description='Copy a NetCDF file with some modifications, '

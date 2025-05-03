@@ -29,7 +29,8 @@ from mm_cataloguer.list import \
     strtobool, \
     list_filepaths, list_dirpaths
 
-if __name__ == '__main__':
+def list():
+    # if __name__ == '__main__':
 
     main_parser = ArgumentParser(
         description='Tools for listing and summarizing contents of a '

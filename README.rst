@@ -48,7 +48,7 @@ If you wish to install ``modelmeta`` manually, follow the steps below.
 #. Create a virtual environment::
 
     $ cd modelmeta
-    $ pipenv install # --dev for development packages
+    $ poetry install # --with=test for development and testing
 
 
 Scripts to populate a PCIC modelmeta database
@@ -76,11 +76,11 @@ Making files accessible to PCIC projects with associate_ensemble
 
 Once files have been indexed into the database, they need to be added to individual ensembles; each ensemble is associated with a particular project or website and contains all data files needed to support the functioning of that component. In most cases, a file will be added to more than one ensemble::
 
-  associate_ensemble -n ensemble_name -v 1 -d postgresql://username:password@monsoon.pcic.uvic.ca/database /path/to/files/*.nc
+  associate_ensemble -n ensemble_name -v 1 -d postgresql://username:password@db.pcic.uvic.ca/database /path/to/files/*.nc
 
 **Available ensembles, or where should I put this data anyway?**
 
-Most ensembles represent groupings of related files that users can interact with (view maps, download data, create graphs, etc) using a specific PCIC tool. Plan2adapt, the data portal, and PCEX all use ensembles in this way.
+Most ensembles represent groupings of related files that users can interact with (view maps, download data, create graphs, etc) using a specific PCIC tool. Plan2adapt, the data portal, SCIP, and PCEX all use ensembles in this way.
 
 Plan2adapt uses a single ensemble which represents a list of all the files a user can view. The name of this ensemble is set when plan2adapt is deployed, as the environment variable ``REACT_APP_ENSEMBLE_NAME``. You can see the environment variables for a docker container running plan2adapt with ``docker exec container_name env``.
 
@@ -88,13 +88,14 @@ The data portal uses a separate ensemble for each portal, which represents a lis
 
 PCEX is flexible about which ensembles it uses. A PCEX URL encodes both a UI and an ensemble which specifies which data is to be viewed with that UI. In theory you can look at any ensemble with any UI, but in practice, UIs make assumptions about the type of data available and most combinations won't work. In most cases, users access the various PCEX UIs pages via the `link bar at the top of the page <https://github.com/pacificclimate/climate-explorer-frontend/blob/master/src/components/DataTool.js>`_. The ``navSubpath`` variable has the UI before the slash and the ensemble after it. PCEX UIs that display hydrological data for a watershed also have an additional ensemble that contains files that describe the geography of the watershed; this data cannot be directly viewed by the user but is required for some calculations. A list of these geographic ensembles can be `found <https://github.com/pacificclimate/climate-explorer-frontend/blob/master/src/data-services/ce-backend.js>`_ in ``getWatershedGeographyName()``.
 
-There are also three special ensembles used by PCIC internal tools, not web portals.
+SCIP is currently hardcoded to use an ensemble named "scip_fraser_bccoast".
+
+There are also two special ensembles used by PCIC internal tools, not web portals.
 
 * The ``all_files`` ensemble in the ``ce_meta_12f290b63791`` contains every file in the database, with the exception of time-invariant files. It is used with various scripts that `test <https://github.com/pacificclimate/data-prep-actions/blob/master/actions/test-ncwms-instance/DESCRIPTION.md>`_ new functionality across all files.
 
 * The ``p2a_rules`` ensemble in the ``ce_meta_12f290b63791`` database contains all the information needed by plan2adapt's rules engine; it is used by the `scripts <https://github.com/pacificclimate/data-prep-actions/blob/master/actions/precalculate-p2a-regions/DESCRIPTION.md>`_ which pre-generate rules engine results for plan2adapt, which are too slow to process in real time.
 
-* The ``downscaled_canada`` ensemble in the ``pcic_meta`` database contains all datafiles for which map images can be generated for the portal website. It is used by `the ncWMS proxy <https://github.com/pacificclimate/ncWMS-mm-rproxy>`_ to generate map images for the data portal. When you add new files to this ensemble, you will need to reboot the ncWMS proxy to load the new files, or their maps will not be available.
 
 Deleting files from the databases
 ---------------------------------

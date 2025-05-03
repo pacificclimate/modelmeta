@@ -7,7 +7,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import MetaData
 
-if __name__ == '__main__':
+def make_test():
+    # if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("-d", "--dsn", help="Source database DSN from which to read")
     parser.add_argument("-e", "--ensemble", help="Ensemble to copy from the database")

@@ -8,8 +8,8 @@ from argparse import ArgumentParser
 
 from mm_cataloguer.list_csv import main
 
-
-if __name__ == '__main__':
+def list():
+    # if __name__ == '__main__':
     parser = ArgumentParser(
         description='List contents of a modelmeta database into a CSV file. '
                     'Filename is fixed: modelmeta.csv'

@@ -33,8 +33,19 @@ pytest = "^8.3.5"
 testing-postgresql = "^1.3.0"
 alembic-verify = ">=0.1.4,<0.2.0"
 sqlalchemy-diff = ">=0.1.5,<0.2.0"
+sqlparse = "^0.5.3"
+lxml = "^5.4.0"
 
 
+[tool.poetry.scripts]
+copyproddb="scripts.copyproddb:copy"
+mktestdb="scripts.mktestdb:make_test"
+list="scripts.list:list"
+list_csv="scripts.list_csv:list"
+index_netcdf="scripts.index_netcdf:index"
+associate_ensemble="scripts.associate_ensemble:associate"
+ncwms_configurator="scripts.ncwms_configurator:configurator"
+generate_manifest="scripts.generate_manifest:generate"
 
 
 [tool.poetry.dependencies]
