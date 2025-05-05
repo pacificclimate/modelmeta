@@ -1,7 +1,6 @@
 import sys
 import logging
 from argparse import ArgumentParser
-from pkg_resources import resource_filename
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

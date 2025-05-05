@@ -28,8 +28,6 @@ __all__ = '''
     SpatialRefSys
 '''.split()
 
-from pkg_resources import resource_filename
-
 from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean, \
     Enum, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base

@@ -1,7 +1,7 @@
 """Test functions for associating an ensemble to a file.
 """
 import pytest
-from pkg_resources import resource_filename
+from importlib.resources import files
 
 from nchelpers import CFDataset
 
@@ -34,7 +34,7 @@ def index_test_files(Session):
         'data/tiny_hydromodel_gcm.nc',
         'data/tiny_gcm_climo_monthly.nc',
     ]
-    filenames = [resource_filename('modelmeta', f) for f in test_files]
+    filenames = [(files("modelmeta") / f).resolve() for f in test_files]
     for filename in filenames:
         with CFDataset(filename) as cf:
             find_update_or_insert_cf_file(session, cf)
@@ -155,10 +155,10 @@ def test_associate_ensemble_to_data_file__(
 
 # associate_ensemble_to_filepath
 
-fp_gcm = resource_filename('modelmeta', 'data/tiny_gcm.nc')
-fp_downscaled = resource_filename('modelmeta', 'data/tiny_downscaled.nc')
-fp_hydromodel_gcm = resource_filename('modelmeta', 'data/tiny_hydromodel_gcm.nc')
-fp_gcm_climo_monthly = resource_filename('modelmeta', 'data/tiny_gcm_climo_monthly.nc')
+fp_gcm = (files('modelmeta') / 'data/tiny_gcm.nc').resolve()
+fp_downscaled = (files('modelmeta') /'data/tiny_downscaled.nc').resolve()
+fp_hydromodel_gcm = (files('modelmeta') / 'data/tiny_hydromodel_gcm.nc').resolve()
+fp_gcm_climo_monthly = (files('modelmeta') / 'data/tiny_gcm_climo_monthly.nc').resolve()
 
 @pytest.mark.slow
 @pytest.mark.parametrize(
@@ -201,13 +201,13 @@ def test_associate_ensemble_to_filepath__(
     # Associate
     associated_items = associate_ensemble_to_filepath(
         session, ensemble1.name, ensemble1.version,
-        regex_filepath, filepath, var_names
+        regex_filepath, str(filepath), var_names
     )
 
     # Verify
     assert set(
         df.filename for df, _ in associated_items
-    ) == expected_filepaths
+    ) == set(str(ef) for ef in expected_filepaths)
 
     assert set(
         dfv.netcdf_variable_name
@@ -228,7 +228,7 @@ files_to_associate = [
     'data/tiny_gcm_climo_monthly.nc',
 ]
 fps = [
-    [resource_filename('modelmeta', f) for f in files_to_associate[:number]]
+    [str((files('modelmeta') / f).resolve()) for f in files_to_associate[:number]]
     for number in [1,2,4]
 ]
 

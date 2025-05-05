@@ -25,7 +25,7 @@ the other with databases with function scope.
 """
 import sys
 import os
-from pkg_resources import resource_filename
+from importlib.resources import files
 import datetime
 
 import pytest
@@ -343,7 +343,7 @@ def db_uri(test_dsn):
 
 def open_tiny_dataset(abbrev):
     filename = 'data/tiny_{}.nc'.format(abbrev)
-    return CFDataset(resource_filename('modelmeta', filename))
+    return CFDataset((files("modelmeta") / filename).resolve())
 
 
 # We parametrize these fixture so that every test that uses it is run for all

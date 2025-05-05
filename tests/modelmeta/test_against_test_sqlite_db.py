@@ -1,4 +1,4 @@
-from pkg_resources import resource_filename
+from importlib.resources import files
 
 import modelmeta
 
@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 @pytest.fixture
 def test_session():
-    f = resource_filename('modelmeta', 'data/mddb-v2.sqlite')
+    f = (files("modelmeta") / "data/mddb-v2.sqlite").resolve()
     engine = create_engine('sqlite:///{0}'.format(f))
     Session = sessionmaker(bind=engine)
     return Session()

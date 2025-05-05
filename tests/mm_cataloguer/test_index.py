@@ -25,7 +25,7 @@ more details.
 
 import os
 import datetime
-from pkg_resources import resource_filename
+from importlib.resources import files
 
 import pytest
 from netCDF4 import date2num, num2date, chartostring
@@ -1163,7 +1163,7 @@ def test_index_netcdf_file(
     create_test_database(test_engine_fs)
 
     # Index file
-    filepath = resource_filename('modelmeta', rel_filepath)
+    filepath = (files("modelmeta") /  rel_filepath).resolve()
     data_file_id = index_netcdf_file(filepath, test_session_factory_fs)
 
     # Check results
@@ -1174,7 +1174,7 @@ def test_index_netcdf_file(
         .filter(DataFile.id == data_file_id)
         .one()
     )
-    assert data_file.filename == filepath
+    assert data_file.filename == str(filepath)
     session.close()
 
 
@@ -1190,7 +1190,7 @@ def test_index_netcdf_file_with_error(
     create_test_database(test_engine_fs)
 
     # Index file
-    filepath = resource_filename('modelmeta', rel_filepath)
+    filepath = str((files("modelmeta") / rel_filepath).resolve())
     data_file_id = index_netcdf_file(filepath, test_session_factory_fs)
 
     # Check results
@@ -1220,7 +1220,7 @@ def test_index_netcdf_files(test_dsn_fs, test_engine_fs):
         'data/tiny_gcm_climo_yearly.nc',
         'data/tiny_streamflow.nc',
     ]
-    filenames = [resource_filename('modelmeta', f) for f in test_files]
+    filenames = [(files("modelmeta") / f).resolve() for f in test_files]
     data_file_ids = index_netcdf_files(filenames, test_dsn_fs)
 
     # Check results
