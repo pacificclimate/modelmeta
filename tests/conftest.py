@@ -81,7 +81,7 @@ def make_data_file(i, run=None, timeset=None):
         x_dim_name='lon',
         y_dim_name='lat',
         t_dim_name='time',
-        index_time=datetime.datetime.now(),
+        index_time=datetime.datetime.now(datetime.UTC),
         run=run,
         timeset=timeset,
     )

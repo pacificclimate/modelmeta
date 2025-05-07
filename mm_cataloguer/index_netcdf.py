@@ -153,7 +153,12 @@ def mean_step_size(values):
 
 def seconds_since_epoch(t):
     """Convert a datetime to the number of seconds since the Unix epoch."""
-    return (t-datetime.datetime(1970, 1, 1)).total_seconds()
+    # add a timezone, if one is missing
+    if t.tzinfo is None:
+        utc_t = t.replace(tzinfo=datetime.UTC)
+    else:
+        utc_t = t
+    return (utc_t-datetime.datetime(1970, 1, 1, tzinfo=datetime.UTC)).total_seconds()
 
 
 @memoize
@@ -1124,7 +1129,7 @@ def insert_data_file(sesh, cf):  # create.data.file.id
         filename=cf.filepath(converter=filepath_converter),
         first_1mib_md5sum=cf.first_MiB_md5sum,
         unique_id=cf.unique_id,
-        index_time=datetime.datetime.utcnow(),
+        index_time=datetime.datetime.now(datetime.UTC),
         run=run,
         timeset=timeset,
         x_dim_name=dim_names.get('X', None),
@@ -1188,7 +1193,7 @@ def delete_data_file(sesh, existing_data_file):
 def update_data_file_index_time(sesh, data_file):
     """Update the index time recorded for data_file"""
     logger.info('Updating index time (only)')
-    data_file.index_time = datetime.datetime.utcnow()
+    data_file.index_time = datetime.datetime.now(datetime.UTC)
     return data_file
 
 

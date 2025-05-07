@@ -30,7 +30,7 @@ __all__ = '''
 
 from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean, \
     Enum, ForeignKey, Index, UniqueConstraint
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.ext.orderinglist import ordering_list
 from sqlalchemy.orm import relationship, backref, sessionmaker
 

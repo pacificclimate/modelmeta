@@ -142,10 +142,13 @@ def freeze_utcnow(*args):
     """
     monkeypatch = args[0]
     fake_now = datetime.datetime(*args[1:])
+    print("FAKE NOW", fake_now)
 
     class fake_datetime(datetime.datetime):
         @classmethod
         def utcnow(cls):
+            return fake_now
+        def now(cls):
             return fake_now
 
     monkeypatch.setattr(datetime, 'datetime', fake_datetime)
@@ -932,7 +935,8 @@ def test_insert_data_file(
 ):
     # Have to use a datetime with no hours, min, sec because apparently
     # SQLite loses precision
-    fake_now = freeze_utcnow(monkeypatch, 2000, 1, 2)
+    #fake_now = freeze_utcnow(monkeypatch, 2000, 1, 2)
+    fake_now = freeze_utcnow(monkeypatch, datetime.datetime.now(datetime.UTC).year, datetime.datetime.now(datetime.UTC).month, datetime.datetime.now(datetime.UTC).day)
     dim_names = tiny_any_dataset.axes_dim()
     data_file = check_insert(
         insert_data_file, test_session_with_empty_db, tiny_any_dataset,
