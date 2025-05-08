@@ -23,7 +23,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install postgresql-16 postgresql-client-16 libhdf5-serial-dev libnetcdf-dev libspatialite-dev wget
+        sudo apt-get install postgis postgresql-16 postgresql-client-16 libhdf5-serial-dev libnetcdf-dev libspatialite-dev wget
 
     - name: Install poetry
       run: |
