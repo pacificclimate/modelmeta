@@ -45,6 +45,7 @@ test = [
     "sqlparse==0.5.3",
     "lxml==5.4.0",
 ]
+poe = [ "poethepoet==0.34.0"]
 
 
 [[tool.poetry.source]]
@@ -68,3 +69,17 @@ generate_manifest="scripts.generate_manifest:generate"
 markers = [
     "slow: marks tests that are slow (deselect with '-m \"not slow\"')",
 ]
+
+
+[tool.poe.tasks]
+dependencies = """
+sudo apt-get install postgresql-16
+		postgresql-client-16
+		libhdf5-serial-dev
+		libnetcdf-dev
+		libspatialite-dev
+		postgresql-16-postgis-3
+"""
+install = "poetry install"
+test = "poetry run pytest"
+setup = ["dependencies", "install", "test"]

@@ -935,7 +935,6 @@ def test_insert_data_file(
 ):
     # Have to use a datetime with no hours, min, sec because apparently
     # SQLite loses precision
-    #fake_now = freeze_utcnow(monkeypatch, 2000, 1, 2)
     fake_now = freeze_utcnow(monkeypatch, datetime.datetime.now(datetime.UTC).year, datetime.datetime.now(datetime.UTC).month, datetime.datetime.now(datetime.UTC).day)
     dim_names = tiny_any_dataset.axes_dim()
     data_file = check_insert(

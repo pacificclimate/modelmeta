@@ -5,7 +5,7 @@ on: push
 jobs:
   test:
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         python-version:
@@ -23,7 +23,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install postgis postgresql-14 postgresql-client-14 libhdf5-serial-dev libnetcdf-dev libspatialite-dev wget
+        sudo apt-get install postgresql-16 postgresql-client-16 libhdf5-serial-dev libnetcdf-dev libspatialite-dev wget
 
     - name: Install poetry
       run: |

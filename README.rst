@@ -35,20 +35,16 @@ files). It provides an efficiently searchable index of the bulk data files, and 
 Installation
 ============
 
-Installation is fully automated through ``make``::
-
-    $ make
-
-If you wish to install ``modelmeta`` manually, follow the steps below.
+Installation is automated via ``poetry``.
 
 #. Clone the repository::
 
     $ git clone https://github.com/pacificclimate/modelmeta
 
-#. Create a virtual environment::
+#. Install ::
 
     $ cd modelmeta
-    $ poetry install # --with=test for development and testing
+    $ poetry install # add "--extras test" for development and testing
 
 
 Scripts to populate a PCIC modelmeta database
