@@ -16,14 +16,15 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: '3.11'
-    - name: Install dependencies
+    - name: Install Poetry
       run: |
-        python -m pip install --upgrade pip
-        pip install setuptools wheel twine
+        curl -sSL https://install.python-poetry.org | python3 -
     - name: Build and publish
       env:
         TWINE_USERNAME: ${{ secrets.pcic_at_pypi_username }}
         TWINE_PASSWORD: ${{ secrets.pcic_at_pypi_password }}
       run: |
-        python setup.py sdist bdist_wheel
-        twine upload --repository-url https://pypi.pacificclimate.org/ --skip-existing -u $TWINE_USERNAME -p $TWINE_PASSWORD dist/*
+        poetry config repositories.pcic https://pypi.pacificclimate.org/
+        poetry config http-basic.pcic $PCIC_PYPI_USERNAME $PCIC_PYPI_PASSWORD
+        poetry build
+        poetry publish -r pcic

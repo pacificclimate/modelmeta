@@ -1,6 +1,12 @@
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
 [project]
 name = "modelmeta"
 version = "0.1.2"
+requires-python = ">=3.10,<4.0"
+readme = "README.rst"
 description = "An ORM representation of the model meta database"
 authors = [
     {name = "James Hiebert", email = "hiebert@uvic.ca"},
@@ -9,32 +15,42 @@ authors = [
     {name = "Lee Zeman", email = "lzeman@uvic.ca"},
     {name = "David Bronaugh"}
 ]
-requires-python = ">=3.10"
+classifiers=[
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+keywords = [
+    "sql",
+    "database",
+    "climate"
+]
 dependencies = [
-    "setuptools (>=79.0.1,<80.0.0)",
-    "nchelpers (>=5.5.11,<6.0.0)",
-    "pycrs (>=1.0.2,<2.0.0)",
-    "alembic (>=1.15.2,<2.0.0)",
-    "psycopg2 (>=2.9.10,<3.0.0)",
-    "sqlalchemy (>=2.0.40,<3.0.0)",
+    "setuptools>=79.0.1,<80.0.0",
+    "pycrs>=1.0.2,<2.0.0",
+    "alembic>=1.15.2,<2.0.0",
+    "psycopg2>=2.9.10,<3.0.0",
+    "sqlalchemy>=2.0.40,<3.0.0",
+    "nchelpers>=5.5.11,<6.0.0",
 ]
 
-[tool.poetry]
-packages = [{include = "modelmeta"}]
+
+[project.optional-dependencies]
+test = [
+    "pytest==8.3.5",
+    "testing-postgresql==1.3.0",
+    "alembic-verify>=0.1.4,<0.2.0",
+    "sqlalchemy-diff>=0.1.5,<0.2.0",
+    "sqlparse==0.5.3",
+    "lxml==5.4.0",
+]
+
 
 [[tool.poetry.source]]
 name = "pcic"
 url = "https://pypi.pacificclimate.org/simple"
 priority = "supplemental"
-
-
-[tool.poetry.group.test.dependencies]
-pytest = "^8.3.5"
-testing-postgresql = "^1.3.0"
-alembic-verify = ">=0.1.4,<0.2.0"
-sqlalchemy-diff = ">=0.1.5,<0.2.0"
-sqlparse = "^0.5.3"
-lxml = "^5.4.0"
 
 
 [tool.poetry.scripts]
@@ -48,8 +64,7 @@ ncwms_configurator="scripts.ncwms_configurator:configurator"
 generate_manifest="scripts.generate_manifest:generate"
 
 
-[tool.poetry.dependencies]
-nchelpers = {source = "pcic"}
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests that are slow (deselect with '-m \"not slow\"')",
+]
