@@ -155,10 +155,10 @@ def seconds_since_epoch(t):
     """Convert a datetime to the number of seconds since the Unix epoch."""
     # add a timezone, if one is missing
     if t.tzinfo is None:
-        utc_t = t.replace(tzinfo=datetime.UTC)
+        utc_t = t.replace(tzinfo=datetime.timezone.utc)
     else:
         utc_t = t
-    return (utc_t-datetime.datetime(1970, 1, 1, tzinfo=datetime.UTC)).total_seconds()
+    return (utc_t-datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)).total_seconds()
 
 
 @memoize
@@ -1129,7 +1129,7 @@ def insert_data_file(sesh, cf):  # create.data.file.id
         filename=cf.filepath(converter=filepath_converter),
         first_1mib_md5sum=cf.first_MiB_md5sum,
         unique_id=cf.unique_id,
-        index_time=datetime.datetime.now(datetime.UTC),
+        index_time=datetime.datetime.now(datetime.timezone.utc),
         run=run,
         timeset=timeset,
         x_dim_name=dim_names.get('X', None),
@@ -1193,7 +1193,7 @@ def delete_data_file(sesh, existing_data_file):
 def update_data_file_index_time(sesh, data_file):
     """Update the index time recorded for data_file"""
     logger.info('Updating index time (only)')
-    data_file.index_time = datetime.datetime.now(datetime.UTC)
+    data_file.index_time = datetime.datetime.now(datetime.timezone.utc)
     return data_file
 
 
