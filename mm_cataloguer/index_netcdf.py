@@ -127,14 +127,26 @@ def memoize(obj):
 
     @functools.wraps(obj)
     def memoized(*args):
+
+        # Usage below tries to memoize *open* NetCDF files, creating
+        # extraneous references to them. As a result, problems arise
+        # at the end of the program during finalization and
+        # cleanup. If the object is a closeable (like an open file)
+        # use the object id as the cache key.  However, it turns out
+        # that not even this works, because the cached values are
+        # NetCDF variables objects that *also* hold references to the
+        # NetCDF files
+        real_args = args
+        args = tuple(id(arg) if hasattr(arg, 'close') else arg for arg in args)
+
         if args in memo:
             return memo[args]
         else:
-            value = obj(*args)
+            value = obj(*real_args)
             memo[args] = value
             return value
 
-    return memoized
+    return obj
 
 
 # Helper functions
