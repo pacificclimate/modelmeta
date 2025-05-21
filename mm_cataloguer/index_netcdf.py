@@ -112,43 +112,6 @@ psycopg2_adapters.register()
 
 filepath_converter = 'realpath'
 
-
-# Decorators
-
-def memoize(obj):
-    """Memoize a callable object with only positional args, and where those
-    args are hashable. This is simple and sufficient for its application in
-    this code. It works in all versions of Python >= 2.7, which is not true
-    for many of the more featureful modules (e.g., `functools.lru_cache`).
-
-    Adapted from http://book.pythontips.com/en/latest/function_caching.html
-    """
-    memo = {}
-
-    @functools.wraps(obj)
-    def memoized(*args):
-
-        # Usage below tries to memoize *open* NetCDF files, creating
-        # extraneous references to them. As a result, problems arise
-        # at the end of the program during finalization and
-        # cleanup. If the object is a closeable (like an open file)
-        # use the object id as the cache key.  However, it turns out
-        # that not even this works, because the cached values are
-        # NetCDF variables objects that *also* hold references to the
-        # NetCDF files
-        real_args = args
-        args = tuple(id(arg) if hasattr(arg, 'close') else arg for arg in args)
-
-        if args in memo:
-            return memo[args]
-        else:
-            value = obj(*real_args)
-            memo[args] = value
-            return value
-
-    return obj
-
-
 # Helper functions
 
 def is_regular_series(values, relative_tolerance=1e-6):
@@ -173,7 +136,6 @@ def seconds_since_epoch(t):
     return (utc_t-datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)).total_seconds()
 
 
-@memoize
 def get_level_set_info(cf, var_name):
     """Return a dict containing information characterizing the level set
     (Z axis values) associated with a specified dependent variable, or
@@ -203,7 +165,6 @@ def get_level_set_info(cf, var_name):
     }
 
 
-@memoize
 def get_grid_info(cf, var_name):
     """Get information defining the Grid record corresponding to the spatial
     dimensions of a variable in a NetCDF file.

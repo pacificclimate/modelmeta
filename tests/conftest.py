@@ -418,12 +418,3 @@ def tiny_any_dataset(request):
 @pytest.fixture(params=[False, True])
 def insert(request):
     return request.param
-
-
-@pytest.fixture(autouse=True)
-def time_test_body(request):
-    start = time.perf_counter()
-    yield
-    end = time.perf_counter()
-    with open("timing.log", "a") as f:
-        f.write(f"{request.node.nodeid} took {end - start:.4f} seconds\n")
