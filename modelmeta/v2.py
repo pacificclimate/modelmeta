@@ -619,7 +619,8 @@ class Variable(Base):
     name = Column('variable_name', String(length=64), nullable=False)
 
     # relation definitions
-    variable_aliases = relationship('VariableAlias', primaryjoin='Variable.variable_alias_id==VariableAlias.id')
+    variable_aliases = relationship('VariableAlias', primaryjoin='Variable.variable_alias_id==VariableAlias.id',
+        back_populates="variable")
     data_files_variables = relationship('DataFileVariable', 
         primaryjoin='Variable.variable_alias_id==VariableAlias.id', 
         secondary='variable_aliases', 
@@ -647,7 +648,7 @@ class VariableAlias(Base):
         secondary='data_file_variables', 
         secondaryjoin='DataFileVariable.data_file_id==DataFile.id', 
         backref=backref('variable_aliases'))
-    variable = relationship("Variable", backref=backref('variable_alias'))
+    variable = relationship("Variable", back_populates="variable_aliases")
 
     def __repr__(self):
         return obj_repr('id long_name standard_name units', self)

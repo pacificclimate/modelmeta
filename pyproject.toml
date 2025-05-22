@@ -6,7 +6,7 @@ build-backend = "poetry.core.masonry.api"
 name = "modelmeta"
 version = "0.1.2"
 requires-python = ">=3.10,<4.0"
-readme = "README.rst"
+readme = "README.md"
 description = "An ORM representation of the model meta database"
 authors = [
     {name = "James Hiebert", email = "hiebert@uvic.ca"},
