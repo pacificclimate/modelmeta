@@ -323,3 +323,21 @@ are simple and standard:
 1.  Apply later migrations: `alembic -x db=prod_pcic_meta upgrade head`
     -   At the time of this writing (2017-08-01), that would be
         migration `614911daf883`.
+
+### Creating a new database migration
+
+First create a new revision with this command:
+
+```
+alembic revision -m "<brief description of changes to the database>"
+```
+
+Alembic will create a new file in `alembic/versions` with stub `upgrade()` and `downgrade()`
+functions. Fill in the upgrade function to make the change you want the migration to create
+(IE, drop a table, recreate it with different column names) and the downgrade function to return
+to the current database configuration from the new one (IE, drop a table, recreate it with
+the old column names). The `alembic.op` object has various useful database manipulation functions
+for this.
+
+You can migrate a database to the new revision with the `alembic upgrade head` command discussed
+earlier.
