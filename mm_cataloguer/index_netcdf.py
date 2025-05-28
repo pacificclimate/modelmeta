@@ -546,7 +546,7 @@ def insert_spatial_ref_sys(sesh, cf, var_name):
         )
         .cte(name='next_srid')
     )
-    id = select(next_srid.c.next_srid)  # Used in two places
+    id = select(next_srid.c.next_srid).scalar_subquery()  # Used in two places
 
     proj4_string = cf.proj4_string(var_name, default=default_proj4)
 
@@ -982,7 +982,7 @@ def find_timeset(sesh, cf):
             .filter(TimeSet.time_resolution == cf.time_resolution)
             .filter(TimeSet.num_times == int(cf.time_var.size))
             .filter(TimeSet.calendar == cf.time_var.calendar)
-            .first()
+            .first() #this is where the error is.
     )
 
 
