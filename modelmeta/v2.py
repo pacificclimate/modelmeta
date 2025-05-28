@@ -624,7 +624,8 @@ class Variable(Base):
     data_files_variables = relationship('DataFileVariable', 
         primaryjoin='Variable.variable_alias_id==VariableAlias.id', 
         secondary='variable_aliases', 
-        secondaryjoin='VariableAlias.id==DataFileVariable.variable_alias_id')
+        secondaryjoin='VariableAlias.id==DataFileVariable.variable_alias_id',
+        viewonly=True)
 
     def __repr__(self):
         return obj_repr('id name description variable_alias_id', self)
@@ -646,7 +647,8 @@ class VariableAlias(Base):
     data_files = relationship('DataFile', 
         primaryjoin='VariableAlias.id==DataFileVariable.variable_alias_id', 
         secondary='data_file_variables', 
-        secondaryjoin='DataFileVariable.data_file_id==DataFile.id', 
+        secondaryjoin='DataFileVariable.data_file_id==DataFile.id',
+        viewonly=True, 
         backref=backref('variable_aliases'))
     variable = relationship("Variable", back_populates="variable_aliases")
 
