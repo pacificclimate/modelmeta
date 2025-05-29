@@ -30,8 +30,6 @@ from mm_cataloguer.list import \
     list_filepaths, list_dirpaths
 
 def list():
-    # if __name__ == '__main__':
-
     main_parser = ArgumentParser(
         description='Tools for listing and summarizing contents of a '
                     'modelmeta database.'

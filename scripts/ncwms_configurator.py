@@ -7,8 +7,6 @@ from argparse import ArgumentParser
 from ncwms_configurator import create, update
 
 def configurator():
-    # if __name__ == '__main__':
-
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
     parser = ArgumentParser()

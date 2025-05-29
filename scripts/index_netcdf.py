@@ -4,7 +4,6 @@ from argparse import ArgumentParser
 from mm_cataloguer.index_netcdf import index_netcdf_files
 
 def index():
-    # if __name__ == '__main__':
     parser = ArgumentParser(
         description='Index PCIC metadata standard compliant NetCDF files '
                     'into modelmeta database')

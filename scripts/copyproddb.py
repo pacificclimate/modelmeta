@@ -14,7 +14,6 @@ def quick_mapper(table):
     return GenericMapper
 
 def copy():
-    #if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("-d", "--dsn", help="Source database DSN from which to read")
     parser.add_argument("-o", "--outdsn", help="Destination database DSN. Default is output.sqlite in current directory")
