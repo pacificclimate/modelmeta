@@ -540,7 +540,8 @@ class Run(Base):
     time_set = relationship('TimeSet', 
         primaryjoin='Run.id==DataFile.run_id', 
         secondary='data_files', 
-        secondaryjoin='DataFile.time_set_id==TimeSet.id')
+        secondaryjoin='DataFile.time_set_id==TimeSet.id',
+        viewonly=True)
     files = relationship("DataFile", 
                          backref=backref('run', lazy='joined'), 
                          lazy='joined')
