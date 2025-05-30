@@ -172,7 +172,8 @@ class DataFileVariableDSGTimeSeries(DataFileVariable):
     stations = relationship(
         'Station',
         secondary='data_file_variables_dsg_time_series_x_stations',
-        back_populates='data_file_variables')
+        back_populates='data_file_variables', 
+        viewonly=True)
 
     __mapper_args__ = {
         'polymorphic_identity':'dsg_time_series',
@@ -201,7 +202,8 @@ class Station(Base):
     data_file_variables = relationship(
         'DataFileVariableDSGTimeSeries',
         secondary='data_file_variables_dsg_time_series_x_stations',
-        back_populates='stations')
+        back_populates='stations',
+        viewonly=True)
 
 
     def __repr__(self):
