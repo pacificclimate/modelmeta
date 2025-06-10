@@ -194,12 +194,3 @@ class QCFlag(Base):
 #     __tablename__ = 'times'
 #     timestep = Column(DateTime)
 #     time_set_id = Column(Integer, ForeignKey('time_sets.time_set_id'))
-
-test_dsn = 'sqlite+pysqlite:///{0}'.format((files('modelmeta') / 'data/mddb-v1.sqlite').resolve())
-
-def test_session():
-    '''This creates a testing database session that can be used as a test fixture.
-    '''
-    engine = create_engine(test_dsn)
-    Session = sessionmaker(bind=engine)
-    return Session()
