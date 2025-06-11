@@ -25,68 +25,82 @@ Outputs can be filtered by one or more of the following criteria:
 
 from argparse import ArgumentParser
 
-from mm_cataloguer.list import \
-    strtobool, \
-    list_filepaths, list_dirpaths
+from mm_cataloguer.list import strtobool, list_filepaths, list_dirpaths
+
 
 def list():
     main_parser = ArgumentParser(
-        description='Tools for listing and summarizing contents of a '
-                    'modelmeta database.'
+        description="Tools for listing and summarizing contents of a "
+        "modelmeta database."
     )
     main_parser.add_argument(
-        '-d', '--dsn',
-        default='postgresql://httpd_meta@db3.pcic.uvic.ca/pcic_meta',
-        help="Source database DSN from which to read"
+        "-d",
+        "--dsn",
+        default="postgresql://httpd_meta@db3.pcic.uvic.ca/pcic_meta",
+        help="Source database DSN from which to read",
     )
     main_parser.add_argument(
-        '-q', '--print-queries', action='store_true',
-        help='Print SQL of queries generated'
+        "-q",
+        "--print-queries",
+        action="store_true",
+        help="Print SQL of queries generated",
     )
     # Selection criteria
     main_parser.add_argument(
-        '-e', '--ensemble',
-        help='Filter on association to ensemble'
+        "-e", "--ensemble", help="Filter on association to ensemble"
     )
     main_parser.add_argument(
-        '--mv', '--multi-variable', dest='multi_variable', type=strtobool,
-        help='Filter on whether file contains more than 1 variable'
-    )
-    main_parser.add_argument(
-        '--mym', '--multi-year-mean', dest='multi_year_mean', type=strtobool,
-        help='Filter on whether file contains multi-year means'
-    )
-    main_parser.add_argument(
-        '--mym-c', '--mym-concatenated', dest='mym_concatenated',
+        "--mv",
+        "--multi-variable",
+        dest="multi_variable",
         type=strtobool,
-        help='Filter on whether file contains multi-year means with '
-             'concatenated time axes'
+        help="Filter on whether file contains more than 1 variable",
+    )
+    main_parser.add_argument(
+        "--mym",
+        "--multi-year-mean",
+        dest="multi_year_mean",
+        type=strtobool,
+        help="Filter on whether file contains multi-year means",
+    )
+    main_parser.add_argument(
+        "--mym-c",
+        "--mym-concatenated",
+        dest="mym_concatenated",
+        type=strtobool,
+        help="Filter on whether file contains multi-year means with "
+        "concatenated time axes",
     )
     # Display type
     main_parser.add_argument(
-        '-c', '--count', action='store_true',
-        help='Display count only of records'
+        "-c", "--count", action="store_true", help="Display count only of records"
     )
 
     subparsers = main_parser.add_subparsers()
 
     filepaths_parser = subparsers.add_parser(
-        'filepaths', aliases=['f', 'fp'],
-        help='Display full filepaths of files'
+        "filepaths", aliases=["f", "fp"], help="Display full filepaths of files"
     )
     filepaths_parser.add_argument(
-        '-E', '--list-ensembles', dest='list_ensembles', action='store_true',
-        help='Display associated ensembles for each file'
+        "-E",
+        "--list-ensembles",
+        dest="list_ensembles",
+        action="store_true",
+        help="Display associated ensembles for each file",
     )
     filepaths_parser.set_defaults(action=list_filepaths)
 
     dirpaths_parser = subparsers.add_parser(
-        'dirpaths', aliases=['d', 'dp'],
-        help='Display (unique) directory paths of files'
+        "dirpaths",
+        aliases=["d", "dp"],
+        help="Display (unique) directory paths of files",
     )
     dirpaths_parser.add_argument(
-        'depth', type=int, nargs='?', default=99,
-        help='Cutoff depth of directory paths to display'
+        "depth",
+        type=int,
+        nargs="?",
+        default=99,
+        help="Cutoff depth of directory paths to display",
     )
     dirpaths_parser.set_defaults(action=list_dirpaths)
 

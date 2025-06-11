@@ -13,8 +13,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '614911daf883'
-down_revision = '7847aa3c1b39'
+revision = "614911daf883"
+down_revision = "7847aa3c1b39"
 branch_labels = None
 depends_on = None
 
@@ -59,19 +59,42 @@ def get_dialect():
 # a full copy of the production database. Both upgrade and downgrade work
 # on both databases.
 
-table_name = 'time_sets'
-column_name = 'time_resolution'
-type_name = 'timescale'
+table_name = "time_sets"
+column_name = "time_resolution"
+type_name = "timescale"
 
 old_options = (
-    '1-minute', '2-minute', '5-minute', '15-minute', '30-minute',
-    '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily',
-    'monthly', 'yearly', 'other', 'irregular',
+    "1-minute",
+    "2-minute",
+    "5-minute",
+    "15-minute",
+    "30-minute",
+    "1-hourly",
+    "3-hourly",
+    "6-hourly",
+    "12-hourly",
+    "daily",
+    "monthly",
+    "yearly",
+    "other",
+    "irregular",
 )
 new_options = (
-    '1-minute', '2-minute', '5-minute', '15-minute', '30-minute',
-    '1-hourly', '3-hourly', '6-hourly', '12-hourly', 'daily',
-    'monthly', 'seasonal', 'yearly', 'other', 'irregular',
+    "1-minute",
+    "2-minute",
+    "5-minute",
+    "15-minute",
+    "30-minute",
+    "1-hourly",
+    "3-hourly",
+    "6-hourly",
+    "12-hourly",
+    "daily",
+    "monthly",
+    "seasonal",
+    "yearly",
+    "other",
+    "irregular",
 )
 
 
@@ -87,8 +110,7 @@ def alter_column(curr_options, dest_options):
     old_type = sa.Enum(*curr_options, name=type_name)
     new_type = sa.Enum(*dest_options, name=type_name)
     with op.batch_alter_table(table_name) as batch_op:
-        batch_op.alter_column(
-            'time_resolution', type_=new_type, existing_type=old_type)
+        batch_op.alter_column("time_resolution", type_=new_type, existing_type=old_type)
 
 
 def swap_and_drop(curr_options, dest_options):
@@ -105,7 +127,7 @@ def swap_and_drop(curr_options, dest_options):
     :return: None
     """
     connection = op.get_bind()
-    tmp_type_name = '_{}'.format(type_name)
+    tmp_type_name = "_{}".format(type_name)
     alter_args = dict(
         table_name=table_name,
         column_name=column_name,
@@ -118,22 +140,34 @@ def swap_and_drop(curr_options, dest_options):
 
     # Create a temporary enum type, convert to it and drop the old enum type
     tmp_type.create(connection, checkfirst=False)
-    op.execute(sa.text('''
+    op.execute(
+        sa.text(
+            """
         ALTER TABLE {table_name}
         ALTER COLUMN {column_name}
         TYPE {tmp_type_name}
         USING {column_name}::text::{tmp_type_name}
-    '''.format(**alter_args)))
+    """.format(
+                **alter_args
+            )
+        )
+    )
     old_type.drop(connection, checkfirst=False)
 
     # Create and convert to the new enum type
     new_type.create(connection, checkfirst=False)
-    op.execute(sa.text('''
+    op.execute(
+        sa.text(
+            """
         ALTER TABLE {table_name}
         ALTER COLUMN {column_name}
         TYPE {type_name}
         USING {column_name}::text::{type_name}
-    '''.format(**alter_args)))
+    """.format(
+                **alter_args
+            )
+        )
+    )
 
     # Drop the temporary enum type
     tmp_type.drop(connection, checkfirst=False)
@@ -141,12 +175,11 @@ def swap_and_drop(curr_options, dest_options):
 
 def upgrade():
     dialect = get_dialect()
-    if dialect == 'sqlite':
+    if dialect == "sqlite":
         alter_column(old_options, new_options)
     else:
-        if dialect != 'postgresql':
-            warn('This migration is not tested for dialect {}'
-                 .format(dialect))
+        if dialect != "postgresql":
+            warn("This migration is not tested for dialect {}".format(dialect))
         swap_and_drop(old_options, new_options)
 
 
@@ -162,15 +195,14 @@ def downgrade():
     )
     op.execute(
         time_sets.update()
-            .where(time_sets.c.time_resolution == 'seasonal')
-            .values(time_resolution='other')
+        .where(time_sets.c.time_resolution == "seasonal")
+        .values(time_resolution="other")
     )
 
     # Migrate the schema (enum type)
-    if dialect == 'sqlite':
+    if dialect == "sqlite":
         alter_column(new_options, old_options)
     else:
-        if dialect != 'postgresql':
-            warn('This migration is not tested for dialect {}'
-                 .format(dialect))
+        if dialect != "postgresql":
+            warn("This migration is not tested for dialect {}".format(dialect))
         swap_and_drop(new_options, old_options)

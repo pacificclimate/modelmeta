@@ -81,23 +81,35 @@ import pycrs
 from nchelpers import CFDataset
 from nchelpers.date_utils import to_datetime
 
-from modelmeta import \
-    Model, Run, Emission, \
-    DataFile, TimeSet, Time, ClimatologicalTime, \
-    DataFileVariable, VariableAlias, EnsembleDataFileVariables, \
-    DataFileVariableGridded, \
-    LevelSet, Level, Grid, YCellBound, \
-    DataFileVariableDSGTimeSeries, \
-    Station, \
-    DataFileVariableDSGTimeSeriesXStation, \
-    SpatialRefSys
+from modelmeta import (
+    Model,
+    Run,
+    Emission,
+    DataFile,
+    TimeSet,
+    Time,
+    ClimatologicalTime,
+    DataFileVariable,
+    VariableAlias,
+    EnsembleDataFileVariables,
+    DataFileVariableGridded,
+    LevelSet,
+    Level,
+    Grid,
+    YCellBound,
+    DataFileVariableDSGTimeSeries,
+    Station,
+    DataFileVariableDSGTimeSeriesXStation,
+    SpatialRefSys,
+)
 from mm_cataloguer import psycopg2_adapters
 
 
 # Set up logging
 
 formatter = logging.Formatter(
-    '%(asctime)s %(levelname)s: %(message)s', "%Y-%m-%d %H:%M:%S")
+    "%(asctime)s %(levelname)s: %(message)s", "%Y-%m-%d %H:%M:%S"
+)
 handler = logging.StreamHandler()
 handler.setFormatter(formatter)
 
@@ -110,9 +122,10 @@ psycopg2_adapters.register()
 
 # Miscellaneous constants
 
-filepath_converter = 'realpath'
+filepath_converter = "realpath"
 
 # Helper functions
+
 
 def is_regular_series(values, relative_tolerance=1e-6):
     """Return True iff the given series of values is regular, i.e., has equal
@@ -133,7 +146,9 @@ def seconds_since_epoch(t):
         utc_t = t.replace(tzinfo=datetime.timezone.utc)
     else:
         utc_t = t
-    return (utc_t-datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)).total_seconds()
+    return (
+        utc_t - datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+    ).total_seconds()
 
 
 def get_level_set_info(cf, var_name):
@@ -151,7 +166,7 @@ def get_level_set_info(cf, var_name):
     """
     variable = cf.variables[var_name]
     # Find the level dimension if it exists
-    level_axis_dim_name = cf.axes_dim(variable.dimensions).get('Z', None)
+    level_axis_dim_name = cf.axes_dim(variable.dimensions).get("Z", None)
 
     if not level_axis_dim_name:
         return None
@@ -160,8 +175,8 @@ def get_level_set_info(cf, var_name):
     # Find LevelSet corresponding to the level axis
     vertical_levels = level_axis_var[:]
     return {
-        'level_axis_var': level_axis_var,
-        'vertical_levels': vertical_levels,
+        "level_axis_var": level_axis_var,
+        "vertical_levels": vertical_levels,
     }
 
 
@@ -178,29 +193,30 @@ def get_grid_info(cf, var_name):
     """
     axes_to_dim_names = cf.axes_dim(cf.variables[var_name].dimensions)
 
-    if not all(axis in axes_to_dim_names for axis in 'XY'):
+    if not all(axis in axes_to_dim_names for axis in "XY"):
         return None
 
-    if 'S' in axes_to_dim_names:
+    if "S" in axes_to_dim_names:
         dim_names = cf.reduced_dims(var_name)
     else:
         dim_names = axes_to_dim_names
 
-    xc_var, yc_var = (cf.variables[dim_names[axis]] for axis in 'XY')
+    xc_var, yc_var = (cf.variables[dim_names[axis]] for axis in "XY")
     xc_values, yc_values = (var[:] for var in [xc_var, yc_var])
 
     return {
-        'xc_var': xc_var,
-        'yc_var': yc_var,
-        'xc_values': xc_values,
-        'yc_values': yc_values,
-        'xc_grid_step': mean_step_size(xc_values),
-        'yc_grid_step': mean_step_size(yc_values),
-        'evenly_spaced_y': is_regular_series(yc_values),
+        "xc_var": xc_var,
+        "yc_var": yc_var,
+        "xc_values": xc_values,
+        "yc_values": yc_values,
+        "xc_grid_step": mean_step_size(xc_values),
+        "yc_grid_step": mean_step_size(yc_values),
+        "evenly_spaced_y": is_regular_series(yc_values),
     }
 
 
 # Model
+
 
 def find_model(sesh, cf):
     """Find existing ``Model`` record corresponding to a NetCDF file.
@@ -223,7 +239,7 @@ def insert_model(sesh, cf):
     model = Model(
         short_name=cf.metadata.model,
         type=cf.model_type,
-        organization=cf.metadata.institution
+        organization=cf.metadata.institution,
     )
     sesh.add(model)
     return model
@@ -245,6 +261,7 @@ def find_or_insert_model(sesh, cf):
 
 # Emission
 
+
 def find_emission(sesh, cf):
     """Find existing ``Emission`` record corresponding to a NetCDF file.
 
@@ -252,10 +269,7 @@ def find_emission(sesh, cf):
     :param cf: CFDatafile object representing NetCDF file
     :return: existing ``Emission`` record or None
     """
-    q = (
-        sesh.query(Emission)
-            .filter(Emission.short_name == cf.metadata.emissions)
-    )
+    q = sesh.query(Emission).filter(Emission.short_name == cf.metadata.emissions)
     return q.first()
 
 
@@ -287,6 +301,7 @@ def find_or_insert_emission(sesh, cf):
 
 # Run
 
+
 def find_run(sesh, cf):
     """Find existing ``Run`` record corresponding to a NetCDF file.
 
@@ -294,10 +309,14 @@ def find_run(sesh, cf):
     :param cf: CFDatafile object representing NetCDF file
     :return: existing ``Run`` record or None
     """
-    q = sesh.query(Run).join(Model).join(Emission) \
-        .filter(Model.short_name == cf.metadata.model) \
-        .filter(Emission.short_name == cf.metadata.emissions) \
+    q = (
+        sesh.query(Run)
+        .join(Model)
+        .join(Emission)
+        .filter(Model.short_name == cf.metadata.model)
+        .filter(Emission.short_name == cf.metadata.emissions)
         .filter(Run.name == cf.metadata.run)
+    )
     return q.first()
 
 
@@ -314,7 +333,7 @@ def insert_run(sesh, cf, model, emission):
         name=cf.metadata.run,
         project=cf.metadata.project,
         model=model,
-        emission=emission
+        emission=emission,
     )
     sesh.add(run)
     return run
@@ -344,6 +363,7 @@ def find_or_insert_run(sesh, cf):
 
 # VariableAlias
 
+
 def usable_name(variable):
     """Returns a usable name for a variable.
     Tries, in order: ``variable.standard_name``, ``variable.name``"""
@@ -365,9 +385,9 @@ def find_variable_alias(sesh, cf, var_name):
     variable = cf.variables[var_name]
     q = (
         sesh.query(VariableAlias)
-            .filter(VariableAlias.long_name == variable.long_name)
-            .filter(VariableAlias.standard_name == usable_name(variable))
-            .filter(VariableAlias.units == variable.units)
+        .filter(VariableAlias.long_name == variable.long_name)
+        .filter(VariableAlias.standard_name == usable_name(variable))
+        .filter(VariableAlias.units == variable.units)
     )
     return q.first()
 
@@ -406,6 +426,7 @@ def find_or_insert_variable_alias(sesh, cf, var_name):
 
 # LevelSet, Level
 
+
 def find_level_set(sesh, cf, var_name):
     """Find a LevelSet for a named NetCDF variable.
     If the variable has no Z (level) axis, return None.
@@ -419,10 +440,11 @@ def find_level_set(sesh, cf, var_name):
     info = get_level_set_info(cf, var_name)
     if not info:
         return None
-    units = info['level_axis_var'].units
-    vertical_levels = info['vertical_levels']
+    units = info["level_axis_var"].units
+    vertical_levels = info["vertical_levels"]
     q = (
-        sesh.query(LevelSet).join(Level)
+        sesh.query(LevelSet)
+        .join(Level)
         .filter(LevelSet.level_units == units)
         .filter(Level.vertical_level.in_(vertical_levels))
         .group_by(LevelSet.id)
@@ -444,18 +466,22 @@ def insert_level_set(sesh, cf, var_name):
     info = get_level_set_info(cf, var_name)
     if not info:
         return None
-    level_set = LevelSet(level_units=info['level_axis_var'].units)
+    level_set = LevelSet(level_units=info["level_axis_var"].units)
     sesh.add(level_set)
 
     sesh.add_all(
-        [Level(level_set=level_set,
-               level_idx=level_idx,
-               vertical_level=vertical_level,
-               level_start=level_start,
-               level_end=level_end,
-               ) for level_idx, (level_start, vertical_level, level_end) in
-         enumerate(cf.var_bounds_and_values(info['level_axis_var'].name))
-         ]
+        [
+            Level(
+                level_set=level_set,
+                level_idx=level_idx,
+                vertical_level=vertical_level,
+                level_start=level_start,
+                level_end=level_end,
+            )
+            for level_idx, (level_start, vertical_level, level_end) in enumerate(
+                cf.var_bounds_and_values(info["level_axis_var"].name)
+            )
+        ]
     )
 
     return level_set
@@ -479,7 +505,7 @@ def find_or_insert_level_set(sesh, cf, var_name):  # get.level.set.id
 
 # SpatialRefSys
 
-default_proj4 = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+default_proj4 = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 
 
 def wkt(proj4):
@@ -499,10 +525,8 @@ def find_spatial_ref_sys(sesh, cf, var_name):
     :param var_name: (str) name of variable for which to find spatial ref sys
     :return: existing ``SpatialRefSys`` record or None
     """
-    q = (
-        sesh.query(SpatialRefSys)
-        .filter(SpatialRefSys.srtext ==
-                wkt(cf.proj4_string(var_name, default=default_proj4)))
+    q = sesh.query(SpatialRefSys).filter(
+        SpatialRefSys.srtext == wkt(cf.proj4_string(var_name, default=default_proj4))
     )
     return q.one_or_none()
 
@@ -534,25 +558,21 @@ def insert_spatial_ref_sys(sesh, cf, var_name):
     # CTE: http://docs.sqlalchemy.org/en/latest/core/selectable.html#sqlalchemy.sql.expression.CompoundSelect.cte
     # CTE: http://docs.sqlalchemy.org/en/latest/orm/query.html#sqlalchemy.orm.query.Query.cte
     # Embedding SQL Insert/Update Expressions into a Flush: http://docs.sqlalchemy.org/en/latest/orm/persistence_techniques.html#embedding-sql-insert-update-expressions-into-a-flush
-    max_srid = (
-        sesh.query(func.max(SpatialRefSys.id).label('max_srid'))
-        .cte(name='max_srid')
+    max_srid = sesh.query(func.max(SpatialRefSys.id).label("max_srid")).cte(
+        name="max_srid"
     )
-    next_srid = (
-        select(
-            case(
-                (max_srid.c.max_srid >= 990000, max_srid.c.max_srid + 1),
-                else_=990000).label('next_srid')
-        )
-        .cte(name='next_srid')
-    )
+    next_srid = select(
+        case(
+            (max_srid.c.max_srid >= 990000, max_srid.c.max_srid + 1), else_=990000
+        ).label("next_srid")
+    ).cte(name="next_srid")
     id = select(next_srid.c.next_srid).scalar_subquery()  # Used in two places
 
     proj4_string = cf.proj4_string(var_name, default=default_proj4)
 
     spatial_ref_sys = SpatialRefSys(
         id=id,
-        auth_name='PCIC',
+        auth_name="PCIC",
         auth_srid=id,
         proj4text=proj4_string,
         srtext=wkt(proj4_string),
@@ -569,9 +589,9 @@ def insert_spatial_ref_sys(sesh, cf, var_name):
     # for us (and more elegantly), but experimentation shows it doesn't.
     sesh.flush()
     # The newly inserted SRS is by definition the one with the highest id.
-    spatial_ref_sys = (sesh.query(SpatialRefSys)
-                       .order_by(SpatialRefSys.id.desc())
-                       .first())
+    spatial_ref_sys = (
+        sesh.query(SpatialRefSys).order_by(SpatialRefSys.id.desc()).first()
+    )
 
     return spatial_ref_sys
 
@@ -594,6 +614,7 @@ def find_or_insert_spatial_ref_sys(sesh, cf, var_name):
 
 # Grid, YCellBound
 
+
 def find_grid(sesh, cf, var_name):
     """Find existing ``Grid`` record corresponding to spatial dimensions of a
     variable in a NetCDF file.
@@ -606,6 +627,7 @@ def find_grid(sesh, cf, var_name):
         info: dict containing costly information to compute for
             finding/inserting ``Grid`` record
     """
+
     def approx_equal(attribute, value, relative_tolerance=1e-6):
         """Return a column expression specifying that ``attribute`` and
         ``value`` are equal within a specified relative tolerance.
@@ -614,23 +636,22 @@ def find_grid(sesh, cf, var_name):
         if value == 0.0:
             return attribute == 0.0
         else:
-            return (func.abs((attribute - value) / attribute) <
-                    relative_tolerance)
+            return func.abs((attribute - value) / attribute) < relative_tolerance
 
     info = get_grid_info(cf, var_name)
     srid = find_or_insert_spatial_ref_sys(sesh, cf, var_name).id
 
     grid = (
         sesh.query(Grid)
-            .filter(approx_equal(Grid.xc_origin, info['xc_values'][0]))
-            .filter(approx_equal(Grid.yc_origin, info['yc_values'][0]))
-            .filter(approx_equal(Grid.xc_grid_step, info['xc_grid_step']))
-            .filter(approx_equal(Grid.yc_grid_step, info['yc_grid_step']))
-            .filter(Grid.xc_count == len(info['xc_values']))
-            .filter(Grid.yc_count == len(info['yc_values']))
-            .filter(Grid.evenly_spaced_y == info['evenly_spaced_y'])
-            .filter(Grid.srid == srid)
-            .first()
+        .filter(approx_equal(Grid.xc_origin, info["xc_values"][0]))
+        .filter(approx_equal(Grid.yc_origin, info["yc_values"][0]))
+        .filter(approx_equal(Grid.xc_grid_step, info["xc_grid_step"]))
+        .filter(approx_equal(Grid.yc_grid_step, info["yc_grid_step"]))
+        .filter(Grid.xc_count == len(info["xc_values"]))
+        .filter(Grid.yc_count == len(info["yc_values"]))
+        .filter(Grid.evenly_spaced_y == info["evenly_spaced_y"])
+        .filter(Grid.srid == srid)
+        .first()
     )
     return grid
 
@@ -651,48 +672,50 @@ def insert_grid(sesh, cf, var_name, spatial_ref_sys):
     def cell_avg_area_sq_km():
         """Compute the average area of a grid cell, in sq km."""
         # TODO: Move into nchelpers?
-        if all(units == 'm'
-               for units in [info['xc_var'].units, info['yc_var'].units]):
+        if all(units == "m" for units in [info["xc_var"].units, info["yc_var"].units]):
             # Assume that grid is regular if specified in meters
-            return abs(info['xc_grid_step'] * info['yc_grid_step']) / 1e6
+            return abs(info["xc_grid_step"] * info["yc_grid_step"]) / 1e6
         else:
             # Assume lat-lon coordinates in degrees.
             # Assume that coordinate values are in increasing order,
             # i.e., coord[i} < coord[j] for i < j.
             earth_radius = 6371
-            y_vals = np.deg2rad(info['yc_values'])
+            y_vals = np.deg2rad(info["yc_values"])
             # TODO: Improve this computation?
             # See https://github.com/pacificclimate/modelmeta/issues/4
             return (
-                np.deg2rad(np.abs(info['xc_values'][1] -
-                                  info['xc_values'][0])) *
-                np.mean(np.diff(y_vals) * np.cos(y_vals[:-1])) *
-                earth_radius ** 2
+                np.deg2rad(np.abs(info["xc_values"][1] - info["xc_values"][0]))
+                * np.mean(np.diff(y_vals) * np.cos(y_vals[:-1]))
+                * earth_radius**2
             )
 
     grid = Grid(
-        xc_origin=info['xc_values'][0],
-        yc_origin=info['yc_values'][0],
-        xc_grid_step=info['xc_grid_step'],
-        yc_grid_step=info['yc_grid_step'],
-        xc_count=len(info['xc_values']),
-        yc_count=len(info['yc_values']),
-        evenly_spaced_y=info['evenly_spaced_y'],
+        xc_origin=info["xc_values"][0],
+        yc_origin=info["yc_values"][0],
+        xc_grid_step=info["xc_grid_step"],
+        yc_grid_step=info["yc_grid_step"],
+        xc_count=len(info["xc_values"]),
+        yc_count=len(info["yc_values"]),
+        evenly_spaced_y=info["evenly_spaced_y"],
         cell_avg_area_sq_km=cell_avg_area_sq_km(),
-        xc_units=info['xc_var'].units,
-        yc_units=info['yc_var'].units,
+        xc_units=info["xc_var"].units,
+        yc_units=info["yc_var"].units,
         srid=spatial_ref_sys.id,
     )
     sesh.add(grid)
 
-    if not info['evenly_spaced_y']:
-        y_cell_bounds = [YCellBound(
-            grid=grid,
-            bottom_bnd=bottom_bnd,
-            y_center=y_center,
-            top_bnd=top_bnd,
-        ) for bottom_bnd, y_center, top_bnd in
-                         cf.var_bounds_and_values(info['yc_var'].name)]
+    if not info["evenly_spaced_y"]:
+        y_cell_bounds = [
+            YCellBound(
+                grid=grid,
+                bottom_bnd=bottom_bnd,
+                y_center=y_center,
+                top_bnd=top_bnd,
+            )
+            for bottom_bnd, y_center, top_bnd in cf.var_bounds_and_values(
+                info["yc_var"].name
+            )
+        ]
         sesh.add_all(y_cell_bounds)
 
     return grid
@@ -721,6 +744,7 @@ def find_or_insert_grid(sesh, cf, var_name):
 
 # DataFileVariable
 
+
 def find_data_file_variable(sesh, cf, var_name, data_file):
     """Find existing ``DataFileVariableGridded`` record corresponding to a named
     variable in a NetCDF file and associated to a specified ``DataFile`` record.
@@ -737,19 +761,21 @@ def find_data_file_variable(sesh, cf, var_name, data_file):
     :return: existing ``DataFileVariableGridded`` record or None
     """
     DataFileVariableSubtype = {
-        'gridded': DataFileVariableGridded,
-        'dsg.timeSeries': DataFileVariableDSGTimeSeries,
+        "gridded": DataFileVariableGridded,
+        "dsg.timeSeries": DataFileVariableDSGTimeSeries,
     }[cf.sampling_geometry]
 
-    q = (sesh.query(DataFileVariableSubtype)
-         .filter(DataFileVariableGridded.file == data_file)
-         .filter(DataFileVariableGridded.netcdf_variable_name == var_name)
-         )
+    q = (
+        sesh.query(DataFileVariableSubtype)
+        .filter(DataFileVariableGridded.file == data_file)
+        .filter(DataFileVariableGridded.netcdf_variable_name == var_name)
+    )
     return q.first()
 
 
 def insert_data_file_variable_gridded(
-        sesh, cf, var_name, data_file, variable_alias, level_set, grid):
+    sesh, cf, var_name, data_file, variable_alias, level_set, grid
+):
     """Insert a new ``DataFileVariableGridded`` record corresponding to a named
     variable in a NetCDF file and associated to a specified ``DataFile`` record.
 
@@ -763,7 +789,7 @@ def insert_data_file_variable_gridded(
     :param grid: (Grid) grid to associate to this dfv
     :return: inserted DataFileVariableGridded record
     """
-    assert cf.sampling_geometry == 'gridded'
+    assert cf.sampling_geometry == "gridded"
     variable = cf.variables[var_name]
     range_min, range_max = cf.var_range(var_name)
     dfv = DataFileVariableGridded(
@@ -784,7 +810,8 @@ def insert_data_file_variable_gridded(
 
 
 def insert_data_file_variable_dsg_time_series(
-        sesh, cf, var_name, data_file, variable_alias):
+    sesh, cf, var_name, data_file, variable_alias
+):
     """Insert a new ``DataFileVariableDSGTimeSeries`` record corresponding to
     a named variable in a NetCDF file and associated to a specified
     ``DataFile`` record.
@@ -797,7 +824,7 @@ def insert_data_file_variable_dsg_time_series(
         this dfv
     :return: inserted DataFileVariableGridded record
     """
-    assert cf.sampling_geometry == 'dsg.timeSeries'
+    assert cf.sampling_geometry == "dsg.timeSeries"
     variable = cf.variables[var_name]
     range_min, range_max = cf.var_range(var_name)
     dfv = DataFileVariableDSGTimeSeries(
@@ -807,7 +834,7 @@ def insert_data_file_variable_dsg_time_series(
         netcdf_variable_name=var_name,
         range_min=range_min,
         range_max=range_max,
-        variable_cell_methods=getattr(variable, 'cell_methods', None),
+        variable_cell_methods=getattr(variable, "cell_methods", None),
     )
     sesh.add(dfv)
     return dfv
@@ -858,8 +885,8 @@ def find_or_insert_stations(sesh, cf, var_name):
     """
     instance_dim = cf.instance_dim(var_name)
     name = cf.id_instance_var(var_name)
-    lat = cf.spatial_instance_var(var_name, 'X')
-    lon = cf.spatial_instance_var(var_name, 'Y')
+    lat = cf.spatial_instance_var(var_name, "X")
+    lon = cf.spatial_instance_var(var_name, "Y")
     return [
         find_or_insert_station(sesh, cf, i, name, lon, lat)
         for i in range(0, instance_dim.size)
@@ -867,7 +894,8 @@ def find_or_insert_stations(sesh, cf, var_name):
 
 
 def associate_stations_to_data_file_variable_dsg_time_series(
-        sesh, cf, var_name, data_file_variable_dsg_ts):
+    sesh, cf, var_name, data_file_variable_dsg_ts
+):
     """
     Associate Station records for all stations defined for to the named variable
     to the given ``DataFileVariableDSGTimeSeries``.
@@ -913,18 +941,21 @@ def insert_data_file_variable(sesh, cf, var_name, data_file):
     variable_alias = find_or_insert_variable_alias(sesh, cf, var_name)
     assert variable_alias
 
-    if cf.sampling_geometry == 'gridded':
+    if cf.sampling_geometry == "gridded":
         level_set = find_or_insert_level_set(sesh, cf, var_name)
         grid = find_or_insert_grid(sesh, cf, var_name)
         assert grid
         return insert_data_file_variable_gridded(
-            sesh, cf, var_name, data_file, variable_alias, level_set, grid)
+            sesh, cf, var_name, data_file, variable_alias, level_set, grid
+        )
     else:
         dfv = insert_data_file_variable_dsg_time_series(
-            sesh, cf, var_name, data_file, variable_alias)
+            sesh, cf, var_name, data_file, variable_alias
+        )
         # TODO: Should this association be done here? Where else?
         associate_stations_to_data_file_variable_dsg_time_series(
-            sesh, cf, var_name, dfv)
+            sesh, cf, var_name, dfv
+        )
         return dfv
 
 
@@ -954,11 +985,14 @@ def find_or_insert_data_file_variables(sesh, cf, data_file):
     :param data_file: (DataFile) data file to associate this dfv to
     :return: list of found or inserted DataFileVariableGridded records
     """
-    return [find_or_insert_data_file_variable(sesh, cf, var_name, data_file)
-            for var_name in cf.dependent_varnames()]
+    return [
+        find_or_insert_data_file_variable(sesh, cf, var_name, data_file)
+        for var_name in cf.dependent_varnames()
+    ]
 
 
 # Timeset, Time, ClimatologicalTime
+
 
 def find_timeset(sesh, cf):
     """Find existing ``TimeSet`` record corresponding to a NetCDF file.
@@ -976,13 +1010,13 @@ def find_timeset(sesh, cf):
     # cf.time_var.calendar
     return (
         sesh.query(TimeSet)
-            .filter(TimeSet.start_date == start_date)
-            .filter(TimeSet.end_date == end_date)
-            .filter(TimeSet.multi_year_mean == cf.is_multi_year_mean)
-            .filter(TimeSet.time_resolution == cf.time_resolution)
-            .filter(TimeSet.num_times == int(cf.time_var.size))
-            .filter(TimeSet.calendar == cf.time_var.calendar)
-            .first() #this is where the error is.
+        .filter(TimeSet.start_date == start_date)
+        .filter(TimeSet.end_date == end_date)
+        .filter(TimeSet.multi_year_mean == cf.is_multi_year_mean)
+        .filter(TimeSet.time_resolution == cf.time_resolution)
+        .filter(TimeSet.num_times == int(cf.time_var.size))
+        .filter(TimeSet.calendar == cf.time_var.calendar)
+        .first()  # this is where the error is.
     )
 
 
@@ -1011,25 +1045,31 @@ def insert_timeset(sesh, cf):
     # TODO: Factor out inserts for Time and ClimatologicalTime as separate
     # functions
 
-    times = [Time(
-        timeset=time_set,
-        time_idx=time_idx,
-        timestep=timestep,
-    ) for time_idx, timestep
-             in enumerate(to_datetime(cf.time_steps['datetime']))]
+    times = [
+        Time(
+            timeset=time_set,
+            time_idx=time_idx,
+            timestep=timestep,
+        )
+        for time_idx, timestep in enumerate(to_datetime(cf.time_steps["datetime"]))
+    ]
     sesh.add_all(times)
 
     if cf.is_multi_year_mean:
         climatology_bounds = to_datetime(
-            num2date(cf.climatology_bounds_values,
-                     cf.time_var.units, cf.time_var.calendar)
+            num2date(
+                cf.climatology_bounds_values, cf.time_var.units, cf.time_var.calendar
+            )
         )
-        climatological_times = [ClimatologicalTime(
-            timeset=time_set,
-            time_idx=time_idx,
-            time_start=time_start,
-            time_end=time_end,
-        ) for time_idx, (time_start, time_end) in enumerate(climatology_bounds)]
+        climatological_times = [
+            ClimatologicalTime(
+                timeset=time_set,
+                time_idx=time_idx,
+                time_start=time_start,
+                time_end=time_end,
+            )
+            for time_idx, (time_start, time_end) in enumerate(climatology_bounds)
+        ]
         sesh.add_all(climatological_times)
 
     return time_set
@@ -1056,6 +1096,7 @@ def find_or_insert_timeset(sesh, cf):
 
 # DataFile
 
+
 def find_data_file_by_id_hash_filename(sesh, cf):
     """Find and return DataFile records matching file unique id, file hash,
     and filename.
@@ -1067,14 +1108,10 @@ def find_data_file_by_id_hash_filename(sesh, cf):
     """
     q = sesh.query(DataFile).filter(DataFile.unique_id == cf.unique_id)
     id_match = q.first()
-    q = (
-        sesh.query(DataFile)
-            .filter(DataFile.first_1mib_md5sum == cf.first_MiB_md5sum))
+    q = sesh.query(DataFile).filter(DataFile.first_1mib_md5sum == cf.first_MiB_md5sum)
     hash_match = q.first()
-    q = (
-        sesh.query(DataFile)
-            .filter(DataFile.filename ==
-                    cf.filepath(converter=filepath_converter))
+    q = sesh.query(DataFile).filter(
+        DataFile.filename == cf.filepath(converter=filepath_converter)
     )
     filename_match = q.first()
     return id_match, hash_match, filename_match
@@ -1105,10 +1142,10 @@ def insert_data_file(sesh, cf):  # create.data.file.id
         index_time=datetime.datetime.now(datetime.timezone.utc),
         run=run,
         timeset=timeset,
-        x_dim_name=dim_names.get('X', None),
-        y_dim_name=dim_names.get('Y', None),
-        z_dim_name=dim_names.get('Z', None),
-        t_dim_name=dim_names.get('T', None)
+        x_dim_name=dim_names.get("X", None),
+        y_dim_name=dim_names.get("Y", None),
+        z_dim_name=dim_names.get("Z", None),
+        t_dim_name=dim_names.get("T", None),
     )
     sesh.add(df)
     return df
@@ -1118,12 +1155,9 @@ def delete_data_file_variable(sesh, existing_data_file_variable):
     if isinstance(existing_data_file_variable, DataFileVariableDSGTimeSeries):
         # We shouldn't have to do this, but for some reason without manually
         # deleting the X records, we get a
-        existing_dfv_x_stations = (
-            sesh.query(DataFileVariableDSGTimeSeriesXStation)
-            .filter_by(
-                data_file_variable_dsg_ts_id=existing_data_file_variable.id
-            )
-        )
+        existing_dfv_x_stations = sesh.query(
+            DataFileVariableDSGTimeSeriesXStation
+        ).filter_by(data_file_variable_dsg_ts_id=existing_data_file_variable.id)
         for x in existing_dfv_x_stations:
             sesh.delete(x)
     sesh.flush()
@@ -1140,19 +1174,21 @@ def delete_data_file(sesh, existing_data_file):
     :param existing_data_file: DataFile object representing data file to be
         deleted and re-inserted
     """
-    logger.info("Deleting DataFile for unique_id '{}'"
-                .format(existing_data_file.unique_id))
+    logger.info(
+        "Deleting DataFile for unique_id '{}'".format(existing_data_file.unique_id)
+    )
     # TODO: Deleting the associated ``DataFileVariable``s and
     # ``EnsembleDataFileVariables`` should be unnecessary because
     # cascading deletes are declared for these relationships.
     # TODO: Also delete associations with `QCFlag`s?
     # (via `DataFileVariablesQcFlag`)
     existing_data_file_variables = existing_data_file.data_file_variables
-    existing_ensemble_data_file_variables = (
-        sesh.query(EnsembleDataFileVariables)
-            .filter(EnsembleDataFileVariables.data_file_variable_id.in_(
-                [edfv.id for edfv in existing_data_file_variables]
-            ))
+    existing_ensemble_data_file_variables = sesh.query(
+        EnsembleDataFileVariables
+    ).filter(
+        EnsembleDataFileVariables.data_file_variable_id.in_(
+            [edfv.id for edfv in existing_data_file_variables]
+        )
     )
     for edfv in existing_ensemble_data_file_variables:
         sesh.delete(edfv)
@@ -1163,16 +1199,17 @@ def delete_data_file(sesh, existing_data_file):
 
 # Root functions
 
+
 def update_data_file_index_time(sesh, data_file):
     """Update the index time recorded for data_file"""
-    logger.info('Updating index time (only)')
+    logger.info("Updating index time (only)")
     data_file.index_time = datetime.datetime.now(datetime.timezone.utc)
     return data_file
 
 
 def update_data_file_filename(sesh, data_file, cf):
     """Update the filename recorded for data_file with the cf filename."""
-    logger.info('Updating filename (only)')
+    logger.info("Updating filename (only)")
     data_file.filename = cf.filepath(converter=filepath_converter)
     return data_file
 
@@ -1200,7 +1237,7 @@ def reindex_cf_file(sesh, existing_data_file, cf):
     :param cf: CFDatafile object representing NetCDF file
     :return: DataFile entry for file
     """
-    logger.info('Reindexing file')
+    logger.info("Reindexing file")
     delete_data_file(sesh, existing_data_file)
     return index_cf_file(sesh, cf)
 
@@ -1221,17 +1258,16 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     exhausted all possible cases. This situation is signalled by the final
     statements after all the if statements.
     """
-    logger.info('Processing file: {}'
-                .format(cf.filepath(converter=filepath_converter)))
-    id_match, hash_match, filename_match = \
-        find_data_file_by_id_hash_filename(sesh, cf)
+    logger.info("Processing file: {}".format(cf.filepath(converter=filepath_converter)))
+    id_match, hash_match, filename_match = find_data_file_by_id_hash_filename(sesh, cf)
 
     def log_data_files(log):
         def log_data_file(label, df):
-            log('{}.id = {}'.format(label, df and df.id))
-        log_data_file('id_match', id_match)
-        log_data_file('hash_match', hash_match)
-        log_data_file('filename_match', filename_match)
+            log("{}.id = {}".format(label, df and df.id))
+
+        log_data_file("id_match", id_match)
+        log_data_file("hash_match", hash_match)
+        log_data_file("filename_match", filename_match)
 
     matches = tuple(df for df in (id_match, hash_match, filename_match) if df)
 
@@ -1242,10 +1278,11 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     # multiple entries for same file: more than one match, but they are
     # not all the same
     if len(set(matches)) != 1:
-        logger.error('Multiple entries for same file, not all the same:')
+        logger.error("Multiple entries for same file, not all the same:")
         log_data_files(logger.error)
-        raise ValueError('Multiple entries for same file, not all the same. '
-                         'See log for details.')
+        raise ValueError(
+            "Multiple entries for same file, not all the same. " "See log for details."
+        )
 
     # At this point, we know that all matches are the same DataFile object,
     # so the following values are valid and consistent for all cases.
@@ -1253,41 +1290,59 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
     old_filename_exists = os.path.isfile(data_file.filename)
     # To make testing easier, we call ``os.path.realpath`` explicitly here
     # rather than delegating it to ``cf.filepath()`` as everywhere else.
-    normalized_filenames_match = \
-        os.path.realpath(data_file.filename) == os.path.realpath(cf.filepath())
+    normalized_filenames_match = os.path.realpath(
+        data_file.filename
+    ) == os.path.realpath(cf.filepath())
     cf_modification_time = os.path.getmtime(cf.filepath())
     data_file_index_time = seconds_since_epoch(data_file.index_time)
     index_up_to_date = data_file_index_time > cf_modification_time
 
     def skip_file(reason):
-        logger.info('Skipping file: {}'.format(reason))
+        logger.info("Skipping file: {}".format(reason))
         return data_file
 
     # same file
-    if id_match and hash_match and filename_match and \
-        id_match == hash_match == filename_match and \
-            index_up_to_date:
+    if (
+        id_match
+        and hash_match
+        and filename_match
+        and id_match == hash_match == filename_match
+        and index_up_to_date
+    ):
         return update_data_file_index_time(sesh, data_file)
 
     # symlinked file (modified or not)
-    if (id_match and not filename_match and old_filename_exists and
-            normalized_filenames_match):
-        return skip_file('file is symlink to an indexed file')
+    if (
+        id_match
+        and not filename_match
+        and old_filename_exists
+        and normalized_filenames_match
+    ):
+        return skip_file("file is symlink to an indexed file")
 
     # copy of file
-    if (id_match and hash_match and not filename_match and
-            old_filename_exists and not normalized_filenames_match):
-        return skip_file('file is a copy of an indexed file')
+    if (
+        id_match
+        and hash_match
+        and not filename_match
+        and old_filename_exists
+        and not normalized_filenames_match
+    ):
+        return skip_file("file is a copy of an indexed file")
 
     # moved file
-    if (id_match and hash_match and not filename_match and
-            not old_filename_exists and index_up_to_date):
+    if (
+        id_match
+        and hash_match
+        and not filename_match
+        and not old_filename_exists
+        and index_up_to_date
+    ):
         return update_data_file_filename(sesh, data_file, cf)
 
     # indexed under different unique id
     if not id_match and hash_match and filename_match:
-        return skip_file(
-            'file already already indexed under different unique id')
+        return skip_file("file already already indexed under different unique id")
 
     # modified file (hash changed)
     if id_match and not hash_match and filename_match:
@@ -1298,27 +1353,29 @@ def find_update_or_insert_cf_file(sesh, cf):  # get.data.file.id
         return reindex_cf_file(sesh, data_file, cf)
 
     # moved and modified file (hash changed)
-    if (id_match and not hash_match and not filename_match and
-            not old_filename_exists):
+    if id_match and not hash_match and not filename_match and not old_filename_exists:
         return reindex_cf_file(sesh, data_file, cf)
 
     # moved and modified file (modification time changed)
-    if (id_match and not filename_match and not old_filename_exists and
-            not index_up_to_date):
+    if (
+        id_match
+        and not filename_match
+        and not old_filename_exists
+        and not index_up_to_date
+    ):
         return reindex_cf_file(sesh, data_file, cf)
 
     # Oops, missed something. We think this won't happen, but ...
-    logger.error('Encountered an unanticipated case:')
+    logger.error("Encountered an unanticipated case:")
     log_data_files(logger.error)
     logger.error(
-        'old_filename_exists = {}; '
-        'normalized_filenames_match = {}; '
-        'index_up_to_date = {}'
-        .format(old_filename_exists,
-                normalized_filenames_match,
-                index_up_to_date)
+        "old_filename_exists = {}; "
+        "normalized_filenames_match = {}; "
+        "index_up_to_date = {}".format(
+            old_filename_exists, normalized_filenames_match, index_up_to_date
+        )
     )
-    raise ValueError('Unanticipated case. See log for details.')
+    raise ValueError("Unanticipated case. See log for details.")
 
 
 def index_netcdf_file(filename, Session):

@@ -1,0 +1,29 @@
+name: Code format check
+
+on: push
+
+jobs:
+  check:
+
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.12
+
+      - name: Install poetry
+        run: |
+          wget -O - https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install project and black
+        run: |
+          poetry install --extras test
+
+      - name: Run check
+        run: poetry run black . --check

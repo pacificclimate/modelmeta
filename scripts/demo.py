@@ -22,7 +22,9 @@ from optparse import OptionParser
 
 # <codecell>
 
-engine = create_engine('postgresql://hiebert:mypass@windy.pcic.uvic.ca/pcic_meta?sslmode=require')
+engine = create_engine(
+    "postgresql://hiebert:mypass@windy.pcic.uvic.ca/pcic_meta?sslmode=require"
+)
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -55,4 +57,3 @@ myfile.run.driving_run, myfile.run.initialized_from_run
 # <codecell>
 
 myfile.data_file_variables[0].variable
-

@@ -21,6 +21,7 @@ For example, to use `alembic -x db=test upgrade ...`::
     [test]
     sqlalchemy.url = sqlite:////path/to/database/test.sqlite
 """
+
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 from logging.config import fileConfig
@@ -42,6 +43,7 @@ if is_live_env:
 # add your model's MetaData object here
 # for 'autogenerate' support
 from modelmeta.v2 import Base
+
 target_metadata = Base.metadata
 # target_metadata = None
 
@@ -54,11 +56,13 @@ target_metadata = Base.metadata
 if is_live_env:
     # Obtain command-line specification of database to run migration against.
     cmd_kwargs = context.get_x_argument(as_dictionary=True)
-    if 'db' not in cmd_kwargs:
-        raise Exception('We couldn\'t find `db` in the CLI arguments. '
-                        'Please verify `alembic` was run with `-x db=<db_name>` '
-                        '(e.g. `alembic -x db=development upgrade head`)')
-    db_name = cmd_kwargs['db']
+    if "db" not in cmd_kwargs:
+        raise Exception(
+            "We couldn't find `db` in the CLI arguments. "
+            "Please verify `alembic` was run with `-x db=<db_name>` "
+            "(e.g. `alembic -x db=development upgrade head`)"
+        )
+    db_name = cmd_kwargs["db"]
 
 
 def run_migrations_offline():
@@ -74,8 +78,7 @@ def run_migrations_offline():
 
     """
     url = config.get_main_option("sqlalchemy.url")
-    context.configure(
-        url=url, target_metadata=target_metadata, literal_binds=True)
+    context.configure(url=url, target_metadata=target_metadata, literal_binds=True)
 
     with context.begin_transaction():
         context.run_migrations()
@@ -97,15 +100,12 @@ def run_migrations_online():
             alembic_config[key] = db_config[key]
 
     connectable = engine_from_config(
-        alembic_config,
-        prefix='sqlalchemy.',
-        poolclass=pool.NullPool)
+        alembic_config, prefix="sqlalchemy.", poolclass=pool.NullPool
+    )
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            render_as_batch=True
+            connection=connection, target_metadata=target_metadata, render_as_batch=True
         )
 
         with context.begin_transaction():
