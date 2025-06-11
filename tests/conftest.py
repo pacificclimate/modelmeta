@@ -23,9 +23,9 @@ There are thus two cascades of fixtures for databases, engines, session
 factories, and sessions, one starting with databases with session scope,
 the other with databases with function scope.
 """
+
 import sys
 import os
-from importlib.resources import files
 import datetime
 import time
 
@@ -64,6 +64,8 @@ from modelmeta import \
     VariableAlias, \
     YCellBound, \
     SpatialRefSys
+
+from tests.test_helpers import resource_filename
 
 # Add helpers directory to pythonpath: See https://stackoverflow.com/a/33515264
 sys.path.append(os.path.join(os.path.dirname(__file__), 'helpers'))
@@ -335,16 +337,18 @@ def test_session_with_empty_db_fs(test_session_factory_fs):
 
 # Database for migration testing
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope="module")
 def db_uri(test_dsn):
     yield test_dsn
 
 
 # Parametrized fixtures
 
+
 def open_tiny_dataset(abbrev):
-    filename = 'data/tiny_{}.nc'.format(abbrev)
-    return CFDataset((files("modelmeta") / filename).resolve())
+    filename = "data/tiny_{}.nc".format(abbrev)
+    return CFDataset(resource_filename("modelmeta", filename))
 
 
 # We parametrize these fixture so that every test that uses it is run for all

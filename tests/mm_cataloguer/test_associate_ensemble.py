@@ -1,7 +1,6 @@
 """Test functions for associating an ensemble to a file.
 """
 import pytest
-from importlib.resources import files
 
 from nchelpers import CFDataset
 
@@ -14,6 +13,7 @@ from mm_cataloguer.associate_ensemble import \
 
 from mm_cataloguer.index_netcdf import \
     index_cf_file, find_update_or_insert_cf_file
+from tests.test_helpers import resource_filename
 
 from modelmeta import create_test_database
 from modelmeta import DataFile, DataFileVariable, \
@@ -34,7 +34,7 @@ def index_test_files(Session):
         'data/tiny_hydromodel_gcm.nc',
         'data/tiny_gcm_climo_monthly.nc',
     ]
-    filenames = [(files("modelmeta") / f).resolve() for f in test_files]
+    filenames = [resource_filename("modelmeta", f) for f in test_files]
     for filename in filenames:
         with CFDataset(filename) as cf:
             find_update_or_insert_cf_file(session, cf)
@@ -155,10 +155,10 @@ def test_associate_ensemble_to_data_file__(
 
 # associate_ensemble_to_filepath
 
-fp_gcm = (files('modelmeta') / 'data/tiny_gcm.nc').resolve()
-fp_downscaled = (files('modelmeta') /'data/tiny_downscaled.nc').resolve()
-fp_hydromodel_gcm = (files('modelmeta') / 'data/tiny_hydromodel_gcm.nc').resolve()
-fp_gcm_climo_monthly = (files('modelmeta') / 'data/tiny_gcm_climo_monthly.nc').resolve()
+fp_gcm = resource_filename('modelmeta', 'data/tiny_gcm.nc')
+fp_downscaled = resource_filename('modelmeta', 'data/tiny_downscaled.nc')
+fp_hydromodel_gcm = resource_filename('modelmeta', 'data/tiny_hydromodel_gcm.nc')
+fp_gcm_climo_monthly = resource_filename('modelmeta', 'data/tiny_gcm_climo_monthly.nc')
 
 @pytest.mark.slow
 @pytest.mark.parametrize(
@@ -228,7 +228,7 @@ files_to_associate = [
     'data/tiny_gcm_climo_monthly.nc',
 ]
 fps = [
-    [str((files('modelmeta') / f).resolve()) for f in files_to_associate[:number]]
+    [resource_filename('modelmeta', f) for f in files_to_associate[:number]]
     for number in [1,2,4]
 ]
 

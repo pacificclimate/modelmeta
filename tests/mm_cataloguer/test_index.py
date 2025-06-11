@@ -25,7 +25,6 @@ more details.
 
 import os
 import datetime
-from importlib.resources import files
 
 import pytest
 from netCDF4 import date2num, num2date, chartostring
@@ -60,11 +59,14 @@ from mm_cataloguer.index_netcdf import \
     insert_timeset, find_timeset, find_or_insert_timeset, \
     get_grid_info, get_level_set_info, \
     seconds_since_epoch, usable_name, wkt
+from tests.test_helpers import resource_filename
+
 
 from mock_helper import Mock
 
 
 # Helper functions for defining tests
+
 
 def conditional(f, false_value=None):
     """Return a function that, dependent on an additional boolean keyword
@@ -1171,7 +1173,7 @@ def test_index_netcdf_file(
     create_test_database(test_engine_fs)
 
     # Index file
-    filepath = (files("modelmeta") /  rel_filepath).resolve()
+    filepath = resource_filename("modelmeta", rel_filepath)
     data_file_id = index_netcdf_file(filepath, test_session_factory_fs)
 
     # Check results
@@ -1198,7 +1200,7 @@ def test_index_netcdf_file_with_error(
     create_test_database(test_engine_fs)
 
     # Index file
-    filepath = str((files("modelmeta") / rel_filepath).resolve())
+    filepath = resource_filename("modelmeta", rel_filepath)
     data_file_id = index_netcdf_file(filepath, test_session_factory_fs)
 
     # Check results
@@ -1228,7 +1230,7 @@ def test_index_netcdf_files(test_dsn_fs, test_engine_fs):
         'data/tiny_gcm_climo_yearly.nc',
         'data/tiny_streamflow.nc',
     ]
-    filenames = [(files("modelmeta") / f).resolve() for f in test_files]
+    filenames = [resource_filename("modelmeta", f) for f in test_files]
     data_file_ids = index_netcdf_files(filenames, test_dsn_fs)
 
     # Check results
