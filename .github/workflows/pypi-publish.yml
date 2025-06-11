@@ -1,30 +1,39 @@
-name: Pypi Publishing
+name: Publish to our PyPI
 
 on:
   push:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+\.dev[0-9]+'
 
 jobs:
   publish:
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v2
+
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.11'
+        python-version: '3.12'
+
     - name: Install Poetry
       run: |
         curl -sSL https://install.python-poetry.org | python3 -
-    - name: Build and publish
+
+    - name: Install, build and publish project
       env:
-        TWINE_USERNAME: ${{ secrets.pcic_at_pypi_username }}
-        TWINE_PASSWORD: ${{ secrets.pcic_at_pypi_password }}
+        PCIC_PYPI_USERNAME: ${{ secrets.pcic_at_pypi_username }}
+        PCIC_PYPI_PASSWORD: ${{ secrets.pcic_at_pypi_password }}
       run: |
+        # Configure Poetry to publish to PCIC private package repository
+        # Private repo name is "pcic". We could factor that out as an env var...
         poetry config repositories.pcic https://pypi.pacificclimate.org/
         poetry config http-basic.pcic $PCIC_PYPI_USERNAME $PCIC_PYPI_PASSWORD
+
+        # Install, build and publish
+        poetry install
         poetry build
         poetry publish -r pcic

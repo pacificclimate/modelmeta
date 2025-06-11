@@ -1,6 +1,13 @@
 News / Release Notes
 ====================
 
+2.0.1
+-----
+
+*Release Date: 2025-Jun-11*
+
+- Upgrades to PyPI publishing workflow
+
 2.0.0
 -----
 
