@@ -3,7 +3,7 @@ import datetime
 
 import pytest
 
-from sqlalchemy import create_engine, MetaData, Table, select
+from sqlalchemy import create_engine, MetaData, Table, select, text
 from sqlalchemy.orm import sessionmaker
 
 from alembic import command
@@ -55,7 +55,9 @@ def test_model_and_migration_schemas_are_the_same(
     """
     prepare_schema_from_migrations(uri_left, alembic_config_left)
     engine = create_engine(uri_right)
-    engine.execute('create extension postgis')
+    with engine.connect() as connection:
+        with connection.begin():
+            connection.execute(text('create extension postgis'))
     prepare_schema_from_models(uri_right, Base)
 
     result = compare(
@@ -89,55 +91,57 @@ def test_12f290b63791_upgrade_data_migration(uri_left, alembic_config_left):
         uri_left, alembic_config_left, revision='614911daf883')
 
     # Define minimal set of tables needed to test migration
-    meta_data = MetaData(bind=engine)
-    variable_aliases = Table('variable_aliases', meta_data, autoload=True)
-    grids = Table('grids', meta_data, autoload=True)
-    data_files = Table('data_files', meta_data, autoload=True)
-    data_file_variables = Table('data_file_variables', meta_data, autoload=True)
+    meta_data = MetaData()
+    variable_aliases = Table('variable_aliases', meta_data, autoload_with=engine)
+    grids = Table('grids', meta_data, autoload_with=engine)
+    data_files = Table('data_files', meta_data, autoload_with=engine)
+    data_file_variables = Table('data_file_variables', meta_data, autoload_with=engine)
 
     # Insert minimal data needed to test migration: Several instances of each of
     # variable_aliases, grids, data_files, associated to a data_file_variables.
     num_test_records = 3
-    for i in range(0, num_test_records):
-        for stmt in [
-            variable_aliases.insert().values(
-                variable_alias_id=i,
-                variable_long_name=name('var', i),
-                variable_standard_name=name('var', i),
-                variable_units='foo',
-            ),
-            grids.insert().values(
-                grid_id=i,
-                xc_origin=0.0,
-                xc_grid_step=1.0,
-                xc_count=10,
-                xc_units='xc_units',
-                yc_origin=0.0,
-                yc_grid_step=1.0,
-                yc_count=10,
-                yc_units='yc_units',
-                evenly_spaced_y=True,
-            ),
-            data_files.insert().values(
-                data_file_id=i,
-                filename=name('filename', i),
-                first_1mib_md5sum='first_1mib_md5sum',
-                unique_id=name('unique_id', i),
-                x_dim_name='x_dim_name',
-                y_dim_name='y_dim_name',
-                index_time=datetime.datetime.now(),
-            ),
-            data_file_variables.insert().values(
-                data_file_variable_id=i,
-                data_file_id=i,
-                variable_alias_id=i,
-                grid_id=i,
-                netcdf_variable_name=name('var', i),
-                range_min=0.0,
-                range_max=10.0,
-            )
-        ]:
-            engine.execute(stmt)
+    with engine.connect() as connection:
+        with connection.begin():
+            for i in range(0, num_test_records):
+                for stmt in [
+                    variable_aliases.insert().values(
+                        variable_alias_id=i,
+                        variable_long_name=name('var', i),
+                        variable_standard_name=name('var', i),
+                        variable_units='foo',
+                    ),
+                    grids.insert().values(
+                        grid_id=i,
+                        xc_origin=0.0,
+                        xc_grid_step=1.0,
+                        xc_count=10,
+                        xc_units='xc_units',
+                        yc_origin=0.0,
+                        yc_grid_step=1.0,
+                        yc_count=10,
+                        yc_units='yc_units',
+                        evenly_spaced_y=True,
+                    ),
+                    data_files.insert().values(
+                        data_file_id=i,
+                        filename=name('filename', i),
+                        first_1mib_md5sum='first_1mib_md5sum',
+                        unique_id=name('unique_id', i),
+                        x_dim_name='x_dim_name',
+                        y_dim_name='y_dim_name',
+                        index_time=datetime.datetime.now(),
+                    ),
+                    data_file_variables.insert().values(
+                        data_file_variable_id=i,
+                        data_file_id=i,
+                        variable_alias_id=i,
+                        grid_id=i,
+                        netcdf_variable_name=name('var', i),
+                        range_min=0.0,
+                        range_max=10.0,
+                        )
+                    ]:
+                    connection.execute(stmt)
 
     # Run upgrade migration
     command.upgrade(alembic_config_left, '+1')
@@ -226,16 +230,16 @@ def test_12f290b63791_downgrade_data_migration(uri_left, alembic_config_left):
     command.downgrade(alembic_config_left, '-1')
 
     # Define minimal set of tables needed to test migration
-    meta_data = MetaData(bind=engine)
-    data_file_variables = Table('data_file_variables', meta_data, autoload=True)
+    meta_data = MetaData()
+    data_file_variables = Table('data_file_variables', meta_data, autoload_with=engine)
 
     # Check data results of migration.
-    results = list(engine.execute(
-        data_file_variables.select()
-    ))
+    with engine.connect() as connection:
+        with connection.begin():
+            results = list(connection.execute(data_file_variables.select()))
 
-    assert results is not None
-    assert len(results) == num_test_records
-    assert all(r['variable_alias_id'] == r['data_file_variable_id'] for r in results)
-    assert all(r['grid_id'] == r['data_file_variable_id'] for r in results)
-    assert all(r['data_file_id'] == r['data_file_variable_id'] for r in results)
+            assert results is not None
+            assert len(results) == num_test_records
+            assert all(r._mapping['variable_alias_id'] == r._mapping['data_file_variable_id'] for r in results)
+            assert all(r._mapping['grid_id'] == r._mapping['data_file_variable_id'] for r in results)
+            assert all(r._mapping['data_file_id'] == r._mapping['data_file_variable_id'] for r in results)

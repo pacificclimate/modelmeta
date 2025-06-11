@@ -28,11 +28,9 @@ __all__ = '''
     SpatialRefSys
 '''.split()
 
-from pkg_resources import resource_filename
-
 from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean, \
     Enum, ForeignKey, Index, UniqueConstraint
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.ext.orderinglist import ordering_list
 from sqlalchemy.orm import relationship, backref, sessionmaker
 
@@ -174,7 +172,8 @@ class DataFileVariableDSGTimeSeries(DataFileVariable):
     stations = relationship(
         'Station',
         secondary='data_file_variables_dsg_time_series_x_stations',
-        back_populates='data_file_variables')
+        back_populates='data_file_variables', 
+        viewonly=True)
 
     __mapper_args__ = {
         'polymorphic_identity':'dsg_time_series',
@@ -203,7 +202,8 @@ class Station(Base):
     data_file_variables = relationship(
         'DataFileVariableDSGTimeSeries',
         secondary='data_file_variables_dsg_time_series_x_stations',
-        back_populates='stations')
+        back_populates='stations',
+        viewonly=True)
 
 
     def __repr__(self):
@@ -542,7 +542,8 @@ class Run(Base):
     time_set = relationship('TimeSet', 
         primaryjoin='Run.id==DataFile.run_id', 
         secondary='data_files', 
-        secondaryjoin='DataFile.time_set_id==TimeSet.id')
+        secondaryjoin='DataFile.time_set_id==TimeSet.id',
+        viewonly=True)
     files = relationship("DataFile", 
                          backref=backref('run', lazy='joined'), 
                          lazy='joined')
@@ -621,11 +622,13 @@ class Variable(Base):
     name = Column('variable_name', String(length=64), nullable=False)
 
     # relation definitions
-    variable_aliases = relationship('VariableAlias', primaryjoin='Variable.variable_alias_id==VariableAlias.id')
+    variable_aliases = relationship('VariableAlias', primaryjoin='Variable.variable_alias_id==VariableAlias.id',
+        back_populates="variable")
     data_files_variables = relationship('DataFileVariable', 
         primaryjoin='Variable.variable_alias_id==VariableAlias.id', 
         secondary='variable_aliases', 
-        secondaryjoin='VariableAlias.id==DataFileVariable.variable_alias_id')
+        secondaryjoin='VariableAlias.id==DataFileVariable.variable_alias_id',
+        viewonly=True)
 
     def __repr__(self):
         return obj_repr('id name description variable_alias_id', self)
@@ -647,9 +650,10 @@ class VariableAlias(Base):
     data_files = relationship('DataFile', 
         primaryjoin='VariableAlias.id==DataFileVariable.variable_alias_id', 
         secondary='data_file_variables', 
-        secondaryjoin='DataFileVariable.data_file_id==DataFile.id', 
+        secondaryjoin='DataFileVariable.data_file_id==DataFile.id',
+        viewonly=True, 
         backref=backref('variable_aliases'))
-    variable = relationship("Variable", backref=backref('variable_alias'))
+    variable = relationship("Variable", back_populates="variable_aliases")
 
     def __repr__(self):
         return obj_repr('id long_name standard_name units', self)

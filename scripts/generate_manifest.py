@@ -5,8 +5,7 @@ from dateutil.parser import parse
 
 from mm_cataloguer.generate_manifest import generate_manifest
 
-
-if __name__ == '__main__':
+def generate():
     parser = ArgumentParser(
         description='Generate manifest of files requested from database')
     parser.add_argument("-c", "--connection_string", help="DSN for modelmeta database")

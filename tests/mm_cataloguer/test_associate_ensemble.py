@@ -1,7 +1,6 @@
 """Test functions for associating an ensemble to a file.
 """
 import pytest
-from pkg_resources import resource_filename
 
 from nchelpers import CFDataset
 
@@ -14,6 +13,7 @@ from mm_cataloguer.associate_ensemble import \
 
 from mm_cataloguer.index_netcdf import \
     index_cf_file, find_update_or_insert_cf_file
+from tests.test_helpers import resource_filename
 
 from modelmeta import create_test_database
 from modelmeta import DataFile, DataFileVariable, \
@@ -34,7 +34,7 @@ def index_test_files(Session):
         'data/tiny_hydromodel_gcm.nc',
         'data/tiny_gcm_climo_monthly.nc',
     ]
-    filenames = [resource_filename('modelmeta', f) for f in test_files]
+    filenames = [resource_filename("modelmeta", f) for f in test_files]
     for filename in filenames:
         with CFDataset(filename) as cf:
             find_update_or_insert_cf_file(session, cf)
@@ -201,13 +201,13 @@ def test_associate_ensemble_to_filepath__(
     # Associate
     associated_items = associate_ensemble_to_filepath(
         session, ensemble1.name, ensemble1.version,
-        regex_filepath, filepath, var_names
+        regex_filepath, str(filepath), var_names
     )
 
     # Verify
     assert set(
         df.filename for df, _ in associated_items
-    ) == expected_filepaths
+    ) == set(str(ef) for ef in expected_filepaths)
 
     assert set(
         dfv.netcdf_variable_name

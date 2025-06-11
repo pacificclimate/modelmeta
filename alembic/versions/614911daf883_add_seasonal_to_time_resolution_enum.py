@@ -118,22 +118,22 @@ def swap_and_drop(curr_options, dest_options):
 
     # Create a temporary enum type, convert to it and drop the old enum type
     tmp_type.create(connection, checkfirst=False)
-    op.execute('''
+    op.execute(sa.text('''
         ALTER TABLE {table_name}
         ALTER COLUMN {column_name}
         TYPE {tmp_type_name}
         USING {column_name}::text::{tmp_type_name}
-    '''.format(**alter_args))
+    '''.format(**alter_args)))
     old_type.drop(connection, checkfirst=False)
 
     # Create and convert to the new enum type
     new_type.create(connection, checkfirst=False)
-    op.execute('''
+    op.execute(sa.text('''
         ALTER TABLE {table_name}
         ALTER COLUMN {column_name}
         TYPE {type_name}
         USING {column_name}::text::{type_name}
-    '''.format(**alter_args))
+    '''.format(**alter_args)))
 
     # Drop the temporary enum type
     tmp_type.drop(connection, checkfirst=False)

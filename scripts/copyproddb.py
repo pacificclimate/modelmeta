@@ -1,7 +1,6 @@
 import sys
 import logging
 from argparse import ArgumentParser
-from pkg_resources import resource_filename
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -14,7 +13,7 @@ def quick_mapper(table):
         __table__ = table
     return GenericMapper
 
-if __name__ == '__main__':
+def copy():
     parser = ArgumentParser()
     parser.add_argument("-d", "--dsn", help="Source database DSN from which to read")
     parser.add_argument("-o", "--outdsn", help="Destination database DSN. Default is output.sqlite in current directory")

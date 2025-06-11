@@ -112,31 +112,6 @@ psycopg2_adapters.register()
 
 filepath_converter = 'realpath'
 
-
-# Decorators
-
-def memoize(obj):
-    """Memoize a callable object with only positional args, and where those
-    args are hashable. This is simple and sufficient for its application in
-    this code. It works in all versions of Python >= 2.7, which is not true
-    for many of the more featureful modules (e.g., `functools.lru_cache`).
-
-    Adapted from http://book.pythontips.com/en/latest/function_caching.html
-    """
-    memo = {}
-
-    @functools.wraps(obj)
-    def memoized(*args):
-        if args in memo:
-            return memo[args]
-        else:
-            value = obj(*args)
-            memo[args] = value
-            return value
-
-    return memoized
-
-
 # Helper functions
 
 def is_regular_series(values, relative_tolerance=1e-6):
@@ -153,10 +128,14 @@ def mean_step_size(values):
 
 def seconds_since_epoch(t):
     """Convert a datetime to the number of seconds since the Unix epoch."""
-    return (t-datetime.datetime(1970, 1, 1)).total_seconds()
+    # add a timezone, if one is missing
+    if t.tzinfo is None:
+        utc_t = t.replace(tzinfo=datetime.timezone.utc)
+    else:
+        utc_t = t
+    return (utc_t-datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)).total_seconds()
 
 
-@memoize
 def get_level_set_info(cf, var_name):
     """Return a dict containing information characterizing the level set
     (Z axis values) associated with a specified dependent variable, or
@@ -186,7 +165,6 @@ def get_level_set_info(cf, var_name):
     }
 
 
-@memoize
 def get_grid_info(cf, var_name):
     """Get information defining the Grid record corresponding to the spatial
     dimensions of a variable in a NetCDF file.
@@ -561,14 +539,14 @@ def insert_spatial_ref_sys(sesh, cf, var_name):
         .cte(name='max_srid')
     )
     next_srid = (
-        select([
-            case([
+        select(
+            case(
                 (max_srid.c.max_srid >= 990000, max_srid.c.max_srid + 1),
-            ], else_=990000).label('next_srid')
-        ])
+                else_=990000).label('next_srid')
+        )
         .cte(name='next_srid')
     )
-    id = select([next_srid.c.next_srid])  # Used in two places
+    id = select(next_srid.c.next_srid).scalar_subquery()  # Used in two places
 
     proj4_string = cf.proj4_string(var_name, default=default_proj4)
 
@@ -1004,7 +982,7 @@ def find_timeset(sesh, cf):
             .filter(TimeSet.time_resolution == cf.time_resolution)
             .filter(TimeSet.num_times == int(cf.time_var.size))
             .filter(TimeSet.calendar == cf.time_var.calendar)
-            .first()
+            .first() #this is where the error is.
     )
 
 
@@ -1124,7 +1102,7 @@ def insert_data_file(sesh, cf):  # create.data.file.id
         filename=cf.filepath(converter=filepath_converter),
         first_1mib_md5sum=cf.first_MiB_md5sum,
         unique_id=cf.unique_id,
-        index_time=datetime.datetime.utcnow(),
+        index_time=datetime.datetime.now(datetime.timezone.utc),
         run=run,
         timeset=timeset,
         x_dim_name=dim_names.get('X', None),
@@ -1188,7 +1166,7 @@ def delete_data_file(sesh, existing_data_file):
 def update_data_file_index_time(sesh, data_file):
     """Update the index time recorded for data_file"""
     logger.info('Updating index time (only)')
-    data_file.index_time = datetime.datetime.utcnow()
+    data_file.index_time = datetime.datetime.now(datetime.timezone.utc)
     return data_file
 
 

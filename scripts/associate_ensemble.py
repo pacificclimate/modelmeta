@@ -3,8 +3,7 @@ from argparse import ArgumentParser
 
 from mm_cataloguer.associate_ensemble import main
 
-
-if __name__ == '__main__':
+def associate():
     parser = ArgumentParser(description='Associate an ensemble to datafiles')
     parser.add_argument(
         '-d', '--dsn', required=True,

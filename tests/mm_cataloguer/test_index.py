@@ -25,14 +25,13 @@ more details.
 
 import os
 import datetime
-from pkg_resources import resource_filename
 
 import pytest
 from netCDF4 import date2num, num2date, chartostring
 
 from dateutil.relativedelta import relativedelta
 
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 import pycrs
 
@@ -60,11 +59,14 @@ from mm_cataloguer.index_netcdf import \
     insert_timeset, find_timeset, find_or_insert_timeset, \
     get_grid_info, get_level_set_info, \
     seconds_since_epoch, usable_name, wkt
+from tests.test_helpers import resource_filename
+
 
 from mock_helper import Mock
 
 
 # Helper functions for defining tests
+
 
 def conditional(f, false_value=None):
     """Return a function that, dependent on an additional boolean keyword
@@ -135,17 +137,20 @@ def check_find_or_insert(*args, **kwargs):
 
 
 def freeze_utcnow(*args):
-    """Freeze datetime.datetime.utcnow()
+    """Freeze datetime.datetime.now()
 
     This would be more elegant as a fixture or decorator, but it would be a
     lot more work.
     """
     monkeypatch = args[0]
     fake_now = datetime.datetime(*args[1:])
+    print("FAKE NOW", fake_now)
 
     class fake_datetime(datetime.datetime):
         @classmethod
         def utcnow(cls):
+            return fake_now
+        def now(cls):
             return fake_now
 
     monkeypatch.setattr(datetime, 'datetime', fake_datetime)
@@ -167,7 +172,7 @@ def print_query_results(session, query, title=None):
     if title:
         print(title)
         print('-' * len(title))
-    result = session.execute(query)
+    result = session.execute(text(query))
     for row in result:
         print(row)
 
@@ -932,7 +937,12 @@ def test_insert_data_file(
 ):
     # Have to use a datetime with no hours, min, sec because apparently
     # SQLite loses precision
-    fake_now = freeze_utcnow(monkeypatch, 2000, 1, 2)
+    fake_now = freeze_utcnow(
+        monkeypatch, 
+        datetime.datetime.now(datetime.timezone.utc).year,
+        datetime.datetime.now(datetime.timezone.utc).month, 
+        datetime.datetime.now(datetime.timezone.utc).day
+        )
     dim_names = tiny_any_dataset.axes_dim()
     data_file = check_insert(
         insert_data_file, test_session_with_empty_db, tiny_any_dataset,
@@ -1163,7 +1173,7 @@ def test_index_netcdf_file(
     create_test_database(test_engine_fs)
 
     # Index file
-    filepath = resource_filename('modelmeta', rel_filepath)
+    filepath = resource_filename("modelmeta", rel_filepath)
     data_file_id = index_netcdf_file(filepath, test_session_factory_fs)
 
     # Check results
@@ -1174,7 +1184,7 @@ def test_index_netcdf_file(
         .filter(DataFile.id == data_file_id)
         .one()
     )
-    assert data_file.filename == filepath
+    assert data_file.filename == str(filepath)
     session.close()
 
 
@@ -1190,7 +1200,7 @@ def test_index_netcdf_file_with_error(
     create_test_database(test_engine_fs)
 
     # Index file
-    filepath = resource_filename('modelmeta', rel_filepath)
+    filepath = resource_filename("modelmeta", rel_filepath)
     data_file_id = index_netcdf_file(filepath, test_session_factory_fs)
 
     # Check results
@@ -1220,7 +1230,7 @@ def test_index_netcdf_files(test_dsn_fs, test_engine_fs):
         'data/tiny_gcm_climo_yearly.nc',
         'data/tiny_streamflow.nc',
     ]
-    filenames = [resource_filename('modelmeta', f) for f in test_files]
+    filenames = [resource_filename("modelmeta", f) for f in test_files]
     data_file_ids = index_netcdf_files(filenames, test_dsn_fs)
 
     # Check results

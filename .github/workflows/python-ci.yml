@@ -5,13 +5,13 @@ on: push
 jobs:
   test:
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         python-version:
-          - "3.8"
-          - "3.9"
           - "3.10"
+          - "3.11"
+          - "3.12"
 
     steps:
     - uses: actions/checkout@v2
@@ -20,37 +20,26 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install postgis postgresql-14 postgresql-client-14 libhdf5-serial-dev libnetcdf-dev libspatialite-dev
+        sudo apt-get install postgis postgresql-16 postgresql-client-16 libhdf5-serial-dev libnetcdf-dev libspatialite-dev wget
 
-    - name: Install pipenv
+    - name: Install poetry
       run: |
-        pip install pipenv==2022.10.25
-    
-    - id: cache-pipenv
-      uses: actions/cache@v2
-      with:
-        path: ~/.local/share/virtualenvs
-        key: ${{ runner.os }}-pipenv-${{ hashFiles('**/Pipfile.lock') }}
+        wget -O - https://install.python-poetry.org | python3 -
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Install dependencies if changed
-      if: ${{ steps.cache-pipenv.outputs.cache-hit != 'true' && matrix.python-version == '3.8' }}
+    - name: Install python dependencies
       run: |
-        pipenv install --deploy --dev
-    - name: Re-install dependencies if alternative python version
-      if: ${{ matrix.python-version != '3.8' }}
-      run: |
-        mv Pipfile.lock do-not-use
-        pipenv install --python ${{ matrix.python-version }} --dev
+        poetry install --extras test
     
     - name: Test with pytest (full)
       if: github.ref == 'refs/heads/master'
       run: |
-        pipenv run py.test -m "not online" -v
+        poetry run py.test -v
     
     - name: Test with pytest (fast)
       if: github.ref != 'refs/heads/master'
       run: |
-        pipenv run py.test -m "not online and not slow" -v
+        poetry run py.test -m "not slow" -v

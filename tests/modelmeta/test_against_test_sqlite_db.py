@@ -1,15 +1,16 @@
-from pkg_resources import resource_filename
-
 import modelmeta
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from tests.test_helpers import resource_filename
+
+
 @pytest.fixture
 def test_session():
-    f = resource_filename('modelmeta', 'data/mddb-v2.sqlite')
-    engine = create_engine('sqlite:///{0}'.format(f))
+    f = resource_filename("modelmeta", "data/mddb-v2.sqlite")
+    engine = create_engine("sqlite:///{0}".format(f))
     Session = sessionmaker(bind=engine)
     return Session()
 

@@ -3,7 +3,7 @@ __all__ = ['DataFile', 'Run', 'TimeSet', 'Model', 'Emission', 'Grid', 'Ensemble'
            'DataFileVariable', 'Level', 'LevelSet', 'QCFlag',\
            'test_dsn', 'test_session']
 
-from pkg_resources import resource_filename
+from importlib.resources import files
            
 from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean, ForeignKey, create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -194,12 +194,3 @@ class QCFlag(Base):
 #     __tablename__ = 'times'
 #     timestep = Column(DateTime)
 #     time_set_id = Column(Integer, ForeignKey('time_sets.time_set_id'))
-
-test_dsn = 'sqlite+pysqlite:///{0}'.format(resource_filename('modelmeta', 'data/mddb-v1.sqlite'))
-
-def test_session():
-    '''This creates a testing database session that can be used as a test fixture.
-    '''
-    engine = create_engine(test_dsn)
-    Session = sessionmaker(bind=engine)
-    return Session()

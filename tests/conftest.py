@@ -23,15 +23,16 @@ There are thus two cascades of fixtures for databases, engines, session
 factories, and sessions, one starting with databases with session scope,
 the other with databases with function scope.
 """
+
 import sys
 import os
-from pkg_resources import resource_filename
 import datetime
+import time
 
 import pytest
 import testing.postgresql
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import CreateSchema
 
@@ -64,6 +65,8 @@ from modelmeta import \
     YCellBound, \
     SpatialRefSys
 
+from tests.test_helpers import resource_filename
+
 # Add helpers directory to pythonpath: See https://stackoverflow.com/a/33515264
 sys.path.append(os.path.join(os.path.dirname(__file__), 'helpers'))
 
@@ -81,7 +84,7 @@ def make_data_file(i, run=None, timeset=None):
         x_dim_name='lon',
         y_dim_name='lat',
         t_dim_name='time',
-        index_time=datetime.datetime.now(),
+        index_time=datetime.datetime.now(datetime.timezone.utc),
         run=run,
         timeset=timeset,
     )
@@ -241,7 +244,9 @@ def ensemble2():
 # Database initialization
 
 def init_database(engine):
-    engine.execute("create extension postgis")
+	with engine.connect() as connection:
+		with connection.begin():
+			connection.execute(text("create extension postgis"))
 
 
 # Session-scoped databases, engines, session factories, and derived sessions
@@ -332,16 +337,18 @@ def test_session_with_empty_db_fs(test_session_factory_fs):
 
 # Database for migration testing
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope="module")
 def db_uri(test_dsn):
     yield test_dsn
 
 
 # Parametrized fixtures
 
+
 def open_tiny_dataset(abbrev):
-    filename = 'data/tiny_{}.nc'.format(abbrev)
-    return CFDataset(resource_filename('modelmeta', filename))
+    filename = "data/tiny_{}.nc".format(abbrev)
+    return CFDataset(resource_filename("modelmeta", filename))
 
 
 # We parametrize these fixture so that every test that uses it is run for all
