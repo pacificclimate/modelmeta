@@ -13,10 +13,14 @@ from netCDF4 import Dataset
 
 
 def nc_copy(source_fp, dest_fp, time_dimension, time_indices, variables):
-    print('nc_copy({source_fp}, {dest_fp}, {time_dimension}, {time_indices}, {variables})'.format(**locals()))
+    print(
+        "nc_copy({source_fp}, {dest_fp}, {time_dimension}, {time_indices}, {variables})".format(
+            **locals()
+        )
+    )
 
     with Dataset(source_fp) as source:
-        with Dataset(dest_fp, mode='w') as dest:
+        with Dataset(dest_fp, mode="w") as dest:
 
             # Copy global attributes
             for name in source.ncattrs():
@@ -28,7 +32,7 @@ def nc_copy(source_fp, dest_fp, time_dimension, time_indices, variables):
                     size = time_indices[1] - time_indices[0] + 1
                 else:
                     size = dimension.size
-                print('Copying dimension {} ({})'.format(name, size))
+                print("Copying dimension {} ({})".format(name, size))
                 dest.createDimension(name, size=size)
 
             # Create and copy variables
@@ -44,9 +48,10 @@ def nc_copy(source_fp, dest_fp, time_dimension, time_indices, variables):
                 #     chunksizes = source_variable.chunking()
                 #     print('chunksizes={}'.format(chunksizes))
 
-                print('Copying variable {}'.format(name))
+                print("Copying variable {}".format(name))
                 dest_variable = dest.createVariable(
-                    name, source_variable.datatype,
+                    name,
+                    source_variable.datatype,
                     dimensions=source_variable.dimensions,
                     **source_variable.filters(),
                     endian=source_variable.endian(),
@@ -60,44 +65,49 @@ def nc_copy(source_fp, dest_fp, time_dimension, time_indices, variables):
 
                 # Copy variable values
                 if (
-                        # we want to process this variable
-                        (not variables or name in variables)
-                        # it has a time dimension
-                        and time_dimension in source_variable.dimensions
-                        # and time indices are specified
-                        and time_indices
+                    # we want to process this variable
+                    (not variables or name in variables)
+                    # it has a time dimension
+                    and time_dimension in source_variable.dimensions
+                    # and time indices are specified
+                    and time_indices
                 ):
-                    print('\tslicing')
+                    print("\tslicing")
                     # copy only a subset of the time dimension
-                    slices = [slice(None),] * source_variable.ndim
+                    slices = [
+                        slice(None),
+                    ] * source_variable.ndim
                     t = source_variable.dimensions.index(time_dimension)
-                    slices[t] = slice(time_indices[0], time_indices[1]+1)
+                    slices[t] = slice(time_indices[0], time_indices[1] + 1)
                     dest_variable[:] = source_variable[tuple(slices)]
                 else:
                     dest_variable[:] = source_variable[:]
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     parser = ArgumentParser(
-        description='Copy a NetCDF file with some modifications, '
-                    'namely selecting a subset of the times for specified '
-                    'variables')
+        description="Copy a NetCDF file with some modifications, "
+        "namely selecting a subset of the times for specified "
+        "variables"
+    )
+    parser.add_argument("source", help="Source file to copy")
+    parser.add_argument("dest", help="Destination file")
     parser.add_argument(
-        'source', help='Source file to copy')
+        "--time-dimension",
+        dest="time_dimension",
+        default="time",
+        help="Time dimension name",
+    )
     parser.add_argument(
-        'dest', help='Destination file')
-    parser.add_argument(
-        '--time-dimension', dest='time_dimension', default='time',
-        help='Time dimension name')
-    parser.add_argument(
-        '--time-indices', dest='time_indices', default=None,
-        help='Time indices')
-    parser.add_argument(
-        '--variables', default=None, help='Variables')
+        "--time-indices", dest="time_indices", default=None, help="Time indices"
+    )
+    parser.add_argument("--variables", default=None, help="Variables")
     args = parser.parse_args()
 
     nc_copy(
-        args.source, args.dest,
+        args.source,
+        args.dest,
         args.time_dimension,
-        args.time_indices and [int(i) for i in args.time_indices.split('-')],
-        args.variables and args.variables.split(',')
+        args.time_indices and [int(i) for i in args.time_indices.split("-")],
+        args.variables and args.variables.split(","),
     )

@@ -8,15 +8,17 @@ from argparse import ArgumentParser
 
 from mm_cataloguer.list_csv import main
 
+
 def list():
     parser = ArgumentParser(
-        description='List contents of a modelmeta database into a CSV file. '
-                    'Filename is fixed: modelmeta.csv'
+        description="List contents of a modelmeta database into a CSV file. "
+        "Filename is fixed: modelmeta.csv"
     )
     parser.add_argument(
-        '-d', '--dsn',
-        default='postgresql://httpd_meta@db3.pcic.uvic.ca/pcic_meta',
-        help="Source database DSN from which to read"
+        "-d",
+        "--dsn",
+        default="postgresql://httpd_meta@db3.pcic.uvic.ca/pcic_meta",
+        help="Source database DSN from which to read",
     )
     args = parser.parse_args()
     main(args.dsn)

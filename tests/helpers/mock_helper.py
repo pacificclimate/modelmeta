@@ -7,6 +7,7 @@ class Fake:
 
         fake_cf = Fake(a=1, b=2, metadata=Fake(x=10, y=20))
     """
+
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -20,11 +21,12 @@ class Mock:
 
     WARNING: Will fail if you mock an attribute named '_obj'.
     """
+
     def __init__(self, obj, **kwargs):
         """Mock the attributes of obj according to the keyword args.
-         Keyword argument keys is attribute name, value is mocked attribute
-         value.
-         """
+        Keyword argument keys is attribute name, value is mocked attribute
+        value.
+        """
         self._obj = obj
         for key, value in kwargs.items():
             setattr(self, key, value)

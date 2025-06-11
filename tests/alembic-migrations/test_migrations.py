@@ -18,20 +18,24 @@ from alembicverify.util import (
     get_head_revision,
     prepare_schema_from_migrations,
 )
-from modelmeta import \
-    Base, DataFile, VariableAlias, Grid, \
-    DataFileVariable, DataFileVariableGridded
+from modelmeta import (
+    Base,
+    DataFile,
+    VariableAlias,
+    Grid,
+    DataFileVariable,
+    DataFileVariableGridded,
+)
 
 
-@pytest.mark.usefixtures('new_db_left')
+@pytest.mark.usefixtures("new_db_left")
 def test_upgrade_and_downgrade(uri_left, alembic_config_left):
     """Test all migrations up and down.
 
     Tests that we can apply all migrations from a brand new empty
     database, and also that we can remove them all.
     """
-    engine, script = prepare_schema_from_migrations(
-        uri_left, alembic_config_left)
+    engine, script = prepare_schema_from_migrations(uri_left, alembic_config_left)
 
     head = get_head_revision(alembic_config_left, engine, script)
     current = get_current_revision(alembic_config_left, engine, script)
@@ -39,15 +43,16 @@ def test_upgrade_and_downgrade(uri_left, alembic_config_left):
     assert head == current
 
     while current is not None:
-        command.downgrade(alembic_config_left, '-1')
+        command.downgrade(alembic_config_left, "-1")
         current = get_current_revision(alembic_config_left, engine, script)
 
 
 @pytest.mark.slow
-@pytest.mark.usefixtures('new_db_left')
-@pytest.mark.usefixtures('new_db_right')
+@pytest.mark.usefixtures("new_db_left")
+@pytest.mark.usefixtures("new_db_right")
 def test_model_and_migration_schemas_are_the_same(
-        uri_left, uri_right, alembic_config_left):
+    uri_left, uri_right, alembic_config_left
+):
     """Compare two databases.
 
     Compares the database obtained with all migrations against the
@@ -57,25 +62,25 @@ def test_model_and_migration_schemas_are_the_same(
     engine = create_engine(uri_right)
     with engine.connect() as connection:
         with connection.begin():
-            connection.execute(text('create extension postgis'))
+            connection.execute(text("create extension postgis"))
     prepare_schema_from_models(uri_right, Base)
 
     result = compare(
-        uri_left, uri_right,
+        uri_left,
+        uri_right,
         # Ignore grids.srid fkey because of the flaky way it has to be set up;
         # for details see comments in definiton of `Grid` in `v2.py`.
-        ignores={'alembic_version', 'grids.fk.grids_srid_fkey'}
+        ignores={"alembic_version", "grids.fk.grids_srid_fkey"},
     )
 
     assert result.is_match
 
 
-
 def name(base, i):
-    return '{}{}'.format(base, i)
+    return "{}{}".format(base, i)
 
 
-@pytest.mark.usefixtures('new_db_left')
+@pytest.mark.usefixtures("new_db_left")
 def test_12f290b63791_upgrade_data_migration(uri_left, alembic_config_left):
     """
     Test the data migration from 614911daf883 to 12f290b63791.
@@ -88,14 +93,15 @@ def test_12f290b63791_upgrade_data_migration(uri_left, alembic_config_left):
     """
     # Set up database in pre-migration schema
     engine, script = prepare_schema_from_migrations(
-        uri_left, alembic_config_left, revision='614911daf883')
+        uri_left, alembic_config_left, revision="614911daf883"
+    )
 
     # Define minimal set of tables needed to test migration
     meta_data = MetaData()
-    variable_aliases = Table('variable_aliases', meta_data, autoload_with=engine)
-    grids = Table('grids', meta_data, autoload_with=engine)
-    data_files = Table('data_files', meta_data, autoload_with=engine)
-    data_file_variables = Table('data_file_variables', meta_data, autoload_with=engine)
+    variable_aliases = Table("variable_aliases", meta_data, autoload_with=engine)
+    grids = Table("grids", meta_data, autoload_with=engine)
+    data_files = Table("data_files", meta_data, autoload_with=engine)
+    data_file_variables = Table("data_file_variables", meta_data, autoload_with=engine)
 
     # Insert minimal data needed to test migration: Several instances of each of
     # variable_aliases, grids, data_files, associated to a data_file_variables.
@@ -106,29 +112,29 @@ def test_12f290b63791_upgrade_data_migration(uri_left, alembic_config_left):
                 for stmt in [
                     variable_aliases.insert().values(
                         variable_alias_id=i,
-                        variable_long_name=name('var', i),
-                        variable_standard_name=name('var', i),
-                        variable_units='foo',
+                        variable_long_name=name("var", i),
+                        variable_standard_name=name("var", i),
+                        variable_units="foo",
                     ),
                     grids.insert().values(
                         grid_id=i,
                         xc_origin=0.0,
                         xc_grid_step=1.0,
                         xc_count=10,
-                        xc_units='xc_units',
+                        xc_units="xc_units",
                         yc_origin=0.0,
                         yc_grid_step=1.0,
                         yc_count=10,
-                        yc_units='yc_units',
+                        yc_units="yc_units",
                         evenly_spaced_y=True,
                     ),
                     data_files.insert().values(
                         data_file_id=i,
-                        filename=name('filename', i),
-                        first_1mib_md5sum='first_1mib_md5sum',
-                        unique_id=name('unique_id', i),
-                        x_dim_name='x_dim_name',
-                        y_dim_name='y_dim_name',
+                        filename=name("filename", i),
+                        first_1mib_md5sum="first_1mib_md5sum",
+                        unique_id=name("unique_id", i),
+                        x_dim_name="x_dim_name",
+                        y_dim_name="y_dim_name",
                         index_time=datetime.datetime.now(),
                     ),
                     data_file_variables.insert().values(
@@ -136,15 +142,15 @@ def test_12f290b63791_upgrade_data_migration(uri_left, alembic_config_left):
                         data_file_id=i,
                         variable_alias_id=i,
                         grid_id=i,
-                        netcdf_variable_name=name('var', i),
+                        netcdf_variable_name=name("var", i),
                         range_min=0.0,
                         range_max=10.0,
-                        )
-                    ]:
+                    ),
+                ]:
                     connection.execute(stmt)
 
     # Run upgrade migration
-    command.upgrade(alembic_config_left, '+1')
+    command.upgrade(alembic_config_left, "+1")
 
     # Check data results of migration. We can use current ORM for this.
     Base.metadata.create_all(engine)
@@ -153,7 +159,7 @@ def test_12f290b63791_upgrade_data_migration(uri_left, alembic_config_left):
 
     dfvs = sesh.query(DataFileVariable).all()
     assert len(dfvs) == num_test_records
-    assert all(dfv.geometry_type == 'gridded' for dfv in dfvs)
+    assert all(dfv.geometry_type == "gridded" for dfv in dfvs)
 
     dfvs_gridded = sesh.query(DataFileVariableGridded).all()
     assert len(dfvs_gridded) == num_test_records
@@ -164,7 +170,7 @@ def test_12f290b63791_upgrade_data_migration(uri_left, alembic_config_left):
     sesh.close()
 
 
-@pytest.mark.usefixtures('new_db_left')
+@pytest.mark.usefixtures("new_db_left")
 def test_12f290b63791_downgrade_data_migration(uri_left, alembic_config_left):
     """
     Test the data migration from 12f290b63791 to 614911daf883.
@@ -177,7 +183,8 @@ def test_12f290b63791_downgrade_data_migration(uri_left, alembic_config_left):
     """
     # Prepare database in post-migration schema
     engine, script = prepare_schema_from_migrations(
-        uri_left, alembic_config_left, revision='12f290b63791')
+        uri_left, alembic_config_left, revision="12f290b63791"
+    )
 
     Session = sessionmaker(bind=engine)
     sesh = Session()
@@ -189,29 +196,29 @@ def test_12f290b63791_downgrade_data_migration(uri_left, alembic_config_left):
     for i in range(0, num_test_records):
         variable_alias = VariableAlias(
             id=i,
-            long_name=name('var', i),
-            standard_name=name('var', i),
-            units='foo',
+            long_name=name("var", i),
+            standard_name=name("var", i),
+            units="foo",
         )
         grid = Grid(
             id=i,
             xc_origin=0.0,
             xc_grid_step=1.0,
             xc_count=10,
-            xc_units='xc_units',
+            xc_units="xc_units",
             yc_origin=0.0,
             yc_grid_step=1.0,
             yc_count=10,
-            yc_units='yc_units',
+            yc_units="yc_units",
             evenly_spaced_y=True,
         )
         data_file = DataFile(
             id=i,
-            filename=name('filename', i),
-            first_1mib_md5sum='first_1mib_md5sum',
-            unique_id=name('unique_id', i),
-            x_dim_name='x_dim_name',
-            y_dim_name='y_dim_name',
+            filename=name("filename", i),
+            first_1mib_md5sum="first_1mib_md5sum",
+            unique_id=name("unique_id", i),
+            x_dim_name="x_dim_name",
+            y_dim_name="y_dim_name",
             index_time=datetime.datetime.now(),
         )
         data_file_variable = DataFileVariableGridded(
@@ -219,7 +226,7 @@ def test_12f290b63791_downgrade_data_migration(uri_left, alembic_config_left):
             file=data_file,
             variable_alias=variable_alias,
             grid=grid,
-            netcdf_variable_name=name('var', i),
+            netcdf_variable_name=name("var", i),
             range_min=0.0,
             range_max=10.0,
         )
@@ -227,11 +234,11 @@ def test_12f290b63791_downgrade_data_migration(uri_left, alembic_config_left):
         sesh.commit()
 
     # Run downgrade migration
-    command.downgrade(alembic_config_left, '-1')
+    command.downgrade(alembic_config_left, "-1")
 
     # Define minimal set of tables needed to test migration
     meta_data = MetaData()
-    data_file_variables = Table('data_file_variables', meta_data, autoload_with=engine)
+    data_file_variables = Table("data_file_variables", meta_data, autoload_with=engine)
 
     # Check data results of migration.
     with engine.connect() as connection:
@@ -240,6 +247,15 @@ def test_12f290b63791_downgrade_data_migration(uri_left, alembic_config_left):
 
             assert results is not None
             assert len(results) == num_test_records
-            assert all(r._mapping['variable_alias_id'] == r._mapping['data_file_variable_id'] for r in results)
-            assert all(r._mapping['grid_id'] == r._mapping['data_file_variable_id'] for r in results)
-            assert all(r._mapping['data_file_id'] == r._mapping['data_file_variable_id'] for r in results)
+            assert all(
+                r._mapping["variable_alias_id"] == r._mapping["data_file_variable_id"]
+                for r in results
+            )
+            assert all(
+                r._mapping["grid_id"] == r._mapping["data_file_variable_id"]
+                for r in results
+            )
+            assert all(
+                r._mapping["data_file_id"] == r._mapping["data_file_variable_id"]
+                for r in results
+            )
