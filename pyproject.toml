@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "modelmeta"
-version = "1.0.2"
+version = "2.0.0"
 requires-python = ">=3.10,<4.0"
 readme = "README.md"
 description = "An ORM representation of the model meta database"

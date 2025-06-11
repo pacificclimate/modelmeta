@@ -1,6 +1,14 @@
 News / Release Notes
 ====================
 
+2.0.0
+-----
+
+*Release Date: 2025-Jun-11*
+
+- Maintenance upgrade primarily updating to currently supported Python
+  versions (3.10-3.12) and SQLAlchemy 2.x.
+
 1.0.1
 -----
 
